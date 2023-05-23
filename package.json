@@ -1,0 +1,40 @@
+{
+  "name": "tokenising",
+  "version": "1.0.0",
+  "description": "Node.js Backend for Project Orchid Minting",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon server/index.js",
+    "build": "cd client && npm install && npm run build"
+  },
+  "engines": {
+    "node": "16"
+  },
+  "keywords": [
+    "node.js",
+    "jwt",
+    "authentication",
+    "express",
+    "mysql"
+  ],
+  "author": "Morgan Chia",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.8.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.17.1",
+    "file-saver": "^2.0.5",
+    "fs": "^0.0.1-security",
+    "heroku": "^7.67.1",
+    "http-proxy-middleware": "^2.0.6",
+    "jsonwebtoken": "^8.5.1",
+    "mysql2": "^2.1.0",
+    "nodemon": "^2.0.20",
+    "sequelize": "^5.21.3",
+    "solc": "^0.8.17",
+    "web3": "^1.8.1",
+    "xlsx": "^0.18.5"
+  },
+  "private": true
+}
