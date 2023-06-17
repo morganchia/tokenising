@@ -1,0 +1,5 @@
+1. CD to tokenising folder
+2. run "npm start" to start server
+3. CD to client
+4. run "npm run" to start client
+ 
