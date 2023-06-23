@@ -20,7 +20,7 @@ node_modules*/
 .env.production.local
 .env
 
-*.zip 
+*.zip
 *.sql
 
 npm-debug.log*

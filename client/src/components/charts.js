@@ -1,4 +1,4 @@
-// import { Chart } from "react-google-charts";
+import { Chart } from "react-google-charts";
 export const data1 = [
     [
       "Month",
@@ -44,9 +44,7 @@ export const data1 = [
 
 const charts = () => {
   return (
-    <></>
-    
-    /*
+    <>
         <Chart
             chartType="ComboChart"
             width="100%"
@@ -65,7 +63,6 @@ const charts = () => {
             loader={<div>Loading Chart...</div>}                
         />
     </>
-    */
   )
 }
 export default charts

@@ -1,6 +1,6 @@
 import React from 'react';
-//import * as FileSaver from "file-saver";
-//import * as XLSX from 'sheetjs-style';
+import * as FileSaver from "file-saver";
+import * as XLSX from 'sheetjs-style';
 import AudittrailDataService from "../services/audittrail.service";
 
 export const ExportToExcel = ({ startdate, enddate, excelfileName }) => {
@@ -14,7 +14,7 @@ export const ExportToExcel = ({ startdate, enddate, excelfileName }) => {
   console.log("excelfileName=", excelfileName);
   
   const exportToExcel = () => {
-/*
+
     AudittrailDataService.getdata(startdate, enddate)
     .then(response => {
       if (! response.data) {
@@ -36,7 +36,7 @@ export const ExportToExcel = ({ startdate, enddate, excelfileName }) => {
       //return(null);
     });
 
-*/
+
 
   };
 
