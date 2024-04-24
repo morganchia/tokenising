@@ -44,6 +44,7 @@ require("./app/routes/opsrole.routes")(app);
 require("./app/routes/useropsrole.routes")(app);
 require("./app/routes/mint.routes")(app);
 require("./app/routes/transfer.routes")(app);
+require("./app/routes/pbm.routes")(app);
 
 
 if (process.env.NODE_ENV === 'production') {

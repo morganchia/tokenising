@@ -208,6 +208,8 @@ export default class CampaignList extends Component {
                 </button>
               : null }
 
+              <br/>
+
               <Modal showm={this.state.showm} handleProceed1={this.withdrawAllCampaigns} handleCancel={this.hideModal} handleProceed2={null} button1text={this.state.button1text} button2text={this.state.button2text} button0text={this.state.button0text}>
                 {this.state.modalmsg}
               </Modal>

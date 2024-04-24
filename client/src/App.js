@@ -7,6 +7,7 @@ import "./sidebar.css";
 
 import AuthService from "./services/auth.service";
 
+import DSGD2PBM from "./components/dsgd2pbm.component";
 import Login from "./components/login.component";
 import Register from "./components/register.component";
 import Home from "./components/home.component";
@@ -41,6 +42,13 @@ import CampaignAdd from "./components/campaign-add.component";
 import CampaignEdit from "./components/campaign-edit.component";
 import CampaignCheckApprove from "./components/campaign-checkapprove.component";
 import CampaignsList from "./components/campaigns-list.component";
+
+import PBMCheckApprove from "./components/pbm-checkapprove.component";
+import PBMAdd from "./components/pbm-add.component";
+import PBMList from "./components/pbm-list.component";
+
+import PBMTemplateAdd from "./components/pbm-template-add.component";
+import PBMTemplateList from "./components/pbm-template-list.component";
 
 import AuthVerify from "./common/auth-verify";
 import EventBus from "./common/EventBus";
@@ -181,6 +189,20 @@ class App extends Component {
                   <span className="tooltip">Inbox</span>
                 </li>
                 <li>
+                  <Link to={"/pbm"} className="nav-link">
+                    <i className='bx bx-atom' ></i>
+                    <span className="links_name">PBMs</span>
+                  <span className="tooltip">PBMs</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to={"/pbmtemplate"} className="nav-link">
+                    <i className='bx bx-atom' ></i>
+                    <span className="links_name">PBM Templates</span>
+                  <span className="tooltip">PBM Templates</span>
+                  </Link>
+                </li>
+                <li>
                   <Link to={"/campaign"} className="nav-link">
                     <i className='bx bx-atom' ></i>
                     <span className="links_name">Campaigns</span>
@@ -297,6 +319,7 @@ class App extends Component {
         </nav>
         <div>
           <Routes>
+            <Route path="/dsgd2pbm" element={<DSGD2PBM />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
           </Routes>
@@ -344,6 +367,13 @@ class App extends Component {
             <Route path="/campaignadd" element={<CampaignAdd/>} />
             <Route path="/campaigncheckapprove/:id" element={<CampaignCheckApprove/>} />
             <Route path="/campaignedit/:id" element={<CampaignEdit/>} />
+
+            <Route path="/pbm" element={<PBMList/>} />
+            <Route path="/pbmadd" element={<PBMAdd/>} />
+            <Route path="/pbmcheckapprove/:id" element={<PBMCheckApprove/>} />
+
+            <Route path="/pbmtemplate" element={<PBMTemplateList/>} />
+            <Route path="/pbmtemplateadd" element={<PBMTemplateAdd/>} />
           </Routes>
         </div>
 

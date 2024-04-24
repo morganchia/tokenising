@@ -69,6 +69,12 @@ module.exports = (sequelize, Sequelize) => {
       smartcontractaddress: {  // varchar(255)
         type: Sequelize.STRING  
       },
+      PBMunderlyingDSGDsmartcontractaddress: {  // varchar(255)
+        type: Sequelize.STRING  
+      },
+      PBMunderlyingTokenID: {  
+        type: Sequelize.INTEGER
+      },
       status: {
         type: Sequelize.INTEGER  // 0=created, 1=submitted pending checker, 2=checked, 3=approved
       },

@@ -4,9 +4,9 @@ pragma solidity >=0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-//import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
 
-contract ERC20TokenDSGD is ERC20 {
+contract ERC20TokenDSGD is ERC20Pausable {
     address public immutable owner;
     uint256 private _totalSupply;
     uint256 public _incirculation = 0;
@@ -62,6 +62,29 @@ contract ERC20TokenDSGD is ERC20 {
         return true;
 	}
 
+    function approve(address spender, uint256 amount) public override returns (bool success) {
+        allowed[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return allowed[owner][spender];
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool success) {
+        require(allowed[sender][msg.sender] >= amount, "Insufficient allowance");
+		require( tokenBalances[ sender ] >= amount, "Insufficient token");
+
+        unchecked {
+       		tokenBalances[ sender ] -= amount;
+    		tokenBalances[ recipient ] += amount; 
+            allowed[ sender ] [ msg.sender ] -= amount;
+        }
+        emit Transfer(sender, recipient, amount);
+        return true;
+    }
+
     function totalSupply() public view override returns (uint256) {
         return(_totalSupply);
     }
@@ -112,7 +135,7 @@ contract ERC20TokenDSGD is ERC20 {
         _;
     }
 
-/*
+
     function decimals() public pure override returns (uint8) {
         return DECIMALS;
     }
@@ -124,6 +147,6 @@ contract ERC20TokenDSGD is ERC20 {
     function unpause() external onlyOwner {
         _unpause();
     }
-*/
+
 
 }

@@ -187,6 +187,7 @@ export default class CampaignList extends Component {
     const { searchName, campaigns, currentUser } = this.state;
 
     return (
+      <>
       <div className="container">
           {(this.state.userReady) ?
           <div>
@@ -296,14 +297,14 @@ export default class CampaignList extends Component {
               : null 
               */
               }
-
+              <br/>
               <Modal showm={this.state.showm} handleProceed1={this.removeAllCampaigns} handleCancel={this.hideModal} handleProceed2={null} button1text={this.state.button1text} button2text={this.state.button2text} button0text={this.state.button0text}>
                 {this.state.modalmsg}
               </Modal>
             </div>
           </div>
       </div>
-
+      </>
     );
   }
 }

@@ -24,7 +24,7 @@ module.exports = app => {
 
   router.get("/getalldraftsbycampaignid", campaigns.getAllDraftsByCampaignId);
 
-  router.get("/", campaigns.findAll);
+  router.get("/", campaigns.getAll);
 
   router.get("/getInWalletMintedTotalSupply", campaigns.getInWalletMintedTotalSupply);
 

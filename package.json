@@ -2,7 +2,7 @@
   "name": "tokenising",
   "version": "1.0.0",
   "description": "Node.js Backend for Project Orchid Minting",
-  "main": "index.js", 
+  "main": "index.js",
   "scripts": {
     "start": "node server/index.js",
     "build": "cd client && npm install && npm run build"
@@ -22,7 +22,7 @@
     "@openzeppelin/contracts": "^4.8.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
+    "dotenv": "^16.4.2",
     "express": "^4.17.1",
     "fs": "^0.0.1-security",
     "heroku": "^7.67.1",

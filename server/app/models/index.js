@@ -38,6 +38,9 @@ db.mints               = require("./mints.model.js")(sequelize, Sequelize);
 db.mints_draft         = require("./mints_draft.model.js")(sequelize, Sequelize);
 db.transfers           = require("./transfers.model.js")(sequelize, Sequelize);
 db.transfers_draft     = require("./transfers_draft.model.js")(sequelize, Sequelize);
+db.pbm                 = require("./pbm.model.js")(sequelize, Sequelize);
+db.pbms_draft           = require("./pbms_draft.model.js")(sequelize, Sequelize);
+db.pbm_templates        = require("./pbm_template.model.js")(sequelize, Sequelize);
 
 
 db.role.belongsToMany(db.user, {
@@ -142,7 +145,6 @@ db.campaigns_draft.hasMany(db.mints, {
   sourceKey: "id"
 });
 
-
 db.campaigns.hasOne(db.recipients, {
   foreignKey: "id",
   sourceKey: "sponsor"
@@ -152,8 +154,6 @@ db.campaigns_draft.hasOne(db.recipients, {
   sourceKey: "sponsor"
 });
 
-
-
 db.campaigns.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "actionby"
@@ -189,5 +189,73 @@ db.campaigns_draft.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "approver"
 });
+
+
+db.pbm.belongsTo(db.recipients, {
+  foreignKey: "sponsor",
+  targetKey: "id"
+});
+db.pbms_draft.belongsTo(db.recipients, {
+  foreignKey: "id",
+  sourceKey: "sponsor"
+});
+
+db.pbm_templates.belongsTo(db.recipients, {
+  foreignKey: "sponsor",
+  targetKey: "id"
+});
+
+db.pbm.belongsTo(db.campaigns, {
+  foreignKey: "underlyingTokenID",
+  targetKey: "id",
+});
+db.pbms_draft.belongsTo(db.campaigns, {
+  foreignKey: "id",
+  sourceKey: "underlyingTokenID"
+});
+db.pbm_templates.belongsTo(db.campaigns, {
+  foreignKey: "underlyingTokenID",
+  targetKey: "id",
+});
+
+
+
+db.pbm.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "actionby"
+});
+db.pbms_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "actionby"
+});
+
+db.pbm.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "maker"
+});
+db.pbms_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "maker"
+});
+
+db.pbm.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "checker"
+});
+db.pbms_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "checker"
+});
+
+db.pbm.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "approver"
+});
+db.pbms_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "approver"
+});
+
+
 
 module.exports = db;

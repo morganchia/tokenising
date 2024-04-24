@@ -1,4 +1,5 @@
 import React, { Component } from "react";
+import PBMDataService from "../services/pbm.service";
 import CampaignDataService from "../services/campaign.service";
 import MintDataService from "../services/mint.service";
 import TransferDataService from "../services/transfer.service";
@@ -13,6 +14,7 @@ export default class CampaignList extends Component {
     super(props);
 //    this.onChangeSearchName = this.onChangeSearchName.bind(this);
 //    this.searchName = this.searchName.bind(this);
+    this.retrievePBM = this.retrievePBM.bind(this);
     this.retrieveCampaigns = this.retrieveCampaigns.bind(this);
     this.retrieveMints = this.retrieveMints.bind(this);
     this.retrieveTransfers = this.retrieveTransfers.bind(this);
@@ -21,6 +23,7 @@ export default class CampaignList extends Component {
 //    this.removeAllCampaigns = this.removeAllCampaigns.bind(this);
 
     this.state = {
+      pbm: [],
       campaigns: [],
       mints: [],
       transfers: [],
@@ -51,6 +54,21 @@ export default class CampaignList extends Component {
     });
   }
 */
+  retrievePBM(userid) {
+    if (userid !== undefined) {
+      PBMDataService.getAllDraftsByUserId(userid)
+      .then(response => {
+        this.setState({
+          pbm: response.data
+        });
+        console.log("Response data from retrievPBM() PBMDataService.getAllDraftsByUserId:", response.data);
+      })
+      .catch(e => {
+        console.log(e);
+      });
+    }
+  }
+
   retrieveCampaigns(userid) {
     if (userid !== undefined) {
       CampaignDataService.getAllDraftsByUserId(userid)
@@ -112,6 +130,7 @@ export default class CampaignList extends Component {
   }
 
   refreshList() {
+    this.retrievePBM();
     this.retrieveCampaigns();
     this.setState({
       currentCampaign: null,
@@ -170,6 +189,7 @@ export default class CampaignList extends Component {
     console.log("isApprover:", (isapprover === undefined? false: true));
     this.setState({ isApprover: (isapprover === undefined? false: true),});
 
+    this.retrievePBM(user.id);
     this.retrieveCampaigns(user.id);
     this.retrieveMints(user.id);
     this.retrieveTransfers(user.id);
@@ -199,7 +219,7 @@ export default class CampaignList extends Component {
       return <Navigate to={this.state.redirect} />
     }
 
-    const { searchName, campaigns, mints, transfers, recipients, CurrentUser } = this.state;
+    const { searchName, pbm, campaigns, mints, transfers, recipients, CurrentUser } = this.state;
 
     return (
       <div className="container">
@@ -243,6 +263,92 @@ export default class CampaignList extends Component {
             <div className="col-md-12">
 
             <h5>
+              <strong>PBMs</strong>
+            </h5>
+              <table style={{ border:"1px solid"}}>
+                {(pbm.length > 0)?
+                <tr>
+                  <th>Action</th>
+                  <th>Name</th>
+                  <th>Token</th>
+                  <th>Blockchain</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  <th>Sponsor</th>
+                  <th>Amount</th>
+                  {
+                  /*
+                  <th>Smart Contract</th>
+                  */
+                  }
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+                : null}
+                {pbm && pbm.length > 0 &&
+                  pbm.map((pbm1, index) => (
+                    <tr>
+                      <td>{pbm1.txntype===0?"Create":pbm1.txntype===1?"Update":"Delete"}</td>
+                      <td>{pbm1.name}</td>
+                      <td>{pbm1.tokenname}</td>
+                      <td>Polygon Testnet</td>
+                      <td>{pbm1.startdate}</td>
+                      <td>{pbm1.enddate}</td>
+                      <td>
+                        {
+                            (
+                              pbm1.recipient &&
+                               pbm1.recipient.name !== undefined)
+                              ? pbm1.recipient.name  :null
+                          }
+                      </td>
+                      <td>{pbm1.amount}</td>
+                      {
+                        /*
+                      <td>
+                            (pbm1.smartcontractaddress !== undefined && typeof pbm1.smartcontractaddress === "string")? this.shorten(pbm1.smartcontractaddress): null
+                          
+                      </td>
+                      */
+                      }
+                      <td>
+                      {
+                          pbm1.status === -1? "Rejected pending correction" : 
+                            (pbm1.status === 0? "Created pending submission":
+                              (pbm1.status === 1? "Submitted pending checker endorsement":
+                                (pbm1.status === 2? "Checked pending approval":
+                                  (pbm1.status === 3? "Approved": null)
+                                )
+                              )
+                            )
+                      }
+                      </td>
+                      <td>
+                        <Link
+                          to={"/pbmcheckapprove/" + pbm1.id}
+                          className="badge badge-warning"
+                        >
+                          {
+                            pbm1.status === -1? "View/Correct Task" : (
+                              pbm1.status === 0? "View/Submit Task": (
+                                pbm1.status === 1? "View/Endorse Task": (
+                                  pbm1.status === 2? "View/Approve Task": null
+                                )
+                              )
+                            )
+                          }
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+              </table>
+              {!(pbm.length > 0)? "You have no pending actions."
+              : null}
+
+              <br/>
+              <br/>
+              
+              <h5>
               <strong>Campaigns</strong>
             </h5>
               <table style={{ border:"1px solid"}}>
@@ -297,7 +403,7 @@ export default class CampaignList extends Component {
                             (campaign1.status === 0? "Created pending submission":
                               (campaign1.status === 1? "Submitted pending check":
                                 (campaign1.status === 2? "Checked pending approval":
-                                  (campaign1.status === 3? "Arppoved": null)
+                                  (campaign1.status === 3? "Approved": null)
                                 )
                               )
                             )
@@ -309,10 +415,10 @@ export default class CampaignList extends Component {
                           className="badge badge-warning"
                         >
                           {
-                            campaign1.status === -1? "Correct Task" : (
-                              campaign1.status === 0? "Submit Task": (
-                                campaign1.status === 1? "Check Task": (
-                                  campaign1.status === 2? "Approve Task": null
+                            campaign1.status === -1? "View/Correct Task" : (
+                              campaign1.status === 0? "View/Submit Task": (
+                                campaign1.status === 1? "View/Endorse Task": (
+                                  campaign1.status === 2? "View/Approve Task": null
                                 )
                               )
                             )
@@ -370,7 +476,7 @@ export default class CampaignList extends Component {
                             (mint1.status === 0? "Created pending submission":
                               (mint1.status === 1? "Submitted pending check":
                                 (mint1.status === 2? "Checked pending approval":
-                                  (mint1.status === 3? "Arppoved": null)
+                                  (mint1.status === 3? "Approved": null)
                                 )
                               )
                             )
@@ -382,10 +488,10 @@ export default class CampaignList extends Component {
                           className="badge badge-warning"
                         >
                           {
-                            mint1.status === -1? "Correct Task" : (
-                              mint1.status === 0? "Submit Task": (
-                                mint1.status === 1? "Check Task": (
-                                  mint1.status === 2? "Approve Task": null
+                            mint1.status === -1? "View/Correct Task" : (
+                              mint1.status === 0? "View/Submit Task": (
+                                mint1.status === 1? "View/Endorse Task": (
+                                  mint1.status === 2? "View/Approve Task": null
                                 )
                               )
                             )
@@ -444,7 +550,7 @@ export default class CampaignList extends Component {
                             (transfer1.status === 0? "Created pending submission":
                               (transfer1.status === 1? "Submitted pending check":
                                 (transfer1.status === 2? "Checked pending approval":
-                                  (transfer1.status === 3? "Arppoved": null)
+                                  (transfer1.status === 3? "Approved": null)
                                 )
                               )
                             )
@@ -456,10 +562,10 @@ export default class CampaignList extends Component {
                           className="badge badge-warning"
                         >
                           {
-                            transfer1.status === -1? "Correct Task" : (
-                              transfer1.status === 0? "Submit Task": (
-                                transfer1.status === 1? "Check Task": (
-                                  transfer1.status === 2? "Approve Task": null
+                            transfer1.status === -1? "View/Correct Task" : (
+                              transfer1.status === 0? "View/Submit Task": (
+                                transfer1.status === 1? "View/Endorse Task": (
+                                  transfer1.status === 2? "View/Approve Task": null
                                 )
                               )
                             )
@@ -507,7 +613,7 @@ export default class CampaignList extends Component {
                             (recipient1.status === 0? "Created pending submission":
                               (recipient1.status === 1? "Submitted pending check":
                                 (recipient1.status === 2? "Checked pending approval":
-                                  (recipient1.status === 3? "Arppoved": null)
+                                  (recipient1.status === 3? "Approved": null)
                                 )
                               )
                             )
@@ -519,10 +625,10 @@ export default class CampaignList extends Component {
                           className="badge badge-warning"
                         >
                           {
-                            recipient1.status === -1? "Correct Task" : (
-                              recipient1.status === 0? "Submit Task": (
-                                recipient1.status === 1? "Check Task": (
-                                  recipient1.status === 2? "Approve Task": null
+                            recipient1.status === -1? "View/Correct Task" : (
+                              recipient1.status === 0? "View/Submit Task": (
+                                recipient1.status === 1? "View/Endorse Task": (
+                                  recipient1.status === 2? "View/Approve Task": null
                                 )
                               )
                             )

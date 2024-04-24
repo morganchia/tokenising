@@ -809,10 +809,10 @@ async deleteMint() {
                         id="blockchain"
                         disabled={!this.state.isMaker || this.state.currentMint.txntype===2}
                         >
-                        <option value="80001"       >Polygon  Testnet</option>
-                        <option value="5" disabled  >Ethereum Testnet (not in use at the moment)</option>
-                        <option value="137" disabled>Polygon  Mainnet (not in use at the moment)</option>
-                        <option value="1" disabled  >Ethereum Mainnet (not in use at the moment)</option>
+                        <option value="80001"            >Polygon  Testnet Mumbai</option>
+                        <option value="11155111" disabled>Ethereum Testnet Sepolia (not in use at the moment)</option>
+                        <option value="137"      disabled>Polygon  Mainnet (not in use at the moment)</option>
+                        <option value="1"        disabled>Ethereum Mainnet (not in use at the moment)</option>
                       </select>
                 </div>
                 <div className="form-group">

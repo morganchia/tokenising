@@ -242,7 +242,7 @@ exports.approveDraftById = async (req, res) => {
         console.log("Reading smart contract file... ");
 
         // Reading the file
-        file = fs.readFileSync("./app/contracts/ERC20TokenDSGD.sol").toString();
+        file = fs.readFileSync("./server/app/contracts/ERC20TokenDSGD.sol").toString();
         // console.log(file);
 
         // input structure for solidity compiler
@@ -283,17 +283,17 @@ exports.approveDraftById = async (req, res) => {
         // console.log("Bytecode: ", bytecode);
         await fs.writeFile("./server/app/abis/ERC20TokenDSGD.abi.json", JSON.stringify(ABI) , 'utf8', function (err) {
           if (err) {
-            console.log("An error occured while writing ABI JSON Object to File.");
+            console.log("An error occured while writing DSGD ABI JSON Object to File.");
             return console.log(err);
           }
-          console.log("ABI JSON file has been saved.");
+          console.log("DSGD ABI JSON file has been saved.");
         });
         await fs.writeFile("./server/app/abis/ERC20TokenDSGD.bytecode.json", JSON.stringify(bytecode) , 'utf8', function (err) {
           if (err) {
-            console.log("An error occured while writing bytecode JSON Object to File.");
+            console.log("An error occured while writing DSGD bytecode JSON Object to File.");
             return console.log(err);
           }
-          console.log("Bytecode JSON file has been saved.");
+          console.log("DSGD Bytecode JSON file has been saved.");
         });
 
       }
@@ -309,10 +309,10 @@ exports.approveDraftById = async (req, res) => {
             await compileSmartContract();
           } else{
             // Just read the ABI file
-            console.log("ABI and Bytecode files are present, just read them, no need to recompile...");
-            console.log("Read ABI JSON file.");
+            console.log("DSGD ABI and Bytecode files are present, just read them, no need to recompile...");
+            console.log("Read DSGD ABI JSON file.");
             ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenDSGD.abi.json").toString());
-            console.log("Read Bytecode JSON file.");
+            console.log("Read DSGD Bytecode JSON file.");
             bytecode = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenDSGD.bytecode.json").toString());
           }
         } catch(err) {
@@ -398,7 +398,7 @@ exports.approveDraftById = async (req, res) => {
                     // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
                     web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
                       if (receipt) {
-                        console.log('!!!!!!!!!!!!!!!!!!!!!RECEIPT!!!!!!!!!!!!!!!!!!!!!');
+                        console.log('>> GOT RECEIPT!!!!!!!!!!!!!!!!!!!!!!!');
                         clearInterval(interval);
                         console.log('Receipt -->>: ', receipt);
     
@@ -490,7 +490,7 @@ exports.approveDraftById = async (req, res) => {
         // Update contract
         const UpdateContract = async () => {
           try {
-            console.log('Creating contract with ABI');
+            console.log('Creating DSGD contract with ABI');
             const ERC20TokenDSGDcontract = new web3.eth.Contract(ABI);
     
             // https://github.com/web3/web3.js/issues/1001
@@ -498,7 +498,7 @@ exports.approveDraftById = async (req, res) => {
             
             let setToTalSupply = (isNaN(+req.body.amount)? req.body.amount: req.body.amount.toString())   
             + createStringWithZeros(adjustdecimals);  // pad zeros behind
-            console.log("setToTalSupply = ", setToTalSupply);
+            console.log("DSGD setToTalSupply = ", setToTalSupply);
     
             console.log('**** Signing update txn('+CONTRACT_OWNER_WALLET+','+req.body.amount );
             const nonce = await web3.eth.getTransactionCount(CONTRACT_OWNER_WALLET, "latest") //get latest nonce
@@ -541,7 +541,7 @@ exports.approveDraftById = async (req, res) => {
                     // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
                     web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
                       if (receipt) {
-                        console.log('!!!!!!!!!!!!!!!!!!!!!RECEIPT!!!!!!!!!!!!!!!!!!!!!');
+                        console.log('>> GOT RECEIPT!!!!!!!!!!!!!!!!!!!!!!!');
                         clearInterval(interval);
                         console.log('Receipt -->>: ', receipt);
     
@@ -580,7 +580,7 @@ exports.approveDraftById = async (req, res) => {
             // do something on transaction error
               }); // sendSignedTransaction
     
-            console.log('**** Txn executed:', createReceipt);
+            console.log('**** DSGD Txn executed:', createReceipt);
             return true;
           } catch(error) {
             console.log('Error4 encountered -->: ',error)   
@@ -618,7 +618,7 @@ exports.approveDraftById = async (req, res) => {
 ////////////////////////////// Blockchain ////////////////////////
 
 
-  console.log('New Contract deployed updating DB: ', newcontractaddress);
+  console.log('New DSGD Contract deployed updating DB: ', newcontractaddress);
 
   if (updatestatus) {
   // update draft table
@@ -915,7 +915,7 @@ exports.findByName = (req, res) => {
 };
 
 // Retrieve all Campaigns from the database.
-exports.findAll = (req, res) => {
+exports.getAll = (req, res) => {
   const name = req.query.name;
   var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
 
@@ -1396,7 +1396,7 @@ exports.update = async (req, res) => {
                 // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
                 web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
                   if (receipt) {
-                    console.log('!!!!!!!!!!!!!!!!!!!!!RECEIPT!!!!!!!!!!!!!!!!!!!!!');
+                    console.log('>> GOT RECEIPT!!!!!!!!!!!!!!!!!!!!!!!');
                     clearInterval(interval);
                     console.log('Receipt -->>: ', receipt);
 
@@ -1591,7 +1591,7 @@ exports.approveDeleteDraftById = async (req, res) => {
   .then(num => {
     if (num == 1) {
       if (!msgSent) {
-        console.log("Sending success camapgin delete to client");
+        console.log("Sending success campaign delete to client");
         res.send({
           message: "Campaign was deleted successfully!"
         });
