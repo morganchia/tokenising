@@ -1,10 +1,10 @@
 if (process.env.NODE_ENV === 'production') {
   module.exports = {
-    HOST: "us-cdbr-east-06.cleardb.net",
-    USER: "b9483083401350",
-    PASSWORD: "7ef1aef2",
+    HOST: "mwgmw3rs78pvwk4e.cbetxkdyhwsb.us-east-1.rds.amazonaws.com",
+    USER: "krode71wvj3vjm82",
+    PASSWORD: "rix3r6v3z50zpw09",
     PORT: 3306,
-    DB: "heroku_5371b064224d9c8",
+    DB: "qzhu0pn864t21wsb",
     dialect: "mysql",
     pool: {
       max: 5,
