@@ -50,22 +50,21 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
     }
 
     constructor(
- //       address _underlyingAddress,
-//        string memory _name,
-//        string memory _symbol,
-//        uint256 _contractExpiry
-//    ) ERC20(_name, _symbol) {
-    ) ERC20("PBM999", "PBM999") {
+        address _underlyingAddress,
+        string memory _name,
+        string memory _symbol,
+        uint256 _contractExpiry
+    ) ERC20(_name, _symbol) {
         owner = _msgSender();
         // Initialises the base DSGD token
-        underlyingToken = IERC20Metadata(0xB630C97E5AE0d30D75b438E8E3254fB07E9CF0F2);
+        underlyingToken = IERC20Metadata(_underlyingAddress);
 
         // Sets up required roles for merchant management
         _grantRole(MERCHANT_ADMIN_ROLE, owner);
         _setRoleAdmin(MERCHANT_ROLE, MERCHANT_ADMIN_ROLE);
 
         // Sets the contract expiry
-        contractExpiry = 9999999999;
+        contractExpiry = _contractExpiry;
     }
 
     function setONSaddress(address _onsManagerAddress) public onlyOwner {

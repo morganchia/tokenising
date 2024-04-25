@@ -192,7 +192,7 @@ export default class PBMList extends Component {
           <div>
           <header className="jumbotron col-md-8">
             <h3>
-              <strong>Deployed PBM { (this.state.isMaker? "(Maker)" : (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null))) }</strong>
+              <strong>PBM Templates { (this.state.isMaker? "(Maker)" : (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null))) }</strong>
             </h3>
           </header>
 
