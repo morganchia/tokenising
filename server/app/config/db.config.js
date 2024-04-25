@@ -1,4 +1,5 @@
 if (process.env.NODE_ENV === 'production') {
+  /*
   module.exports = {
     HOST: "mwgmw3rs78pvwk4e.cbetxkdyhwsb.us-east-1.rds.amazonaws.com",
     USER: "krode71wvj3vjm82",
@@ -13,6 +14,7 @@ if (process.env.NODE_ENV === 'production') {
       idle: 10000
     }
   };
+  */
 } else {
   module.exports = {
     HOST: "localhost",
