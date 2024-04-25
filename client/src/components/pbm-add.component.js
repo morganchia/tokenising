@@ -1009,10 +1009,10 @@ export default class PBMEdit extends Component {
                       >
                         <option value="80001"            >Polygon   Testnet Mumbai</option>
                         <option value="11155111" disabled>Ethereum  Testnet Sepolia (not in use at the moment)</option>
-                        <option value="xxx"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
+                        <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
                         <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
                         <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
-                        <option value="yyy"      disabled>Avalanche Mainnet (not in use at the moment)</option>
+                        <option value="43114"      disabled>Avalanche Mainnet (not in use at the moment)</option>
                       </select>
                 </div>
 
