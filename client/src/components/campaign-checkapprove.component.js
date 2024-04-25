@@ -17,6 +17,7 @@ class Campaign extends Component {
     this.onChangeTokenName = this.onChangeTokenName.bind(this);
     this.onChangeDescription = this.onChangeDescription.bind(this);
     this.onChangeStartDate = this.onChangeStartDate.bind(this);
+    this.onChangeBlockchain = this.onChangeBlockchain.bind(this);
     this.onChangeEndDate = this.onChangeEndDate.bind(this);
     this.onChangeSponsor = this.onChangeSponsor.bind(this);
     this.onChangeAmount = this.onChangeAmount.bind(this);
@@ -53,6 +54,7 @@ class Campaign extends Component {
         tokenname: "",
         description: "",
         smartcontractaddress: "",
+        blockchain: "",
         startdate: "",
         enddate: "",
         sponsor: "",
@@ -78,6 +80,7 @@ class Campaign extends Component {
         tokenname: "",
         description: "",
         smartcontractaddress: "",
+        blockchain: "",
         startdate: "",
         enddate: "",
         sponsor: "",
@@ -91,6 +94,7 @@ class Campaign extends Component {
         actionby: "",
         name_original: "",
         description_original: "",
+        blockchain_original: "",
         startdate_original: "",
         enddate_original: "",
         sponsor_original: "",
@@ -216,6 +220,22 @@ class Campaign extends Component {
         currentCampaign: {
           ...prevState.currentCampaign,
           tokenname: tokenname
+        }
+      };
+    });
+  }
+
+  onChangeBlockchain(e) {
+    const blockchain = e.target.value;
+    this.setState({
+      datachanged: true
+    });
+
+    this.setState(function(prevState) {
+      return {
+        currentCampaign: {
+          ...prevState.currentCampaign,
+          blockchain: blockchain
         }
       };
     });
@@ -840,7 +860,8 @@ async deleteCampaign() {
                         id="blockchain"
                         disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
                         >
-                        <option value="80001"            >Polygon   Testnet Mumbai</option>
+                        <option value="80001"  selected={currentCampaign.blockchain === 80001}>Polygon   Testnet Mumbai</option>
+                        <option value="80002"  selected={currentCampaign.blockchain === 80002}>Polygon   Testnet Amoy</option>
                         <option value="11155111" disabled>Ethereum  Testnet Sepolia (not in use at the moment)</option>
                         <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
                         <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>

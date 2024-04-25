@@ -24,6 +24,7 @@ exports.draftCreate = async (req, res) => {
   console.log(req.body.tokenname);
   console.log(req.body.description);
   console.log(req.body.smartcontractaddress);
+  console.log(req.body.blockchain);
   console.log(req.body.underlyingTokenID);
   console.log(req.body.underlyingDSGDsmartcontractaddress);
 
@@ -62,7 +63,7 @@ exports.draftCreate = async (req, res) => {
       name                  : req.body.name,
       tokenname             : req.body.tokenname.toUpperCase(), 
       description           : req.body.description, 
-
+      blockchain            : req.body.blockchain,
       datafield1_name       : req.body.datafield1_name,
       datafield1_name       : req.body.datafield1_name,
       datafield1_value      : req.body.datafield1_value,
@@ -107,6 +108,7 @@ exports.draftCreate = async (req, res) => {
         name                  : req.body.name,
         tokenname             : req.body.tokenname.toUpperCase(), 
         description           : req.body.description, 
+        blockchain            : req.body.blockchain,
 
         datafield1_name       : req.body.datafield1_name,
         datafield1_name       : req.body.datafield1_name,
@@ -167,6 +169,7 @@ exports.templateCreate = async (req, res) => {
   console.log(req.body.tokenname);
   console.log(req.body.description);
   console.log(req.body.smartcontractaddress);
+  console.log(req.body.blockchain);
   console.log(req.body.underlyingTokenID);
   console.log(req.body.underlyingDSGDsmartcontractaddress);
   console.log(req.body.startdate);
@@ -198,6 +201,7 @@ exports.templateCreate = async (req, res) => {
       templatename          : req.body.templatename,
       tokenname             : req.body.tokenname.toUpperCase(), 
       description           : req.body.description, 
+      blockchain            : req.body.blockchain,
 
       datafield1_name       : req.body.datafield1_name,
       datafield1_value      : req.body.datafield1_value,
@@ -231,6 +235,7 @@ exports.templateCreate = async (req, res) => {
       enddate_original      : req.body.enddate_original,
       sponsor_original      : req.body.sponsor_original,
       amount_original       : req.body.amount_original,
+      blockchain_original           : req.body.blockchain_original,
     }, 
   )
   .then(data => {
@@ -242,6 +247,7 @@ exports.templateCreate = async (req, res) => {
         name                  : req.body.templatename,
         tokenname             : req.body.tokenname.toUpperCase(), 
         description           : req.body.description, 
+        blockchain            : req.body.blockchain,
 
         datafield1_name       : req.body.datafield1_name,
         datafield1_value      : req.body.datafield1_value,
@@ -300,6 +306,7 @@ exports.create_review = async (req, res) => {
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
+  console.log(req.body.blockchain);
   console.log(req.body.underlyingTokenID);
   console.log(req.body.underlyingDSGDsmartcontractaddress);
   console.log(req.body.startdate);
@@ -375,6 +382,7 @@ exports.approveDraftById = async (req, res) => {
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
+  console.log(req.body.blockchain);
   console.log(req.body.smartcontractaddress);
   console.log(req.body.underlyingTokenID);
   console.log(req.body.underlyingDSGDsmartcontractaddress);
@@ -393,8 +401,28 @@ exports.approveDraftById = async (req, res) => {
       // https://www.geeksforgeeks.org/how-to-deploy-contract-from-nodejs-using-web3/
 
       require('dotenv').config();
+      const ETHEREUM_NETWORK = (() => {switch (req.body.blockchain) {
+        case 80001:
+          return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
+        case 80002:
+          return process.env.REACT_APP_POLYGON_AMOY_NETWORK
+        case 11155111:
+          return process.env.REACT_APP_ETHEREUM_SEPOLIA_NETWORK
+        case 43113:
+          return process.env.REACT_APP_AVALANCHE_FUJI_NETWORK
+        case 137:
+          return process.env.REACT_APP_POLYGON_MAINNET_NETWORK
+        case 1:
+          return process.env.REACT_APP_ETHEREUM_MAINNET_NETWORK
+        case 43114:
+          return process.env.REACT_APP_AVALANCHE_MAINNET_NETWORK
+        default:
+          return null
+      }
+    }
+  )()
 
-      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
+//      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
       const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
       const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
       const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
@@ -813,6 +841,8 @@ exports.approveDraftById = async (req, res) => {
           name                  : req.body.name,
           tokenname             : req.body.tokenname, 
           description           : req.body.description, 
+          blockchain            : req.body.blockchain,
+
           startdate             : req.body.startdate,
           enddate               : req.body.enddate,
           sponsor               : req.body.sponsor,
@@ -865,6 +895,8 @@ exports.approveDraftById = async (req, res) => {
           name                  : req.body.name,
           tokenname             : req.body.tokenname.toUpperCase(), 
           description           : req.body.description, 
+          blockchain            : req.body.blockchain,
+
           startdate             : req.body.startdate, 
           enddate               : req.body.enddate, 
           sponsor               : req.body.sponsor, 
@@ -897,6 +929,8 @@ exports.approveDraftById = async (req, res) => {
         name                  : req.body.name,
         tokenname             : req.body.tokenname.toUpperCase(), 
         description           : req.body.description, 
+        blockchain            : req.body.blockchain,
+
         underlyingTokenID     : req.body.underlyingTokenID,
         underlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,  
         startdate             : req.body.startdate, 
@@ -1041,7 +1075,28 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     Web3 = require("web3");
 
     require('dotenv').config();
-    const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
+    const ETHEREUM_NETWORK = (() => {switch (req.body.blockchain) {
+          case 80001:
+            return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
+          case 80002:
+            return process.env.REACT_APP_POLYGON_AMOY_NETWORK
+          case 11155111:
+            return process.env.REACT_APP_ETHEREUM_SEPOLIA_NETWORK
+          case 43113:
+            return process.env.REACT_APP_AVALANCHE_FUJI_NETWORK
+          case 137:
+            return process.env.REACT_APP_POLYGON_MAINNET_NETWORK
+          case 1:
+            return process.env.REACT_APP_ETHEREUM_MAINNET_NETWORK
+          case 43114:
+            return process.env.REACT_APP_AVALANCHE_MAINNET_NETWORK
+          default:
+            return null
+        }
+      }
+    )()
+
+    //    const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
     const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
     const provider = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
     const Web3Client = new Web3(new Web3.providers.HttpProvider(provider));
@@ -1392,6 +1447,7 @@ exports.submitDraftById = async (req, res) => {
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
+  console.log(req.body.blockchain);
   console.log(req.body.smartcontractaddress);
   console.log(req.body.underlyingTokenID);
   console.log(req.body.underlyingDSGDsmartcontractaddress);
@@ -1411,6 +1467,8 @@ exports.submitDraftById = async (req, res) => {
     name                  : req.body.name,
     tokenname             : req.body.tokenname.toUpperCase(), 
     description           : req.body.description, 
+    blockchain            : req.body.blockchain,
+
     startdate             : req.body.startdate, 
     enddate               : req.body.enddate, 
     sponsor               : req.body.sponsor, 
@@ -1438,6 +1496,8 @@ exports.submitDraftById = async (req, res) => {
           name                  : req.body.name,
           tokenname             : req.body.tokenname, 
           description           : req.body.description, 
+          blockchain            : req.body.blockchain,
+
           PBMunderlyingTokenID  : req.body.underlyingTokenID,
           PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,    
           startdate             : req.body.startdate,
@@ -1492,6 +1552,7 @@ exports.acceptDraftById = async (req, res) => {
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
+  console.log(req.body.blockchain);
   console.log(req.body.underlyingTokenID);
   console.log(req.body.underlyingDSGDsmartcontractaddress);
   console.log(req.body.startdate);
@@ -1522,6 +1583,8 @@ exports.acceptDraftById = async (req, res) => {
           name                  : req.body.name,
           tokenname             : req.body.tokenname, 
           description           : req.body.description, 
+          blockchain            : req.body.blockchain,
+
           PBMunderlyingTokenID  : req.body.underlyingTokenID,
           PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,    
           startdate             : req.body.startdate,
@@ -1575,6 +1638,7 @@ exports.rejectDraftById = async (req, res) => {
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
+  console.log(req.body.blockchain);
   console.log(req.body.underlyingTokenID);
   console.log(req.body.underlyingDSGDsmartcontractaddress);
   console.log(req.body.startdate);
@@ -1605,6 +1669,8 @@ exports.rejectDraftById = async (req, res) => {
           name                  : req.body.name,
           tokenname             : req.body.tokenname, 
           description           : req.body.description, 
+          blockchain            : req.body.blockchain,
+        
           PBMunderlyingTokenID  : req.body.underlyingTokenID,
           PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,    
           startdate             : req.body.startdate,
@@ -1659,6 +1725,7 @@ exports.update = async (req, res) => {
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
+  console.log(req.body.blockchain);
   console.log(req.body.underlyingTokenID);
   console.log(req.body.underlyingDSGDsmartcontractaddress);
   console.log(req.body.startdate);
@@ -1672,8 +1739,28 @@ exports.update = async (req, res) => {
   ////////////////////////////// Blockchain ////////////////////////
 
   require('dotenv').config();
+  const ETHEREUM_NETWORK = (() => {switch (req.body.blockchain) {
+      case 80001:
+        return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
+      case 80002:
+        return process.env.REACT_APP_POLYGON_AMOY_NETWORK
+      case 11155111:
+        return process.env.REACT_APP_ETHEREUM_SEPOLIA_NETWORK
+      case 43113:
+        return process.env.REACT_APP_AVALANCHE_FUJI_NETWORK
+      case 137:
+        return process.env.REACT_APP_POLYGON_MAINNET_NETWORK
+      case 1:
+        return process.env.REACT_APP_ETHEREUM_MAINNET_NETWORK
+      case 43114:
+        return process.env.REACT_APP_AVALANCHE_MAINNET_NETWORK
+      default:
+        return null
+    }
+  }
+  )()
 
-  const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
+//  const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
   const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
@@ -1799,16 +1886,18 @@ exports.update = async (req, res) => {
 
   if (updatestatus) {
     await PBM.update(
-      { name              : req.body.name,
+      { name                  : req.body.name,
   // cant update token name once smart contract is deployed
-  //    tokenname         : req.body.tokenname.toUpperCase(), 
-        description       :req.body.description, 
-        underlyingTokenID : req.body.underlyingTokenID,
+  //    tokenname             : req.body.tokenname.toUpperCase(), 
+        description           : req.body.description, 
+        blockchain            : req.body.blockchain,
+      
+        underlyingTokenID     : req.body.underlyingTokenID,
         underlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,  
-        startdate         : req.body.startdate, 
-        enddate           : req.body.enddate, 
-        sponsor           : req.body.sponsor, 
-        amount            : req.body.amount,
+        startdate             : req.body.startdate, 
+        enddate               : req.body.enddate, 
+        sponsor               : req.body.sponsor, 
+        amount                : req.body.amount,
       }, 
       { where:      { id: draft_id }},
       )
@@ -1822,6 +1911,8 @@ exports.update = async (req, res) => {
               name                  : req.body.name,
               tokenname             : req.body.tokenname, 
               description           : req.body.description, 
+              blockchain            : req.body.blockchain,
+            
               PBMunderlyingTokenID  : req.body.underlyingTokenID,
               PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,
         
@@ -1882,6 +1973,7 @@ exports.approveDeleteDraftById = async (req, res) => {
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
+  console.log(req.body.blockchain);
   console.log(req.body.underlyingTokenID);
   console.log(req.body.underlyingDSGDsmartcontractaddress);
   console.log(req.body.startdate);
@@ -1910,6 +2002,8 @@ exports.approveDeleteDraftById = async (req, res) => {
           name                  : req.body.name,
           tokenname             : req.body.tokenname, 
           description           : req.body.description, 
+          blockchain            : req.body.blockchain,
+        
           PBMunderlyingTokenID  : req.body.underlyingTokenID,
           PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,    
           startdate             : req.body.startdate,
@@ -1996,6 +2090,7 @@ exports.dropRequestById = async (req, res) => {
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
+  console.log(req.body.blockchain);
   console.log(req.body.underlyingTokenID);
   console.log(req.body.underlyingDSGDsmartcontractaddress);
   console.log(req.body.startdate);
@@ -2023,6 +2118,8 @@ exports.dropRequestById = async (req, res) => {
           name                  : req.body.name,
           tokenname             : req.body.tokenname, 
           description           : req.body.description, 
+          blockchain            : req.body.blockchain,
+        
           PBMunderlyingTokenID  : req.body.underlyingTokenID,
           PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,    
           startdate             : req.body.startdate,

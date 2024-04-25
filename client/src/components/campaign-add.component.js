@@ -15,6 +15,7 @@ export default class CampaignEdit extends Component {
     this.onChangeName = this.onChangeName.bind(this);
     this.onChangeTokenName = this.onChangeTokenName.bind(this);
     this.onChangeDescription = this.onChangeDescription.bind(this);
+    this.onChangeBlockchain = this.onChangeBlockchain.bind(this);
     this.onChangeStartDate = this.onChangeStartDate.bind(this);
     this.onChangeEndDate = this.onChangeEndDate.bind(this);
     this.onChangeSponsor = this.onChangeSponsor.bind(this);
@@ -49,6 +50,7 @@ export default class CampaignEdit extends Component {
       name: "",
       tokenname: "",
       description: "",
+      blockchain: "",
       startdate: "",
       enddate: "",
       sponsor: "",
@@ -95,6 +97,13 @@ export default class CampaignEdit extends Component {
   onChangeDescription(e) {
     this.setState({
       description: e.target.value,
+      datachanged: true
+    });
+  }
+
+  onChangeBlockchain(e) {
+    this.setState({
+      blockchain: e.target.value,
       datachanged: true
     });
   }
@@ -243,6 +252,8 @@ export default class CampaignEdit extends Component {
         name              : this.state.name,
         tokenname         : this.state.tokenname,
         description       : this.state.description,
+        blockchain        : this.state.blockchain,
+
         startdate         : this.state.startdate,
         enddate           : this.state.enddate,
         sponsor           : this.state.sponsor,
@@ -274,6 +285,7 @@ export default class CampaignEdit extends Component {
             name: response.data.name,
             tokenname: response.data.tokenname,
             description: response.data.description,
+            blockchain: response.data.blockchain,
             startdate: response.data.startdate,
             enddate: response.data.enddate,
             sponsor: response.data.sponsor,
@@ -320,6 +332,7 @@ export default class CampaignEdit extends Component {
       name: "",
       tokenname: "",
       description: "",
+      blockchain: "",
       startdate: "",
       enddate: "",
       sponsor: "",
@@ -517,14 +530,15 @@ export default class CampaignEdit extends Component {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="description">Blockchain *</label>
+                  <label htmlFor="blockchain">Blockchain *</label>
                   <select
                         onChange={this.onChangeBlockchain}                         
                         className="form-control"
-                        id="sponsor"
+                        id="blockchain"
                         disabled={!this.state.isMaker}
                       >
-                        <option value="80001"            >Polygon   Testnet Mumbai</option>
+                        <option value="80001"  selected={this.state.blockchain === 80001}>Polygon   Testnet Mumbai</option>
+                        <option value="80002"  selected={this.state.blockchain === 80002}>Polygon   Testnet Amoy</option>
                         <option value="11155111" disabled>Ethereum  Testnet Sepolia (not in use at the moment)</option>
                         <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
                         <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>

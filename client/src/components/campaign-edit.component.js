@@ -16,6 +16,7 @@ class Campaign extends Component {
     this.onChangeName = this.onChangeName.bind(this);
 //    this.onChangeTokenName = this.onChangeTokenName.bind(this);
     this.onChangeDescription = this.onChangeDescription.bind(this);
+    this.onChangeBlockchain = this.onChangeBlockchain.bind(this);
     this.onChangeStartDate = this.onChangeStartDate.bind(this);
     this.onChangeEndDate = this.onChangeEndDate.bind(this);
     this.onChangeSponsor = this.onChangeSponsor.bind(this);
@@ -48,6 +49,7 @@ class Campaign extends Component {
         tokenname: "",
         description: "",
         smartcontractaddress: "",
+        blockchain: "",
         startdate: "",
         enddate: "",
         sponsor: "",
@@ -60,6 +62,7 @@ class Campaign extends Component {
         tokenname: "",
         description: "",
         smartcontractaddress: "",
+        blockchain: "",
         startdate: "",
         enddate: "",
         sponsor: "",
@@ -67,6 +70,7 @@ class Campaign extends Component {
         approvedcampaignid: "",
         name_original: "",
         description_original: "",
+        blockchain_original: "",
         startdate_original: "",
         enddate_original: "",
         sponsor_original: "",
@@ -238,6 +242,22 @@ class Campaign extends Component {
       };
     });
 
+  }
+
+  onChangeBlockchain(e) {
+    const blockchain = e.target.value;
+    this.setState({
+      datachanged: true
+    });
+
+    this.setState(function(prevState) {
+      return {
+        currentCampaign: {
+          ...prevState.currentCampaign,
+          blockchain: blockchain
+        }
+      };
+    });
   }
 
   onChangeStartDate(e) {
@@ -451,6 +471,7 @@ class Campaign extends Component {
           tokenname             : this.state.currentCampaign.tokenname.trim(),
           description           : this.state.currentCampaign.description.trim(),
           smartcontractaddress  : this.state.currentCampaign.smartcontractaddress,
+          blockchain            : this.state.currentCampaign.blockchain,
           startdate             : this.state.currentCampaign.startdate,
           enddate               : this.state.currentCampaign.enddate,
           sponsor               : this.state.currentCampaign.sponsor,
@@ -473,6 +494,7 @@ class Campaign extends Component {
           enddate_original      : (this.state.currentCampaign.enddate !== this.state.originalCampaign.enddate ? this.state.originalCampaign.enddate: null),
           sponsor_original      : (this.state.currentCampaign.sponsor !== this.state.originalCampaign.sponsor ? this.state.originalCampaign.sponsor: -1),
           amount_original       : (this.state.currentCampaign.amount !== this.state.originalCampaign.amount ? this.state.originalCampaign.amount: -1),
+          blockchain_original   : (this.state.currentCampaign.blockchain !== this.state.originalCampaign.blockchain ? this.state.originalCampaign.blockchain: -1),
         };
     
         console.log("Form Validation passed! creating campaign...");
@@ -491,6 +513,7 @@ class Campaign extends Component {
               name                  : response.data.name,
               tokenname             : response.data.tokenname,
               description           : response.data.description,
+              blockchain            : response.data.blockchain,
               startdate             : response.data.startdate,
               enddate               : response.data.enddate,
               sponsor               : response.data.sponsor,
@@ -536,6 +559,7 @@ class Campaign extends Component {
           tokenname             : this.state.currentCampaign.tokenname,
           description           : this.state.currentCampaign.description,
           smartcontractaddress  : this.state.currentCampaign.smartcontractaddress,
+          blockchain            : this.state.currentCampaign.blockchain,
           startdate             : this.state.currentCampaign.startdate,
           enddate               : this.state.currentCampaign.enddate,
           sponsor               : this.state.currentCampaign.sponsor,
@@ -564,6 +588,7 @@ class Campaign extends Component {
               name                  : response.data.name,
               tokenname             : response.data.tokenname,
               description           : response.data.description,
+              blockchain            : response.data.blockchain,
               startdate             : response.data.startdate,
               enddate               : response.data.enddate,
               sponsor               : response.data.sponsor,
@@ -707,7 +732,8 @@ class Campaign extends Component {
                         id="blockchain"
                         disabled={true}
                         >
-                        <option value="80001"            >Polygon   Testnet Mumbai</option>
+                        <option value="80001"  selected={currentCampaign.blockchain === 80001}>Polygon   Testnet Mumbai</option>
+                        <option value="80002"  selected={currentCampaign.blockchain === 80002}>Polygon   Testnet Amoy</option>
                         <option value="11155111" disabled>Ethereum  Testnet Sepolia (not in use at the moment)</option>
                         <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
                         <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>

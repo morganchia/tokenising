@@ -209,7 +209,28 @@ export default class MintList extends Component {
                     <tr>
                       <td>{mmm.campaign.name}</td>
                       <td>{mmm.campaign.tokenname}</td>
-                      <td>Polygon Testnet</td>
+                      <td>{(() => {
+                          switch (mmm.campaign.blockchain) {
+                            case 80001:
+                              return 'Polygon Testnet Mumbai'
+                            case 80002:
+                              return 'Polygon Testnet Amoy'
+                            case 11155111:
+                              return 'Ethereum Testnet Sepolia'
+                            case 43113:
+                              return 'Avalanche Testnet Fuji'
+                            case 137:
+                              return 'Polygon Mainnet'
+                            case 1:
+                              return 'Ethereum  Mainnet'
+                            case 43114:
+                              return 'Avalanche Mainnet'
+                            default:
+                              return null
+                          }
+                        }
+                      )()}
+                      </td>
                       <td>{mmm.totalMinted}</td>
                       <td>{mmm.campaign.amount}</td>
                       <td>{this.shorten(mmm.campaign.smartcontractaddress)}</td>

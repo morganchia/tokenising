@@ -37,7 +37,7 @@ module.exports = (sequelize, Sequelize) => {
         type: Sequelize.STRING,  // varchar(255)
       },
       blockchain: {
-        type: Sequelize.STRING
+        type: Sequelize.INTEGER   // chain id
       },
       tokenname: {
         type: Sequelize.STRING,  // varchar(45)

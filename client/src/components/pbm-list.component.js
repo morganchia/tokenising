@@ -256,7 +256,28 @@ export default class PBMList extends Component {
                         
                           }
                       </td>
-                      <td>Polygon Testnet</td>
+                      <td>{(() => {
+                          switch (pbm1.campaign.blockchain) {
+                            case 80001:
+                              return 'Polygon Testnet Mumbai'
+                            case 80002:
+                              return 'Polygon Testnet Amoy'
+                            case 11155111:
+                              return 'Ethereum Testnet Sepolia'
+                            case 43113:
+                              return 'Avalanche Testnet Fuji'
+                            case 137:
+                              return 'Polygon Mainnet'
+                            case 1:
+                              return 'Ethereum  Mainnet'
+                            case 43114:
+                              return 'Avalanche Mainnet'
+                            default:
+                              return null
+                          }
+                        }
+                      )()}
+                      </td>
                       <td>{pbm1.startdate}</td>
                       <td>{pbm1.enddate}</td>
                       <td>

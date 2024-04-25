@@ -246,7 +246,28 @@ export default class CampaignList extends Component {
                     <tr>
                       <td>{campaign1.name}</td>
                       <td>{campaign1.tokenname}</td>
-                      <td>Polygon Testnet</td>
+                      <td>{(() => {
+                          switch (campaign1.blockchain) {
+                            case 80001:
+                              return 'Polygon Testnet Mumbai'
+                            case 80002:
+                              return 'Polygon Testnet Amoy'
+                            case 11155111:
+                              return 'Ethereum Testnet Sepolia'
+                            case 43113:
+                              return 'Avalanche Testnet Fuji'
+                            case 137:
+                              return 'Polygon Mainnet'
+                            case 1:
+                              return 'Ethereum  Mainnet'
+                            case 43114:
+                              return 'Avalanche Mainnet'
+                            default:
+                              return null
+                          }
+                        }
+                      )()}
+                      </td>
                       <td>{campaign1.startdate}</td>
                       <td>{campaign1.enddate}</td>
                       <td>

@@ -915,6 +915,7 @@ export default class PBMEdit extends Component {
                         disabled="true"
                       >
                         <option value="80001"            >Polygon   Testnet Mumbai</option>
+                        <option value="80002"            >Polygon   Testnet Amoy</option>
                         <option value="11155111" disabled>Ethereum  Testnet Sepolia (not in use at the moment)</option>
                         <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
                         <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>

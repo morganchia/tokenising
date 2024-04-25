@@ -21,6 +21,9 @@ module.exports = (sequelize, Sequelize) => {
     smartcontractaddress: {  // varchar(255)
       type: Sequelize.STRING  
     },
+    blockchain: {
+      type: Sequelize.INTEGER   // chain id
+    },
     startdate: {
       type: Sequelize.DATE
     },

@@ -291,7 +291,28 @@ export default class CampaignList extends Component {
                       <td>{pbm1.txntype===0?"Create":pbm1.txntype===1?"Update":"Delete"}</td>
                       <td>{pbm1.name}</td>
                       <td>{pbm1.tokenname}</td>
-                      <td>Polygon Testnet</td>
+                      <td>{(() => {
+                          switch (pbm1.blockchain) {
+                            case 80001:
+                              return 'Polygon Testnet Mumbai'
+                            case 80002:
+                              return 'Polygon Testnet Amoy'
+                            case 11155111:
+                              return 'Ethereum Testnet Sepolia'
+                            case 43113:
+                              return 'Avalanche Testnet Fuji'
+                            case 137:
+                              return 'Polygon Mainnet'
+                            case 1:
+                              return 'Ethereum  Mainnet'
+                            case 43114:
+                              return 'Avalanche Mainnet'
+                            default:
+                              return null
+                          }
+                        }
+                      )()}
+                      </td>
                       <td>{pbm1.startdate}</td>
                       <td>{pbm1.enddate}</td>
                       <td>
@@ -377,7 +398,28 @@ export default class CampaignList extends Component {
                       <td>{campaign1.txntype===0?"Create":campaign1.txntype===1?"Update":"Delete"}</td>
                       <td>{campaign1.name}</td>
                       <td>{campaign1.tokenname}</td>
-                      <td>Polygon Testnet</td>
+                      <td>{(() => {
+                          switch (campaign1.blockchain) {
+                            case 80001:
+                              return 'Polygon Testnet Mumbai'
+                            case 80002:
+                              return 'Polygon Testnet Amoy'
+                            case 11155111:
+                              return 'Ethereum Testnet Sepolia'
+                            case 43113:
+                              return 'Avalanche Testnet Fuji'
+                            case 137:
+                              return 'Polygon Mainnet'
+                            case 1:
+                              return 'Ethereum  Mainnet'
+                            case 43114:
+                              return 'Avalanche Mainnet'
+                            default:
+                              return null
+                          }
+                        }
+                      )()}
+                      </td>
                       <td>{campaign1.startdate}</td>
                       <td>{campaign1.enddate}</td>
                       <td>
@@ -460,7 +502,28 @@ export default class CampaignList extends Component {
                       <td>{mint1.txntype===0?"Create":mint1.txntype===1?"Update":"Delete"}</td>
                       <td>{mint1.campaign.name}</td>
                       <td>{mint1.campaign.tokenname}</td>
-                      <td>Polygon Testnet</td>
+                      <td>{(() => {
+                          switch (mint1.blockchain) {
+                            case 80001:
+                              return 'Polygon Testnet Mumbai'
+                            case 80002:
+                              return 'Polygon Testnet Amoy'
+                            case 11155111:
+                              return 'Ethereum Testnet Sepolia'
+                            case 43113:
+                              return 'Avalanche Testnet Fuji'
+                            case 137:
+                              return 'Polygon Mainnet'
+                            case 1:
+                              return 'Ethereum  Mainnet'
+                            case 43114:
+                              return 'Avalanche Mainnet'
+                            default:
+                              return null
+                          }
+                        }
+                      )()}
+                      </td>
                       <td>{mint1.mintAmount}</td>
                       {
                         /*
@@ -534,7 +597,28 @@ export default class CampaignList extends Component {
                       <td>{transfer1.txntype===0?"Create":transfer1.txntype===1?"Update":"Delete"}</td>
                       <td>{transfer1.campaign.name}</td>
                       <td>{transfer1.campaign.tokenname}</td>
-                      <td>Polygon Testnet</td>
+                      <td>{(() => {
+                          switch (transfer1.blockchain) {
+                            case 80001:
+                              return 'Polygon Testnet Mumbai'
+                            case 80002:
+                              return 'Polygon Testnet Amoy'
+                            case 11155111:
+                              return 'Ethereum Testnet Sepolia'
+                            case 43113:
+                              return 'Avalanche Testnet Fuji'
+                            case 137:
+                              return 'Polygon Mainnet'
+                            case 1:
+                              return 'Ethereum  Mainnet'
+                            case 43114:
+                              return 'Avalanche Mainnet'
+                            default:
+                              return null
+                          }
+                        }
+                      )()}
+                      </td>
                       <td>{transfer1.transferAmount}</td>
                       {
                         /*
