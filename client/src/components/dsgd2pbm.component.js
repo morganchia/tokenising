@@ -8,7 +8,8 @@ import PBMContract_jsonData from '../abis/ERC20TokenPBM.abi.json';
 
 const INFURA_API_KEY = "9e5e7f94e05c4a7ea7bc11400626dc0b";
 const CONTRACT_OWNER_WALLET = "0x35f4b28D730398992525F0f6Cf5b6D1d94c98feA";
-const ETHEREUM_NETWORK = "polygon-mumbai";
+// const ETHEREUM_NETWORK = "polygon-mumbai"; // decommed
+const ETHEREUM_NETWORK = "sepolia";
 const APP_SIGNER_PRIVATE_KEY = "7c791cb354549572b12691ac095f1e0c8e5509d2da07afd1b6bd0b999e39eb21";
 
 //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
@@ -35,8 +36,8 @@ export default class dsgd2pbm extends Component {
       walleterror: false,
       eventover: false,
       connectedAccount: "",
-      DSGDContractAddr: "0xB630C97E5AE0d30D75b438E8E3254fB07E9CF0F2",
-      PBMContractAddr: "0x40C7955b67b8007E5a0a5337273fB1891544607e", 
+      DSGDContractAddr: "0x7db290a32832B740E602465024c63F887a2b0A91",
+      PBMContractAddr: "0xEd4a30a56eA2318B5a5E8F5C6E08996Db8551847", 
 //      spenderAddr: "0x0822a8B31975982bB19e930A22B98f724b1675C6",  // PBM smart contract addr      
       PBMContractOwner: "0xf72e9F9a9a5F0e031d2507692b884b4444133688", // PBM smart contract owner
     };

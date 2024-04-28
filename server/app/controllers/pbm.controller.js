@@ -856,6 +856,13 @@ exports.approveDraftById = async (req, res) => {
           sponsor               : req.body.sponsor,
           amount                : req.body.amount,
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
+
+          datafield1_name       : req.body.datafield1_name,
+          datafield1_value      : req.body.datafield1_value,
+          operator1             : req.body.operator1,
+          datafield2_name       : req.body.datafield2_name,
+          datafield2_value      : req.body.datafield2_value,
+
           smartcontractaddress  : (isNewPBM? newcontractaddress : req.body.smartcontractaddress),
           PBMunderlyingTokenID  : req.body.underlyingTokenID,
           PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,
@@ -905,6 +912,12 @@ exports.approveDraftById = async (req, res) => {
           description           : req.body.description, 
           blockchain            : req.body.blockchain,
 
+          datafield1_name       : req.body.datafield1_name,
+          datafield1_value      : req.body.datafield1_value,
+          operator1             : req.body.operator1,
+          datafield2_name       : req.body.datafield2_name,
+          datafield2_value      : req.body.datafield2_value,
+
           startdate             : req.body.startdate, 
           enddate               : req.body.enddate, 
           sponsor               : req.body.sponsor, 
@@ -938,6 +951,12 @@ exports.approveDraftById = async (req, res) => {
         tokenname             : req.body.tokenname.toUpperCase(), 
         description           : req.body.description, 
         blockchain            : req.body.blockchain,
+
+        datafield1_name       : req.body.datafield1_name,
+        datafield1_value      : req.body.datafield1_value,
+        operator1             : req.body.operator1,
+        datafield2_name       : req.body.datafield2_name,
+        datafield2_value      : req.body.datafield2_value,
 
         underlyingTokenID     : req.body.underlyingTokenID,
         underlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,  
@@ -1481,6 +1500,12 @@ exports.submitDraftById = async (req, res) => {
     description           : req.body.description, 
     blockchain            : req.body.blockchain,
 
+    datafield1_name       : req.body.datafield1_name,
+    datafield1_value      : req.body.datafield1_value,
+    operator1             : req.body.operator1,
+    datafield2_name       : req.body.datafield2_name,
+    datafield2_value      : req.body.datafield2_value,
+
     startdate             : req.body.startdate, 
     enddate               : req.body.enddate, 
     sponsor               : req.body.sponsor, 
@@ -1509,6 +1534,12 @@ exports.submitDraftById = async (req, res) => {
           tokenname             : req.body.tokenname, 
           description           : req.body.description, 
           blockchain            : req.body.blockchain,
+
+          datafield1_name       : req.body.datafield1_name,
+          datafield1_value      : req.body.datafield1_value,
+          operator1             : req.body.operator1,
+          datafield2_name       : req.body.datafield2_name,
+          datafield2_value      : req.body.datafield2_value,
 
           PBMunderlyingTokenID  : req.body.underlyingTokenID,
           PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,    
@@ -1599,6 +1630,12 @@ exports.acceptDraftById = async (req, res) => {
           description           : req.body.description, 
           blockchain            : req.body.blockchain,
 
+          datafield1_name       : req.body.datafield1_name,
+          datafield1_value      : req.body.datafield1_value,
+          operator1             : req.body.operator1,
+          datafield2_name       : req.body.datafield2_name,
+          datafield2_value      : req.body.datafield2_value,
+
           PBMunderlyingTokenID  : req.body.underlyingTokenID,
           PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,    
           startdate             : req.body.startdate,
@@ -1688,6 +1725,12 @@ exports.rejectDraftById = async (req, res) => {
           description           : req.body.description, 
           blockchain            : req.body.blockchain,
         
+          datafield1_name       : req.body.datafield1_name,
+          datafield1_value      : req.body.datafield1_value,
+          operator1             : req.body.operator1,
+          datafield2_name       : req.body.datafield2_name,
+          datafield2_value      : req.body.datafield2_value,
+
           PBMunderlyingTokenID  : req.body.underlyingTokenID,
           PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,    
           startdate             : req.body.startdate,
@@ -1912,6 +1955,12 @@ exports.update = async (req, res) => {
         description           : req.body.description, 
         blockchain            : req.body.blockchain,
       
+        datafield1_name       : req.body.datafield1_name,
+        datafield1_value      : req.body.datafield1_value,
+        operator1             : req.body.operator1,
+        datafield2_name       : req.body.datafield2_name,
+        datafield2_value      : req.body.datafield2_value,
+
         underlyingTokenID     : req.body.underlyingTokenID,
         underlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,  
         startdate             : req.body.startdate, 
@@ -1933,6 +1982,12 @@ exports.update = async (req, res) => {
               description           : req.body.description, 
               blockchain            : req.body.blockchain,
             
+              datafield1_name       : req.body.datafield1_name,
+              datafield1_value      : req.body.datafield1_value,
+              operator1             : req.body.operator1,
+              datafield2_name       : req.body.datafield2_name,
+              datafield2_value      : req.body.datafield2_value,
+    
               PBMunderlyingTokenID  : req.body.underlyingTokenID,
               PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,
         
@@ -2027,6 +2082,12 @@ exports.approveDeleteDraftById = async (req, res) => {
           description           : req.body.description, 
           blockchain            : req.body.blockchain,
         
+          datafield1_name       : req.body.datafield1_name,
+          datafield1_value      : req.body.datafield1_value,
+          operator1             : req.body.operator1,
+          datafield2_name       : req.body.datafield2_name,
+          datafield2_value      : req.body.datafield2_value,
+
           PBMunderlyingTokenID  : req.body.underlyingTokenID,
           PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,    
           startdate             : req.body.startdate,
@@ -2146,6 +2207,12 @@ exports.dropRequestById = async (req, res) => {
           description           : req.body.description, 
           blockchain            : req.body.blockchain,
         
+          datafield1_name       : req.body.datafield1_name,
+          datafield1_value      : req.body.datafield1_value,
+          operator1             : req.body.operator1,
+          datafield2_name       : req.body.datafield2_name,
+          datafield2_value      : req.body.datafield2_value,
+
           PBMunderlyingTokenID  : req.body.underlyingTokenID,
           PBMunderlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,    
           startdate             : req.body.startdate,
