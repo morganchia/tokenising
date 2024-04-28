@@ -232,7 +232,8 @@ exports.approveDraftById = async (req, res) => {
 
       require('dotenv').config();
 
-      const ETHEREUM_NETWORK = (() => {switch (req.body.blockchain) {
+      const ETHEREUM_NETWORK = (() => {
+        switch (req.body.blockchain) {
             case 80001:
               return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
             case 80002:
@@ -252,6 +253,7 @@ exports.approveDraftById = async (req, res) => {
           }
         }
       )()
+      console.log("Using network:"+ ETHEREUM_NETWORK + "("+ req.body.blockchain+")");
 
 //      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
       const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
@@ -390,17 +392,38 @@ exports.approveDraftById = async (req, res) => {
             // https://github.com/web3/web3.js/issues/1001
             web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
 
+            // estimating gas fees
+            const gasFees =
+            await ERC20TokenDSGDcontract.deploy({
+              data: bytecode,
+              arguments:  [req.body.tokenname+' Token', req.body.tokenname, 
+                            web3.utils.toBN( setToTalSupply )
+                          ],
+            })
+            .estimateGas({ 
+              from: signer.address,
+            })
+            .then((gasAmount) => {
+              console.log("Estimated gas amount for deploying campaign: ", gasAmount)
+              return gasAmount;
+            })
+            .catch((error2) => {
+              console.log("Error while estimating Campaign deployment Gas fee: ", error2)
+              return 2100000;  // if error then use default fee
+            });
+            console.log("Estimated gas fee for deploying campaign: ", gasFees);
+            
+            // Sign txn
             const createTransaction = await web3.eth.accounts.signTransaction(
               {
                 from: signer.address,
                 data: contractTx.encodeABI(),
-                gas: 4700000,
+                gas: gasFees,
               },
               signer.privateKey
             );
             console.log('Sending signed txn...');
             //console.log('Sending signed txn:', createTransaction);
-
 
             const createReceipt = await web3.eth.sendSignedTransaction(
               createTransaction.rawTransaction, 
@@ -871,7 +894,8 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
 
     require('dotenv').config();
 
-    const ETHEREUM_NETWORK = (() => {switch (req.body.blockchain) {
+    const ETHEREUM_NETWORK = (() => {
+      switch (req.body.blockchain) {
           case 80001:
             return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
           case 80002:
@@ -891,6 +915,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
         }
       }
     )()
+    console.log("Using network:"+ ETHEREUM_NETWORK + "("+ req.body.blockchain+")");
 
     //    const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
     const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
@@ -1377,7 +1402,8 @@ exports.update = async (req, res) => {
 
   require('dotenv').config();
 
-  const ETHEREUM_NETWORK = (() => {switch (req.body.blockchain) {
+  const ETHEREUM_NETWORK = (() => {
+    switch (req.body.blockchain) {
       case 80001:
         return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
       case 80002:
@@ -1397,6 +1423,7 @@ exports.update = async (req, res) => {
     }
   }
   )()
+  console.log("Using network:"+ ETHEREUM_NETWORK + "("+ req.body.blockchain+")");
 
   //const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
   const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;

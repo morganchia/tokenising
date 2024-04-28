@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.8;
-
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface ONSRegistry {
@@ -10,6 +9,9 @@ interface ONSRegistry {
 interface ONSResolver {
     function addr(bytes32 node) external view returns (address);
 }
+
+// ENS registry address: 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
+// https://docs.chain.link/data-feeds/ens#:~:text=ENS%20registry%20address%3A%200x00000000000C2E074eC69A0dFb2997BA6C7d2e1e.,bytes32%20hash%20IDs%20for%20names.
 
 contract ONSManager is Ownable {
     ONSRegistry private onsRegistry;

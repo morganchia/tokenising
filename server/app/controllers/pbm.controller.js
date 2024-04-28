@@ -20,6 +20,8 @@ exports.draftCreate = async (req, res) => {
   }
 
   console.log("Received for PBM draft Create:");
+  console.log(req.body);
+/*
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
@@ -55,7 +57,7 @@ exports.draftCreate = async (req, res) => {
   console.log(req.body.enddate_original);
   console.log(req.body.sponsor_original);
   console.log(req.body.amount_original);
-
+*/
 
   // Save PBM draft in the database
   await PBMs_Draft.create(
@@ -302,7 +304,8 @@ exports.create_review = async (req, res) => {
   }
 
   console.log("Received for PBM Review:");
-  console.log(req.body.id);
+  console.log(req.body);
+/*
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
@@ -316,7 +319,7 @@ exports.create_review = async (req, res) => {
   console.log(req.body.actionby);
   console.log(req.body.checkercomments);
   console.log(req.body.action);
-
+*/
     await PBMs_Draft.update(
       { 
         checkerComments :   checkercomments,
@@ -358,6 +361,8 @@ exports.approveDraftById = async (req, res) => {
   //   b. Update PBMs_Draft table status to "3"
   //   c. Update entry in PBM table
 
+  var errorSent = false;
+
   // Validate request
   if (!req.body.name) {
     res.status(400).send({
@@ -379,6 +384,8 @@ exports.approveDraftById = async (req, res) => {
   const isNewPBM = (req.body.smartcontractaddress === "" || req.body.smartcontractaddress === null? true : false); // Create = true, Edit/Update = false
 
   console.log("Received for Create/Update:");
+  console.log(req.body);
+  /*
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
@@ -393,7 +400,7 @@ exports.approveDraftById = async (req, res) => {
   console.log(req.body.txntype);
   console.log(req.body.actionby);
   console.log(req.body.approvedpbmid);
-
+*/
 
 
 ////////////////////////////// Blockchain ////////////////////////
@@ -401,7 +408,8 @@ exports.approveDraftById = async (req, res) => {
       // https://www.geeksforgeeks.org/how-to-deploy-contract-from-nodejs-using-web3/
 
       require('dotenv').config();
-      const ETHEREUM_NETWORK = (() => {switch (req.body.blockchain) {
+      const ETHEREUM_NETWORK = (() => {
+        switch (req.body.campaign.blockchain) {
         case 80001:
           return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
         case 80002:
@@ -418,9 +426,9 @@ exports.approveDraftById = async (req, res) => {
           return process.env.REACT_APP_AVALANCHE_MAINNET_NETWORK
         default:
           return null
+        }
       }
-    }
-  )()
+      )()
 
 //      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
       const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
@@ -1075,7 +1083,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     Web3 = require("web3");
 
     require('dotenv').config();
-    const ETHEREUM_NETWORK = (() => {switch (req.body.blockchain) {
+    const ETHEREUM_NETWORK = (() => {switch (req.body.campaign.blockchain) {
           case 80001:
             return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
           case 80002:
@@ -1210,7 +1218,7 @@ exports.getAll = (req, res) => {
         on: {
           id: db.Sequelize.where(db.Sequelize.col("pbm.underlyingTokenID"), "=", db.Sequelize.col("campaign.id")),
         },
-        attributes: ['id', 'name', 'tokenname', 'smartcontractaddress'],
+        attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
       }
     ]
   },
@@ -1247,7 +1255,7 @@ exports.getAllPBMTemplates = (req, res) => {
           on: {
             id: db.Sequelize.where(db.Sequelize.col("pbm_templates.underlyingTokenID"), "=", db.Sequelize.col("campaign.id")),
           },
-          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress'],
+          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
         }
       ]
     },
@@ -1316,7 +1324,7 @@ exports.getAllDraftsByUserId = (req, res) => {
           on: {
             id: db.Sequelize.where(db.Sequelize.col("pbms_draft.underlyingTokenID"), "=", db.Sequelize.col("campaign.id")),
           },
-          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress'],
+          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
         }
       ]
     },
@@ -1364,7 +1372,7 @@ exports.getAllDraftsByPBMId = (req, res) => {
           on: {
             id: db.Sequelize.where(db.Sequelize.col("pbms_draft.underlyingTokenID"), "=", db.Sequelize.col("campaign.id")),
           },
-          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress'],
+          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
         }
       ]
     },
@@ -1397,7 +1405,7 @@ exports.getAllDraftsByPBMId = (req, res) => {
           on: {
             id: db.Sequelize.where(db.Sequelize.col("pbm.underlyingTokenID"), "=", db.Sequelize.col("campaign.id")),
           },
-          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress'],
+          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
         }
       ]
     }).then(data => {
@@ -1443,7 +1451,10 @@ exports.submitDraftById = async (req, res) => {
   const draft_id = req.params.id;
 
   console.log("Received1:");
-  console.log(id);
+  console.log("id=",id);
+  console.log(req.body);
+
+/*
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
@@ -1460,6 +1471,7 @@ exports.submitDraftById = async (req, res) => {
   console.log(req.body.checkerComments);
   console.log(req.body.approverComments);
   console.log(req.body.approvedpbmid);
+*/
 
   await PBMs_Draft.update(
   { 
@@ -1548,7 +1560,9 @@ exports.acceptDraftById = async (req, res) => {
   const draft_id = req.params.id;
 
   console.log("Received2:");
-  console.log(id);
+  console.log("id=",id);
+  console.log(req.body);
+/*
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
@@ -1564,7 +1578,7 @@ exports.acceptDraftById = async (req, res) => {
   console.log(req.body.checkerComments);
   console.log(req.body.approverComments);
   console.log(req.body.approvedpbmid);
-
+*/
   await PBMs_Draft.update(
   { 
     status :          2,
@@ -1634,7 +1648,10 @@ exports.rejectDraftById = async (req, res) => {
   const draft_id = req.params.id;
 
   console.log("Received2:");
-  console.log(id);
+  console.log("id=",id);
+  console.log(req.body);
+
+/*
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
@@ -1650,7 +1667,7 @@ exports.rejectDraftById = async (req, res) => {
   console.log(req.body.checkerComments);
   console.log(req.body.approverComments);
   console.log(req.body.approvedpbmid);
-
+*/
   await PBMs_Draft.update(
   { 
     status :          -1,
@@ -1721,7 +1738,10 @@ exports.update = async (req, res) => {
   const draft_id = req.params.id;
 
   console.log("Received3:");
-  console.log(id);
+  console.log("id=",id);
+  console.log(req.body);
+
+/*
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
@@ -1734,12 +1754,12 @@ exports.update = async (req, res) => {
   console.log(req.body.amount);
   console.log(req.body.actionby);
   console.log(req.body.approvedpbmid);
-
+*/
 
   ////////////////////////////// Blockchain ////////////////////////
 
   require('dotenv').config();
-  const ETHEREUM_NETWORK = (() => {switch (req.body.blockchain) {
+  const ETHEREUM_NETWORK = (() => {switch (req.body.campaign.blockchain) {
       case 80001:
         return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
       case 80002:
@@ -1969,7 +1989,10 @@ exports.approveDeleteDraftById = async (req, res) => {
   var msgSent = false;
 
   console.log("Received for Delete request approva;:");
-  console.log(req.params.id);
+  console.log("id=",req.params.id);
+  console.log(req.body);
+
+/*
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
@@ -1982,7 +2005,7 @@ exports.approveDeleteDraftById = async (req, res) => {
   console.log(req.body.amount);
   console.log(req.body.actionby);
   console.log(req.body.approvedpbmid);
-
+*/
 
   // update draft table
   var Done = await PBMs_Draft.update(  // update draft table status to "3"
@@ -2086,7 +2109,9 @@ exports.dropRequestById = async (req, res) => {
   var msgSent = false;
 
   console.log("Received for drop request:");
-  console.log(req.params.id);
+  console.log("id=",req.params.id);
+  console.log(req.body);
+/*
   console.log(req.body.name);
   console.log(req.body.tokenname);
   console.log(req.body.description);
@@ -2099,6 +2124,7 @@ exports.dropRequestById = async (req, res) => {
   console.log(req.body.amount);
   console.log(req.body.actionby);
   console.log(req.body.approvedpbmid);
+*/
 
   // update draft table
   await PBMs_Draft.update(  // update draft table status to "9" - aborted / dropped requests

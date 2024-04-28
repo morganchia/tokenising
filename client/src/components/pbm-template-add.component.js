@@ -23,6 +23,7 @@ export default class PBMEdit extends Component {
     this.onChangeTokenName = this.onChangeTokenName.bind(this);
     this.onChangeDescription = this.onChangeDescription.bind(this);
     this.onChangeUnderlying = this.onChangeUnderlying.bind(this);
+
     this.onChangeStartDate = this.onChangeStartDate.bind(this);
     this.onChangeEndDate = this.onChangeEndDate.bind(this);
     this.onChangeSponsor = this.onChangeSponsor.bind(this);
@@ -86,7 +87,8 @@ export default class PBMEdit extends Component {
 
       tokenname: "",
       description: "",
-      underlying: "",
+      underlyingTokenID: "",
+
       startdate: "",
       enddate: "",
       sponsor: "",
@@ -199,15 +201,30 @@ export default class PBMEdit extends Component {
       datachanged: true
     });
   }
-
+/*
   onChangeUnderlying(e) {
-    const underlying = e.target.value;
+    const underlyingTokenID = e.target.value;
 
 //    console.log("Underlying smartcontractaddress=", this.state.underlyingDSGDList.filter((xx) => xx.id === e.target.value));
 //    console.log("Underlying smartcontractaddress=", this.state.underlyingDSGDList.find( (xx) => xx.id === e.target.value));
 
     this.setState({
-      underlying: underlying,
+      underlyingTokenID: underlyingTokenID,
+      datachanged: true
+    });
+  }
+*/
+
+  onChangeUnderlying(e) {
+    const underlyingTokenID = e.target.value;
+    console.log("New underlying=", underlyingTokenID);
+    const newBlockchain = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+    console.log("New blockchain=", newBlockchain);
+
+// when underlying changes, blockchain might change also bccos underlying could be in different blockchain
+    this.setState({
+      underlyingTokenID: underlyingTokenID,
+      blockchain: newBlockchain,
       datachanged: true
     });
   }
@@ -315,7 +332,7 @@ export default class PBMEdit extends Component {
       if (this.state.tokenname.trim() === "") err += "- Token Name cannot be empty\n";
     
     // dont need t check description, it can be empty
-    if (this.state.underlying === "") err += "- Underlying DSGD cannot be empty\n";
+    if (this.state.underlyingTokenID === "") err += "- Underlying DSGD cannot be empty\n";
     if (! validator.isDate(this.state.startdate)) err += "- Start Date is invalid\n";
     if (! validator.isDate(this.state.enddate)) err += "- End Date is invalid\n";
     if (this.state.sponsor === "") err += "- Sponsor cannot be empty\n";
@@ -360,7 +377,7 @@ export default class PBMEdit extends Component {
       if (await this.validateForm() === true) { 
 
         console.log("Creating PBM template this.state.underlyingDSGDList= ", this.state.underlyingDSGDList);
-        console.log("Creating PBM template underlyingDSGDsmartcontractaddress= ", this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.underlying)).smartcontractaddress);
+        console.log("Creating PBM template underlyingDSGDsmartcontractaddress= ", this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.underlyingTokenID)).smartcontractaddress);
     
         var data = {
           templatename      : this.state.templatename,
@@ -373,8 +390,8 @@ export default class PBMEdit extends Component {
           datafield2_name   : this.state.datafield2_name,
           datafield2_value  : this.state.datafield2_value,
 
-          underlyingTokenID : this.state.underlying,
-          underlyingDSGDsmartcontractaddress  : this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.underlying)).smartcontractaddress,
+          underlyingTokenID : this.state.underlyingTokenID,
+          underlyingDSGDsmartcontractaddress  : this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.underlyingTokenID)).smartcontractaddress,
           startdate         : this.state.startdate,
           enddate           : this.state.enddate,
           sponsor           : this.state.sponsor,
@@ -405,7 +422,7 @@ export default class PBMEdit extends Component {
             name: response.data.name,
             tokenname: response.data.tokenname,
             description: response.data.description,
-            underlying: response.data.underlyingTokenID,
+            underlyingTokenID: response.data.underlyingTokenID,
             startdate: response.data.startdate,
             enddate: response.data.enddate,
             sponsor: response.data.sponsor,
@@ -452,7 +469,7 @@ export default class PBMEdit extends Component {
       name: "",
       tokenname: "",
       description: "",
-      underlying: "",
+      underlyingTokenID: "",
       startdate: "",
       enddate: "",
       sponsor: "",
@@ -714,7 +731,7 @@ export default class PBMEdit extends Component {
                   <select
                         onChange={this.onChangeUnderlying}                         
                         className="form-control"
-                        id="underlying"
+                        id="underlyingTokenID"
                         disabled={!this.state.isMaker}
                       >
                         {
@@ -725,6 +742,25 @@ export default class PBMEdit extends Component {
                           : null
                         }
                   </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="description">Blockchain to Deploy at</label>
+                  <select
+                        onChange={this.onChangeBlockchain}                         
+                        className="form-control"
+                        id="blockchain"
+                        disabled="true"
+                      >
+                        <option >   </option>
+                        <option value="80001"  selected={this.state.blockchain === 80001}>Polygon   Testnet Mumbai</option>
+                        <option value="80002"  selected={this.state.blockchain === 80002}>Polygon   Testnet Amoy</option>
+                        <option value="11155111" selected={this.state.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
+                        <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
+                        <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
+                        <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
+                        <option value="43114"      disabled>Avalanche Mainnet (not in use at the moment)</option>
+                      </select>
                 </div>
 
                 <label htmlFor="datafield1_name">PBM Conditions</label>
@@ -906,24 +942,6 @@ export default class PBMEdit extends Component {
 <br/>
 <br/>
 <hr/>
-                <div className="form-group">
-                  <label htmlFor="description">Blockchain to Deploy at</label>
-                  <select
-                        onChange={this.onChangeBlockchain}                         
-                        className="form-control"
-                        id="sponsor"
-                        disabled="true"
-                      >
-                        <option value="80001"            >Polygon   Testnet Mumbai</option>
-                        <option value="80002"            >Polygon   Testnet Amoy</option>
-                        <option value="11155111" disabled>Ethereum  Testnet Sepolia (not in use at the moment)</option>
-                        <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
-                        <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
-                        <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
-                        <option value="43114"      disabled>Avalanche Mainnet (not in use at the moment)</option>
-                      </select>
-                </div>
-
                 
                 <div className="form-group">
                   <label htmlFor="checker">Checker *</label>

@@ -292,7 +292,7 @@ export default class CampaignList extends Component {
                       <td>{pbm1.name}</td>
                       <td>{pbm1.tokenname}</td>
                       <td>{(() => {
-                          switch (pbm1.blockchain) {
+                          switch (pbm1.campaign.blockchain) {
                             case 80001:
                               return 'Polygon Testnet Mumbai'
                             case 80002:

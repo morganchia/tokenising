@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import PBMDataService from "../services/pbm.service";
+import CampaignDataService from "../services/campaign.service";
 import RecipientDataService from "../services/recipient.service";
 import UserOpsRoleDataService from "../services/user_opsrole.service";
 import { withRouter } from '../common/with-router';
@@ -16,6 +17,7 @@ class PBM extends Component {
     this.onChangeName = this.onChangeName.bind(this);
     this.onChangeTokenName = this.onChangeTokenName.bind(this);
     this.onChangeDescription = this.onChangeDescription.bind(this);
+    this.onChangeUnderlying = this.onChangeUnderlying.bind(this);
 
     this.onChangeDatafield1_name = this.onChangeDatafield1_name.bind(this);
     this.onChangeDatafield1_value = this.onChangeDatafield1_value.bind(this);
@@ -72,6 +74,7 @@ class PBM extends Component {
         datafield2_value: "",
 
         smartcontractaddress: "",
+        blockchain: "",
         startdate: "",
         enddate: "",
         sponsor: "",
@@ -104,6 +107,8 @@ class PBM extends Component {
         datafield2_value: "",
 
         smartcontractaddress: "",
+        blockchain: "",
+        underlyingTokenID:"",      // underlyingTokenID
         startdate: "",
         enddate: "",
         sponsor: "",
@@ -209,10 +214,15 @@ class PBM extends Component {
     this.setState({ currentUser: user, userReady: true })
 
     this.getPBM(user, this.props.router.params.id);
-    
+    this.getAllUnderlyingAssets();
     this.getAllSponsors();
-
     this.retrieveAllMakersCheckersApprovers();
+/*
+    const newBlockchain = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(this.state.underlying)).blockchain;
+    this.setState({
+      blockchain: newBlockchain
+    });
+*/
   }
 
   onChangeName(e) {
@@ -261,6 +271,33 @@ class PBM extends Component {
         }
       };
     });
+  }
+
+  onChangeUnderlying(e) {
+    const underlyingTokenID = e.target.value;
+    console.log("New underlying=", underlyingTokenID);
+    const newBlockchain = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+    console.log("New blockchain=", newBlockchain);
+    const newUnderlyingDSGDsmartcontractaddress = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).smartcontractaddress
+    const newCampaign = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID));
+
+    // when underlying changes, blockchain might change also bccos underlying could be in different blockchain
+    this.setState({
+      datachanged: true
+    });
+    this.setState(function(prevState) {
+      return {
+        currentPBM: {
+          ...prevState.currentPBM,
+          underlyingTokenID: underlyingTokenID,
+          blockchain: newBlockchain,
+          underlyingDSGDsmartcontractaddress: newUnderlyingDSGDsmartcontractaddress,
+          campaign: newCampaign,
+        }
+      };
+    });
+    console.log("New currentPBM=", this.state.currentPBM);
+
   }
 
   onChangeDatafield1_name(e) {
@@ -545,6 +582,28 @@ class PBM extends Component {
     }
   }
 
+  getAllUnderlyingAssets() {
+    CampaignDataService.getAll()
+      .then(response => {
+        if (response.data.length === 0) {
+          this.setState({
+            underlyingDSGDList: [ { id:-1, name:"No campaign available, please create a campaign first."}],
+          });
+        } else {          
+          var first_array_record = [  // add 1 empty record to front of array which is the option list
+            { }
+          ];
+          this.setState({
+            underlyingDSGDList: [first_array_record].concat(response.data)
+          });
+        }
+      })
+      .catch(e => {
+        console.log(e);
+        //return(null);
+      });
+  }
+
   getAllSponsors() {
     RecipientDataService.findAllRecipients()
       .then(response => {
@@ -756,7 +815,7 @@ async acceptPBM() {
       this.setState({  
         datachanged: false,
       });
-      this.displayModal("The pbm is approved and executed successfully"+ (typeof(response.data.smartcontractaddress)!=="undefined" && response.data.smartcontractaddress!==null && response.data.smartcontractaddress!==""? " with smart contract deployed at "+response.data.smartcontractaddress+". \n\nYou can start using it to create PBMs from DSGD now.": "."), "OK", null, null, null);
+      this.displayModal("The pbm is approved and executed successfully"+ (typeof(response.data.smartcontractaddress)!=="undefined" && response.data.smartcontractaddress!==null && response.data.smartcontractaddress!==""? " with smart contract deployed at "+response.data.smartcontractaddress+". \n\nYou can start using it to mint PBMs from DSGD now.": "."), "OK", null, null, null);
     })
     .catch(e => {
       this.hide_loading();
@@ -912,7 +971,8 @@ async deletePBM() {
 
 
   render() {
-    const { recipient, currentPBM, checkerList, approverList } = this.state;
+    const { underlyingDSGDList, recipient, currentPBM, checkerList, approverList } = this.state;
+    console.log("Render underlyingDSGDList:", underlyingDSGDList);
     console.log("Render recipient:", recipient);
     console.log("Render currentPBM:", currentPBM);
 
@@ -1093,25 +1153,9 @@ async deletePBM() {
 
 
                 <div className="form-group">
-                  <label htmlFor="blockchain">Blockchain *</label>
-                  <select
-                        onChange={this.onChangeBlockchain}                         
-                        className="form-control"
-                        id="blockchain"
-                        disabled="true"
-                        >
-                        <option value="80001"            >Polygon   Testnet Mumbai</option>
-                        <option value="80002"            >Polygon   Testnet Amoy</option>
-                        <option value="11155111" disabled>Ethereum  Testnet Sepolia (not in use at the moment)</option>
-                        <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
-                        <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
-                        <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
-                        <option value="43114"      disabled>Avalanche Mainnet (not in use at the moment)</option>
-                      </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="name">Underlying DSGD Smart Contract</label>
+                  <label htmlFor="name">Underlying DSGD Smart Contract *</label>
+                  {
+                  /*
                   <input
                     type="text"
                     className="form-control"
@@ -1119,9 +1163,47 @@ async deletePBM() {
                     required
                     value={currentPBM.underlyingDSGDsmartcontractaddress}
                     name="underlyingDSGDsmartcontractaddress"
-                    disabled={true}
+                    disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
                   />
+                  */
+                  }
+                  <select
+                        onChange={this.onChangeUnderlying}                         
+                        className="form-control"
+                        id="underlyingTokenID"
+                        required
+                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
+                  >
+                        {
+                          Array.isArray(underlyingDSGDList) ?
+                          underlyingDSGDList.map( (d) => {
+                            // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                              return <option value={d.id} selected={d.id === currentPBM.campaign.id}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                            })
+                          : null
+                        }
+                  </select>
+
                 </div>
+                <div className="form-group">
+                  <label htmlFor="blockchain">Blockchain *</label>
+                  <select
+                        onChange={this.onChangeBlockchain}                         
+                        className="form-control"
+                        id="blockchain"
+                        disabled="true"
+                        >
+                        <option >   </option>
+                        <option value="80001"  selected={currentPBM.campaign.blockchain === 80001}>Polygon   Testnet Mumbai</option>
+                        <option value="80002"  selected={currentPBM.campaign.blockchain === 80002}>Polygon   Testnet Amoy</option>
+                        <option value="11155111" selected={currentPBM.campaign.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
+                        <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
+                        <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
+                        <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
+                        <option value="43114"      disabled>Avalanche Mainnet (not in use at the moment)</option>
+                      </select>
+                </div>
+
 
                     <div className="form-group">
                       <label htmlFor="startdate">Start Date</label>

@@ -300,8 +300,31 @@ export default class PBMList extends Component {
                               ? this.shorten(pbm1.campaign.smartcontractaddress)  :null
                           }
                       </td>
-
-                      <td><a href={"https://mumbai.polygonscan.com/address/"+pbm1.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a></td>
+                      <td>
+                        <a href={"https://"+
+                        (() => {
+                          switch (pbm1.campaign.blockchain) {
+                            case 80001:
+                              return 'mumbai.polygonscan.com/address/'
+                            case 80002:
+                              return 'amoy.polygonscan.com/address/'
+                            case 11155111:
+                              return 'sepolia.etherscan.io/address/'
+                            case 43113:
+                              return 'fuji.avascan.info/blockchain/all/address/'
+                            case 137:
+                              return 'polygonscan.com/address/'
+                            case 1:
+                              return 'etherscan.io/address/'
+                            case 43114:
+                              return 'avascan.info/blockchain/all/address/'
+                            default:
+                              return null
+                          }
+                        }
+                      )()
+                        +pbm1.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
+                      </td>
                       <td>
                         <Link
                           to={"/pbmedit/" + pbm1.id}

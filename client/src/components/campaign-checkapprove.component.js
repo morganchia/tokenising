@@ -469,6 +469,8 @@ displayModal(msg, b1text, b2text, b3text, b0text) {
         // ok to proceed
       });
     }
+
+    if (this.state.currentCampaign.blockchain === "" || isNaN(this.state.currentCampaign.blockchain)) err += "- Blockchain cannot be empty\n";
         
       // dont need t check description, it can be empty
     if (! validator.isDate(this.state.currentCampaign.startdate)) err += "- Start Date is invalid\n";
@@ -860,9 +862,10 @@ async deleteCampaign() {
                         id="blockchain"
                         disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
                         >
+                        <option value=""             > </option>
                         <option value="80001"  selected={currentCampaign.blockchain === 80001}>Polygon   Testnet Mumbai</option>
                         <option value="80002"  selected={currentCampaign.blockchain === 80002}>Polygon   Testnet Amoy</option>
-                        <option value="11155111" disabled>Ethereum  Testnet Sepolia (not in use at the moment)</option>
+                        <option value="11155111" selected={currentCampaign.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
                         <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
                         <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
                         <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
