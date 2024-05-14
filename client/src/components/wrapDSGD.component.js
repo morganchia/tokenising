@@ -252,17 +252,12 @@ export default class dsgd2pbm extends Component {
                 return { web3BSC, transactionContractInstance };
               }; // createInstance
 
-
-              const WrapMint = async () => {  //parameters you need
+              const updateSmartContract = async () => {  //parameters you need
                 try {  // try 3
                   const contractInstance = createInstance();   // executing via Infura using PBMcontractowner's private key
                 // need to calculate gas fees for the addBonus
                 //  console.log("Estimating gas fee for wrapMint....");
                   console.log("wrapMint(): From ("+PBMContractAddr1+"), To ("+connectedAccount+")");
-
-    //
-    // Step 2: Estimate gas fee for Wrapmint
-    //
 
                   const gasFees =
                   await contractInstance.transactionContractInstance.methods
@@ -282,10 +277,6 @@ export default class dsgd2pbm extends Component {
                     return 2100000;  // if error then use default fee
                   });
                   console.log("Estimated gas fee for wrapMint: ", gasFees);
-
-    //
-    // Step 3: Execute Wrapmint
-    //
 
                   const tx = {
                     // this is the address responsible for this transaction
@@ -367,9 +358,9 @@ export default class dsgd2pbm extends Component {
                 } catch(error) {
                   throw error;
                 } // try 3
-              } // function WrapMint
+              } // function updateSmartContract
 
-              await WrapMint();
+              await updateSmartContract();
 
             } // try 2
             catch(err){

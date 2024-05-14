@@ -801,22 +801,40 @@ async deleteMint() {
                     disabled={true}
                     />
                 </div>
-
                 <div className="form-group">
-                  <label htmlFor="blockchain">Blockchain *</label>
-                  <select
-                        className="form-control"
-                        id="blockchain"
-                        disabled={!this.state.isMaker || this.state.currentMint.txntype===2}
-                        >
-                        <option value="80001"            >Polygon   Testnet Mumbai</option>
-                        <option value="80002"            >Polygon   Testnet Amoy</option>
-                        <option value="11155111" >Ethereum  Testnet Sepolia </option>
-                        <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
-                        <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
-                        <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
-                        <option value="43114"      disabled>Avalanche Mainnet (not in use at the moment)</option>
-                      </select>
+                  <label htmlFor="blockchain">Blockchain</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="blockchain"
+                    required
+                    value={
+                      (() => {
+                        switch (currentMint.campaign.blockchain) {
+                          case 80001:
+                            return 'Polygon Testnet Mumbai (Deprecated)'
+                          case 80002:
+                            return 'Polygon Testnet Amoy'
+                          case 11155111:
+                            return 'Ethereum Testnet Sepolia'
+                          case 43113:
+                            return 'Avalanche Testnet Fuji'
+                          case 137:
+                            return 'Polygon Mainnet'
+                          case 1:
+                            return 'Ethereum  Mainnet'
+                          case 43114:
+                            return 'Avalanche Mainnet'
+                          default:
+                            return null
+                        }
+                      }
+                      )()
+                    }
+                    onChange={this.onChangeBlockchain}
+                    autoComplete="off"
+                    disabled={true}
+                  />
                 </div>
                 <div className="form-group">
                   <label htmlFor="mintAmount">Amount</label>

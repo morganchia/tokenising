@@ -99,6 +99,19 @@ class Transfer extends Component {
     };
   }
 
+  componentDidMount() {
+    const user = AuthService.getCurrentUser();
+
+    if (!user) this.setState({ redirect: "/home" });
+    this.setState({ currentUser: user, userReady: true })
+
+    this.getTransfer(user, this.props.router.params.id);
+    
+    //this.getAllSponsors();
+
+    this.retrieveAllMakersCheckersApprovers();
+  }
+  
   retrieveAllMakersCheckersApprovers() {
     UserOpsRoleDataService.getAllMakersCheckersApprovers("transfer")
       .then(response => {
@@ -142,18 +155,7 @@ class Transfer extends Component {
       });
   }
 
-  componentDidMount() {
-    const user = AuthService.getCurrentUser();
-
-    if (!user) this.setState({ redirect: "/home" });
-    this.setState({ currentUser: user, userReady: true })
-
-    this.getTransfer(user, this.props.router.params.id);
-    
-    //this.getAllSponsors();
-
-    this.retrieveAllMakersCheckersApprovers();
-  }
+  
 /*
   onChangeName(e) {
     const name = e.target.value;
@@ -357,7 +359,9 @@ class Transfer extends Component {
           }
           */
 
-          this.setState({ isNewTransfer : (response.data[0].smartcontractaddress === "" || response.data[0].smartcontractaddress === null) });
+          this.setState({ 
+            isNewTransfer : (response.data[0].smartcontractaddress === "" || response.data[0].smartcontractaddress === null) 
+          });
         })
         .catch(e => {
           console.log("Error from getAllDraftsByTransferId(id):",e);
@@ -736,7 +740,7 @@ async deleteTransfer() {
 
                   <form autoComplete="off">
                     <div className="form-group">
-                      <label htmlFor="name">Name</label>
+                      <label htmlFor="name">Campaign Name</label>
                       <input
                         type="text"
                         className="form-control"
@@ -765,7 +769,6 @@ async deleteTransfer() {
                 </div>
  */
                     }
-
                 <div className="form-group">
                   <label htmlFor="name">Token Name</label>
                   <input
@@ -780,22 +783,40 @@ async deleteTransfer() {
                     disabled={true}
                     />
                 </div>
-
                 <div className="form-group">
-                  <label htmlFor="blockchain">Blockchain *</label>
-                  <select
+                  <label htmlFor="blockchain">Blockchain</label>
+                  <input
+                    type="text"
                     className="form-control"
                     id="blockchain"
-                    disabled={!this.state.isMaker || this.state.currentTransfer.txntype===2}
-                    >
-                        <option value="80001"            >Polygon   Testnet Mumbai</option>
-                        <option value="80002"            >Polygon   Testnet Amoy</option>
-                        <option value="11155111" >Ethereum  Testnet Sepolia </option>
-                        <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
-                        <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
-                        <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
-                        <option value="43114"      disabled>Avalanche Mainnet (not in use at the moment)</option>
-                  </select>
+                    required
+                    value={
+                      (() => {
+                        switch (currentTransfer.campaign.blockchain) {
+                          case 80001:
+                            return 'Polygon Testnet Mumbai (Deprecated)'
+                          case 80002:
+                            return 'Polygon Testnet Amoy'
+                          case 11155111:
+                            return 'Ethereum Testnet Sepolia'
+                          case 43113:
+                            return 'Avalanche Testnet Fuji'
+                          case 137:
+                            return 'Polygon Mainnet'
+                          case 1:
+                            return 'Ethereum  Mainnet'
+                          case 43114:
+                            return 'Avalanche Mainnet'
+                          default:
+                            return null
+                        }
+                      }
+                      )()
+                    }
+                    onChange={this.onChangeBlockchain}
+                    autoComplete="off"
+                    disabled={true}
+                  />
                 </div>
                 <div className="form-group">
                   <label htmlFor="transferAmount">Amount</label>

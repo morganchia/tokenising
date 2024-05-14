@@ -15,6 +15,7 @@ module.exports = app => {
 
   // Create a new PBM
   //router.post("/", pbm.create);
+  router.post("/wrapmintdraftcreate/", pbm.wrapMint_draftCreate);
   router.post("/draftcreate/", pbm.draftCreate);
   router.post("/templatecreate/", pbm.templateCreate);
 
@@ -22,8 +23,10 @@ module.exports = app => {
   router.get("/findByName", pbm.findByName);
 
   router.get("/getalldraftsbyuserid", pbm.getAllDraftsByUserId);
+  router.get("/getallwrapmintdraftsbyuserid", pbm.getAllWrapMintDraftsByUserId);
 
   router.get("/getalldraftsbypbmid", pbm.getAllDraftsByPBMId);
+  router.get("/getallwrapmintdraftsbyid", pbm.getAllWrapMintDraftsById);
 
   router.get("/", pbm.getAll);
   router.get("/getallpbmtemplates", pbm.getAllPBMTemplates);
@@ -46,6 +49,13 @@ module.exports = app => {
   router.put("/rejectdraftbyid/:id", pbm.rejectDraftById);
   router.put("/approvedeletedraftbyid/:id", pbm.approveDeleteDraftById); 
   router.put("/droprequestbyid/:id", pbm.dropRequestById);
+
+  router.put("/submitwrapmintdraftbyid/:id", pbm.submitWrapMintDraftById);
+  router.put("/acceptwrapmintdraftbyid/:id", pbm.acceptWrapMintDraftById);
+  router.put("/approvewrapmintdraftbyid/:id", pbm.approveWrapMintDraftById);
+  router.put("/rejectwrapmintdraftbyid/:id", pbm.rejectWrapMintDraftById);
+  router.put("/approvedeletewrapmintdraftbyid/:id", pbm.approveDeleteWrapMintDraftById); 
+  router.put("/dropwrapmintrequestbyid/:id", pbm.dropWrapMintRequestById);
 
   // Update a PBM with id
   router.put("/:id", pbm.update);

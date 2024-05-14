@@ -19,6 +19,10 @@ class PBMDataService {
   }
   */
 
+  wrapMint_draftCreate(data) {
+    return http.post("/pbm/wrapmintdraftcreate", data);
+  }
+
   draftCreate(data) {
     return http.post("/pbm/draftcreate", data);
   }
@@ -36,9 +40,19 @@ class PBMDataService {
     return http.put(`/pbm/submitdraftbyid/${id}`, data);
   }
 
+  submitWrapMintDraftById(id, data) {
+    console.log("Calling /pbm/submitwrapmintdraftbyid?id");
+    return http.put(`/pbm/submitwrapmintdraftbyid/${id}`, data);
+  }
+
   acceptDraftById(id, data) {
     console.log("Calling /pbm/acceptdraftbyid?id");
     return http.put(`/pbm/acceptdraftbyid/${id}`, data);
+  }
+
+  acceptWrapMintDraftById(id, data) {
+    console.log("Calling /pbm/acceptwrapmintdraftbyid?id");
+    return http.put(`/pbm/acceptwrapmintdraftbyid/${id}`, data);
   }
 
   approveDraftById(id, data) {
@@ -46,9 +60,19 @@ class PBMDataService {
     return http.put(`/pbm/approvedraftbyid/${id}`, data);
   }
 
+  approveWrapMintDraftById(id, data) {
+    console.log("Calling /pbm/approvewrapmintdraftbyid?id");
+    return http.put(`/pbm/approvewrapmintdraftbyid/${id}`, data);
+  }
+
   approveDeleteDraftById(id, data) {
     console.log("Calling /pbm/approvedeletedraftbyid?id");
     return http.put(`/pbm/approvedeletedraftbyid/${id}`, data);
+  }
+
+  approveDeleteWrapMintDraftById(id, data) {
+    console.log("Calling /pbm/approvedeletewrapmintdraftbyid?id");
+    return http.put(`/pbm/approvedeletewrapmintraftbyid/${id}`, data);
   }
 
   rejectDraftById(id, data) {
@@ -56,9 +80,19 @@ class PBMDataService {
     return http.put(`/pbm/rejectdraftbyid/${id}`, data);
   }
 
+  rejectWrapMintDraftById(id, data) {
+    console.log("Calling /pbm/rejectwrapmintdraftbyid?id");
+    return http.put(`/pbm/rejectwrapmintdraftbyid/${id}`, data);
+  }
+
   dropRequestById(id, data) {
     console.log("Calling /pbm/droprequestbyid?id");
     return http.put(`/pbm/droprequestbyid/${id}`, data);
+  }
+
+  dropWrapMintRequestById(id, data) {
+    console.log("Calling /pbm/dropwrapmintrequestbyid?id");
+    return http.put(`/pbm/dropwrapmintrequestbyid/${id}`, data);
   }
 
   delete(id) {
@@ -77,8 +111,16 @@ class PBMDataService {
     return http.get(`/pbm/getalldraftsbyuserid?id=${id}`);
   }
 
+  getAllWrapMintDraftsByUserId(id) {
+    return http.get(`/pbm/getallwrapmintdraftsbyuserid?id=${id}`);
+  }
+
   getAllDraftsByPBMId(id) {
     return http.get(`/pbm/getalldraftsbypbmid?id=${id}`);
+  }
+
+  getAllWrapMintDraftsById(id) {
+    return http.get(`/pbm/getallwrapmintdraftsbyid?id=${id}`);
   }
 
   findDraftByNameExact(name) {

@@ -9,6 +9,9 @@ module.exports = (sequelize, Sequelize) => {
       campaignId: {
         type: Sequelize.INTEGER   // recipient id
       },
+      blockchain: {
+        type: Sequelize.INTEGER  // chain id
+      },
       comments: {
         type: Sequelize.STRING    // varchar(255)
       },

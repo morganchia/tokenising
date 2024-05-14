@@ -255,7 +255,7 @@ export default class PBMList extends Component {
                       <td>{(() => {
                           switch (pbm1.campaign.blockchain) {
                             case 80001:
-                              return 'Polygon Testnet Mumbai'
+                              return 'Polygon Testnet Mumbai (Deprecated)'
                             case 80002:
                               return 'Polygon Testnet Amoy'
                             case 11155111:
@@ -292,25 +292,6 @@ export default class PBMList extends Component {
                               ? this.shorten(pbm1.campaign.smartcontractaddress)  :null
                           }
                       </td>
-{/*
-                      <td><a href={"https://mumbai.polygonscan.com/address/"+pbm1.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a></td>
-                      <td>
-                        <Link
-                          to={"/pbmedit/" + pbm1.id}
-                          className="badge badge-warning"
-                        >
-                           {this.state.isMaker? "Edit / Delete" : "View"}
-                        </Link>
-                      </td>
-                      <td>
-                        <Link
-                          to={"/dsgd2pbm"}
-                          className="badge badge-warning"
-                        >
-                           {this.state.isMaker? "Wrap UnderlyingToken to PBM" : ""}
-                        </Link>
-                      </td>
-*/}
                     </tr>
                   ))}
               </table>

@@ -540,9 +540,9 @@ export default class CampaignEdit extends Component {
                         disabled={!this.state.isMaker}
                       >
                         <option value=""             > </option>
-                        <option value="80001"  selected={this.state.blockchain === 80001}>Polygon   Testnet Mumbai</option>
                         <option value="80002"  selected={this.state.blockchain === 80002}>Polygon   Testnet Amoy</option>
                         <option value="11155111" selected={this.state.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
+                        <option value="80001"  selected={this.state.blockchain === 80001} disabled>Polygon   Testnet Mumbai (Deprecated)</option>
                         <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
                         <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
                         <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>

@@ -26,10 +26,10 @@ db.sequelize = sequelize;
 
 db.audittrail     = require("./audit_trail.model.js")(sequelize, Sequelize);
 
-db.user               = require("./user.model.js")(sequelize, Sequelize);
-db.role               = require("./role.model.js")(sequelize, Sequelize);
-db.userrole           = require("./userrole.model.js")(sequelize, Sequelize);
-db.opsrole            = require("./opsrole.model.js")(sequelize, Sequelize);
+db.user                = require("./user.model.js")(sequelize, Sequelize);
+db.role                = require("./role.model.js")(sequelize, Sequelize);
+db.userrole            = require("./userrole.model.js")(sequelize, Sequelize);
+db.opsrole             = require("./opsrole.model.js")(sequelize, Sequelize);
 db.campaigns           = require("./campaigns.model.js")(sequelize, Sequelize);
 db.campaigns_draft     = require("./campaigns_draft.model.js")(sequelize, Sequelize);
 db.recipients          = require("./recipients.model.js")(sequelize, Sequelize);
@@ -39,9 +39,10 @@ db.mints_draft         = require("./mints_draft.model.js")(sequelize, Sequelize)
 db.transfers           = require("./transfers.model.js")(sequelize, Sequelize);
 db.transfers_draft     = require("./transfers_draft.model.js")(sequelize, Sequelize);
 db.pbm                 = require("./pbm.model.js")(sequelize, Sequelize);
-db.pbms_draft           = require("./pbms_draft.model.js")(sequelize, Sequelize);
-db.pbm_templates        = require("./pbm_template.model.js")(sequelize, Sequelize);
-
+db.pbm_draft           = require("./pbm_draft.model.js")(sequelize, Sequelize);
+db.pbm_templates       = require("./pbm_templates.model.js")(sequelize, Sequelize);
+db.wrapmints_draft     = require("./wrapmints_draft.model.js")(sequelize, Sequelize);
+db.wrapmints           = require("./wrapmints.model.js")(sequelize, Sequelize);
 
 db.role.belongsToMany(db.user, {
   through: "user_roles",
@@ -195,7 +196,7 @@ db.pbm.belongsTo(db.recipients, {
   foreignKey: "sponsor",
   targetKey: "id"
 });
-db.pbms_draft.belongsTo(db.recipients, {
+db.pbm_draft.belongsTo(db.recipients, {
   foreignKey: "id",
   sourceKey: "sponsor"
 });
@@ -209,13 +210,21 @@ db.pbm.belongsTo(db.campaigns, {
   foreignKey: "underlyingTokenID",
   targetKey: "id",
 });
-db.pbms_draft.belongsTo(db.campaigns, {
+db.wrapmints.belongsTo(db.campaigns, {
+  foreignKey: "underlyingTokenID",
+  targetKey: "id",
+});
+db.pbm_draft.belongsTo(db.campaigns, {
   foreignKey: "id",
   sourceKey: "underlyingTokenID"
 });
 db.pbm_templates.belongsTo(db.campaigns, {
   foreignKey: "underlyingTokenID",
   targetKey: "id",
+});
+db.wrapmints_draft.belongsTo(db.campaigns, {
+  foreignKey: "id",
+  sourceKey: "underlyingTokenID"
 });
 
 
@@ -224,7 +233,15 @@ db.pbm.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "actionby"
 });
-db.pbms_draft.hasOne(db.user, {
+db.wrapmints.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "actionby"
+});
+db.pbm_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "actionby"
+});
+db.wrapmints_draft.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "actionby"
 });
@@ -233,7 +250,15 @@ db.pbm.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "maker"
 });
-db.pbms_draft.hasOne(db.user, {
+db.wrapmints.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "maker"
+});
+db.pbm_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "maker"
+});
+db.wrapmints_draft.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "maker"
 });
@@ -242,7 +267,15 @@ db.pbm.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "checker"
 });
-db.pbms_draft.hasOne(db.user, {
+db.wrapmints.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "checker"
+});
+db.pbm_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "checker"
+});
+db.wrapmints_draft.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "checker"
 });
@@ -251,7 +284,15 @@ db.pbm.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "approver"
 });
-db.pbms_draft.hasOne(db.user, {
+db.wrapmints.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "approver"
+});
+db.pbm_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "approver"
+});
+db.wrapmints_draft.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "approver"
 });

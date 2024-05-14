@@ -49,6 +49,8 @@ exports.draftCreate = async (req, res) => {
   }
 
   console.log("Received for Transfer draft Create:");
+  console.log(req.body);
+/*
   console.log(req.body.campaignId);
   console.log(req.body.tokenname);
   console.log(req.body.smartcontractaddress);
@@ -61,7 +63,7 @@ exports.draftCreate = async (req, res) => {
   console.log(req.body.checker);
   console.log(req.body.approver);
   console.log(req.body.actionby);
-
+*/
 
   // Save Transfer in the database
   await Transfers_Draft.create(  // inside draftCreate
@@ -69,6 +71,7 @@ exports.draftCreate = async (req, res) => {
       campaignId            : req.body.campaignId,
       tokenname             : req.body.tokenname.toUpperCase(), 
       smartcontractaddress  : req.body.smartcontractaddress,
+      blockchain            : req.body.campaign.blockchain,
       sourcewallet          : "Internal campaign wallet",
       recipientId           : req.body.recipient,
       recipientwallet     : req.body.recipientwallet,
@@ -92,6 +95,7 @@ exports.draftCreate = async (req, res) => {
         action                : "Transfer "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - created",
         tokenname             : req.body.tokenname.toUpperCase(), 
         smartcontractaddress  : req.body.smartcontractaddress,
+        blockchain            : req.body.campaign.blockchain,
         amount                : req.body.transferAmount,
         sourcewallet          : "Internal campaign wallet",
         recipientwallet       : req.body.recipientwallet,
@@ -138,6 +142,8 @@ exports.create = async (req, res) => {
   }
 
   console.log("Received for Create:");
+  console.log(req.body);
+/*
   console.log(req.body.campaignId);
   console.log(req.body.transferAmount);
   console.log(req.body.recipientwallet);
@@ -145,13 +151,35 @@ exports.create = async (req, res) => {
   console.log(req.body.smartcontractaddress);
   console.log(req.body.tokenname);
   console.log(req.body.actionby);
-
+*/
 
   ////////////////////////////// Blockchain ////////////////////////
 
       require('dotenv').config();
-
-      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
+      const ETHEREUM_NETWORK = (() => {
+        switch (req.body.campaign.blockchain) { // xxx
+            case 80001:
+              return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
+            case 80002:
+              return process.env.REACT_APP_POLYGON_AMOY_NETWORK
+            case 11155111:
+              return process.env.REACT_APP_ETHEREUM_SEPOLIA_NETWORK
+            case 43113:
+              return process.env.REACT_APP_AVALANCHE_FUJI_NETWORK
+            case 137:
+              return process.env.REACT_APP_POLYGON_MAINNET_NETWORK
+            case 1:
+              return process.env.REACT_APP_ETHEREUM_MAINNET_NETWORK
+            case 43114:
+              return process.env.REACT_APP_AVALANCHE_MAINNET_NETWORK
+            default:
+              return null
+          }
+        }
+      )()
+      console.log("Using network:"+ ETHEREUM_NETWORK + "("+ req.body.campaign.blockchain +")");
+  
+//      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
       const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
       const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
       const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
@@ -283,6 +311,7 @@ exports.create = async (req, res) => {
         recipientwallet       : req.body.recipientwallet,
         recipientId           : req.body.recipient,
         smartcontractadddress : req.body.smartcontractadddress,
+        blockchain            : req.body.campaign.blockchain,
         tokename              : req.body.tokenname,
         actionby              : req.body.actionby,
       }, 
@@ -295,6 +324,7 @@ exports.create = async (req, res) => {
           action                : "Transfer "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - approved",
           tokenname             : req.body.tokenname.toUpperCase(), 
           smartcontractaddress  : req.body.smartcontractaddress,
+          blockchain            : req.body.campaign.blockchain,
           amount                : req.body.transferAmount,
           recipientwallet       : req.body.recipientwallet,
           recipientId           : req.body.recipient,
@@ -340,6 +370,8 @@ exports.approveDraftById = async (req, res) => {
 
   console.log("Received for ApproveDraftById:");
   console.log(req.params.id);
+  console.log(req.body);
+/*
   console.log(req.body.campaignId);
   console.log(req.body.campaign.name);
   console.log(req.body.campaign.tokenname);
@@ -353,7 +385,7 @@ exports.approveDraftById = async (req, res) => {
   console.log(req.body.checkerComments);
   console.log(req.body.approverComments);
   console.log(req.body.actionby);
-
+*/
 
   // Validate request
   if (!req.body.campaign) { // campaignId
@@ -368,8 +400,29 @@ exports.approveDraftById = async (req, res) => {
   ////////////////////////////// Blockchain ////////////////////////
 
       require('dotenv').config();
-
-      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
+      const ETHEREUM_NETWORK = (() => {
+        switch (req.body.campaign.blockchain) { // xxx
+            case 80001:
+              return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
+            case 80002:
+              return process.env.REACT_APP_POLYGON_AMOY_NETWORK
+            case 11155111:
+              return process.env.REACT_APP_ETHEREUM_SEPOLIA_NETWORK
+            case 43113:
+              return process.env.REACT_APP_AVALANCHE_FUJI_NETWORK
+            case 137:
+              return process.env.REACT_APP_POLYGON_MAINNET_NETWORK
+            case 1:
+              return process.env.REACT_APP_ETHEREUM_MAINNET_NETWORK
+            case 43114:
+              return process.env.REACT_APP_AVALANCHE_MAINNET_NETWORK
+            default:
+              return null
+          }
+        }
+      )()
+      console.log("Using network:"+ ETHEREUM_NETWORK + "("+ req.body.campaign.blockchain +")");
+//      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
       const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
       const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
       const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
@@ -538,6 +591,7 @@ if (updatestatus) {
             action                : "Transfer "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - accepted",
             tokenname             : req.body.tokenname.toUpperCase(), 
             smartcontractaddress  : req.body.smartcontractaddress,
+            blockchain            : req.body.campaign.blockchain,
             amount                : req.body.transferAmount,
             sourcewallet          : "Internal campaign wallet",
             recipientwallet       : req.body.recipientwallet,
@@ -592,6 +646,7 @@ if (updatestatus) {
       recipientwallet     : req.body.recipientwallet,
       recipientId           : req.body.recipient,
       smartcontractadddress : req.body.smartcontractadddress,
+      blockchain            : req.body.campaign.blockchain,
       tokename              : req.body.tokenname,
       actionby              : req.body.actionby,
     }, 
@@ -714,6 +769,8 @@ exports.submitDraftById = async (req, res) => {
 
   console.log("Received1:");
   console.log(id);
+  console.log(req.body);
+/*
   console.log(req.body.campaign.name);
   console.log(req.body.campaign.tokenname);
   console.log(req.body.transferAmount);
@@ -721,13 +778,14 @@ exports.submitDraftById = async (req, res) => {
   console.log(req.body.actionby);
   console.log(req.body.checkerComments);
   console.log(req.body.approverComments);
-
+*/
   await Transfers_Draft.update(
   { 
     status :              1,
     campaignId:           req.body.campaign.id,
     transferAmount:               req.body.transferAmount,
-//    txntype:              req.body.txntype,   // 0 - create,  1-edit,  2-delete
+    blockchain            : req.body.campaign.blockchain,
+    //    txntype:              req.body.txntype,   // 0 - create,  1-edit,  2-delete
     maker:                req.body.maker,
     checker:              req.body.checker,
     approver:             req.body.approver,
@@ -746,6 +804,7 @@ exports.submitDraftById = async (req, res) => {
           action                : "Transfer "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - resubmitted",
           tokenname             : req.body.tokenname.toUpperCase(), 
           smartcontractaddress  : req.body.smartcontractaddress,
+          blockchain            : req.body.campaign.blockchain,
           amount                : req.body.transferAmount,
           sourcewallet          : "Internal campaign wallet",
           recipientwallet       : req.body.recipientwallet,
@@ -819,6 +878,7 @@ exports.acceptDraftById = async (req, res) => {
           action                : "Transfer "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - accepted",
           tokenname             : req.body.tokenname.toUpperCase(), 
           smartcontractaddress  : req.body.smartcontractaddress,
+          blockchain            : req.body.campaign.blockchain,
           amount                : req.body.transferAmount,
           sourcewallet          : "Internal campaign wallet",
           recipientwallet       : req.body.recipientwallet,
@@ -889,6 +949,7 @@ exports.rejectDraftById = async (req, res) => {
           action                : "Transfer "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - rejected",
           tokenname             : req.body.tokenname.toUpperCase(), 
           smartcontractaddress  : req.body.smartcontractaddress,
+          blockchain            : req.body.campaign.blockchain,
           amount                : req.body.transferAmount,
           sourcewallet          : "Internal campaign wallet",
           recipientwallet       : req.body.recipientwallet,

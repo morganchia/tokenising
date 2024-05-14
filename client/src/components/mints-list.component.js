@@ -151,7 +151,8 @@ export default class MintList extends Component {
     }
 
     const { searchName, mints, currentUser } = this.state;
-
+    var url = "";
+    var blockchainname = "";
     return (
       <div className="container">
           {(this.state.userReady) ?
@@ -209,33 +210,54 @@ export default class MintList extends Component {
                     <tr>
                       <td>{mmm.campaign.name}</td>
                       <td>{mmm.campaign.tokenname}</td>
-                      <td>{(() => {
+                      <td>
+                      { (() => {
                           switch (mmm.campaign.blockchain) {
                             case 80001:
-                              return 'Polygon Testnet Mumbai'
+                              blockchainname = 'Polygon Testnet Mumbai (Deprecated)';
+                              url =  'mumbai.polygonscan.com/address/'; 
+                              break;
                             case 80002:
-                              return 'Polygon Testnet Amoy'
+                              blockchainname = 'Polygon Testnet Amoy';
+                              url = 'amoy.polygonscan.com/address/';
+                              break;
                             case 11155111:
-                              return 'Ethereum Testnet Sepolia'
+                              blockchainname = 'Ethereum Testnet Sepolia';
+                              url = 'sepolia.etherscan.io/address/';
+                              break;
                             case 43113:
-                              return 'Avalanche Testnet Fuji'
+                              blockchainname = 'Avalanche Testnet Fuji';
+                              url = 'fuji.avascan.info/blockchain/all/address/';
+                              break;
                             case 137:
-                              return 'Polygon Mainnet'
+                              blockchainname = 'Polygon Mainnet';
+                              url = 'polygonscan.com/address/';
+                              break;
                             case 1:
-                              return 'Ethereum  Mainnet'
+                              blockchainname = 'Ethereum  Mainnet';
+                              url = 'etherscan.io/address/';
+                              break;
                             case 43114:
-                              return 'Avalanche Mainnet'
+                              blockchainname = 'Avalanche Mainnet';
+                              url = 'avascan.info/blockchain/all/address/';
+                              break;
                             default:
-                              return null
+                              blockchainname = null;
+                              url = null;
                           }
+                          })()
                         }
-                      )()}
+                        {blockchainname}
                       </td>
                       <td>{mmm.totalMinted}</td>
                       <td>{mmm.campaign.amount}</td>
                       <td>{this.shorten(mmm.campaign.smartcontractaddress)}</td>
-                      <td><a href={"https://mumbai.polygonscan.com/address/"+mmm.campaign.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a></td>
-                      <td><a href={"https://mumbai.polygonscan.com/token/"+mmm.campaign.smartcontractaddress+"#balances"} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a></td>                    
+                      <td>
+                        <a href={"https://" + url + mmm.campaign.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
+                      </td>
+                      <td>
+                        <a href={"https://" + url + mmm.campaign.smartcontractaddress+"#balances"} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
+                      </td>                    
                     </tr>
                     :null
                   ))}

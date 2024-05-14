@@ -249,7 +249,7 @@ export default class CampaignList extends Component {
                       <td>{(() => {
                           switch (campaign1.blockchain) {
                             case 80001:
-                              return 'Polygon Testnet Mumbai'
+                              return 'Polygon Testnet Mumbai (Deprecated)'
                             case 80002:
                               return 'Polygon Testnet Amoy'
                             case 11155111:

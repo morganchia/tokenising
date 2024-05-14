@@ -15,6 +15,7 @@ export default class CampaignList extends Component {
 //    this.onChangeSearchName = this.onChangeSearchName.bind(this);
 //    this.searchName = this.searchName.bind(this);
     this.retrievePBM = this.retrievePBM.bind(this);
+    this.retrieveWrapMint = this.retrieveWrapMint.bind(this);
     this.retrieveCampaigns = this.retrieveCampaigns.bind(this);
     this.retrieveMints = this.retrieveMints.bind(this);
     this.retrieveTransfers = this.retrieveTransfers.bind(this);
@@ -24,6 +25,7 @@ export default class CampaignList extends Component {
 
     this.state = {
       pbm: [],
+      wrapmint: [],
       campaigns: [],
       mints: [],
       transfers: [],
@@ -62,6 +64,21 @@ export default class CampaignList extends Component {
           pbm: response.data
         });
         console.log("Response data from retrievPBM() PBMDataService.getAllDraftsByUserId:", response.data);
+      })
+      .catch(e => {
+        console.log(e);
+      });
+    }
+  }
+
+  retrieveWrapMint(userid) {
+    if (userid !== undefined) {
+      PBMDataService.getAllWrapMintDraftsByUserId(userid)
+      .then(response => {
+        this.setState({
+          wrapmint: response.data
+        });
+        console.log("Response data from retrieveWrapMint() PBMDataService.getAllWrapMintDraftsByUserId:", response.data);
       })
       .catch(e => {
         console.log(e);
@@ -190,6 +207,7 @@ export default class CampaignList extends Component {
     this.setState({ isApprover: (isapprover === undefined? false: true),});
 
     this.retrievePBM(user.id);
+    this.retrieveWrapMint(user.id);
     this.retrieveCampaigns(user.id);
     this.retrieveMints(user.id);
     this.retrieveTransfers(user.id);
@@ -219,7 +237,7 @@ export default class CampaignList extends Component {
       return <Navigate to={this.state.redirect} />
     }
 
-    const { searchName, pbm, campaigns, mints, transfers, recipients, CurrentUser } = this.state;
+    const { searchName, pbm, wrapmint, campaigns, mints, transfers, recipients, CurrentUser } = this.state;
 
     return (
       <div className="container">
@@ -261,7 +279,6 @@ export default class CampaignList extends Component {
             }
             </div>
             <div className="col-md-12">
-
             <h5>
               <strong>PBMs</strong>
             </h5>
@@ -294,7 +311,7 @@ export default class CampaignList extends Component {
                       <td>{(() => {
                           switch (pbm1.campaign.blockchain) {
                             case 80001:
-                              return 'Polygon Testnet Mumbai'
+                              return 'Polygon Testnet Mumbai (Deprecated)'
                             case 80002:
                               return 'Polygon Testnet Amoy'
                             case 11155111:
@@ -369,9 +386,116 @@ export default class CampaignList extends Component {
               <br/>
               <br/>
               
-              <h5>
-              <strong>Campaigns</strong>
+            <h5>
+              <strong>Wrap DSGD with PBM</strong>
             </h5>
+              <table style={{ border:"1px solid"}}>
+                {(wrapmint.length > 0)?
+                <tr>
+                  <th>Action</th>
+                  <th>Name</th>
+                  <th>Token</th>
+                  <th>Blockchain</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  <th>Sponsor</th>
+                  <th>Amount</th>
+                  {
+                  /*
+                  <th>Smart Contract</th>
+                  */
+                  }
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+                : null}
+                {wrapmint && wrapmint.length > 0 &&
+                  wrapmint.map((wrapmint1, index) => (
+                    <tr>
+                      <td>{wrapmint1.txntype===0?"Create":wrapmint1.txntype===1?"Update":"Delete"}</td>
+                      <td>{wrapmint1.name}</td>
+                      <td>{wrapmint1.tokenname}</td>
+                      <td>{(() => {
+                          switch (wrapmint1.campaign.blockchain) {
+                            case 80001:
+                              return 'Polygon Testnet Mumbai (Deprecated)'
+                            case 80002:
+                              return 'Polygon Testnet Amoy'
+                            case 11155111:
+                              return 'Ethereum Testnet Sepolia'
+                            case 43113:
+                              return 'Avalanche Testnet Fuji'
+                            case 137:
+                              return 'Polygon Mainnet'
+                            case 1:
+                              return 'Ethereum  Mainnet'
+                            case 43114:
+                              return 'Avalanche Mainnet'
+                            default:
+                              return null
+                          }
+                        }
+                      )()}
+                      </td>
+                      <td>{wrapmint1.startdate}</td>
+                      <td>{wrapmint1.enddate}</td>
+                      <td>
+                        {
+                            (
+                              wrapmint1.recipient &&
+                              wrapmint1.recipient.name !== undefined)
+                              ? wrapmint1.recipient.name  :null
+                          }
+                      </td>
+                      <td>{wrapmint1.amount}</td>
+                      {
+                        /*
+                      <td>
+                            (pbm1.smartcontractaddress !== undefined && typeof pbm1.smartcontractaddress === "string")? this.shorten(pbm1.smartcontractaddress): null
+                          
+                      </td>
+                      */
+                      }
+                      <td>
+                      {
+                          wrapmint1.status === -1? "Rejected pending correction" : 
+                            (wrapmint1.status === 0? "Created pending submission":
+                              (wrapmint1.status === 1? "Submitted pending checker endorsement":
+                                (wrapmint1.status === 2? "Checked pending approval":
+                                  (wrapmint1.status === 3? "Approved": null)
+                                )
+                              )
+                            )
+                      }
+                      </td>
+                      <td>
+                        <Link
+                          to={"/pbmwrapcheckapprove/" + wrapmint1.id}
+                          className="badge badge-warning"
+                        >
+                          {
+                            wrapmint1.status === -1? "View/Correct Task" : (
+                              wrapmint1.status === 0? "View/Submit Task": (
+                                wrapmint1.status === 1? "View/Endorse Task": (
+                                  wrapmint1.status === 2? "View/Approve Task": null
+                                )
+                              )
+                            )
+                          }
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+              </table>
+              {!(wrapmint.length > 0)? "You have no pending actions."
+              : null}
+
+              <br/>
+              <br/>
+              
+              <h5>
+                <strong>Campaigns for Digital SGD</strong>
+              </h5>
               <table style={{ border:"1px solid"}}>
                 {(campaigns.length > 0)?
                 <tr>
@@ -398,10 +522,11 @@ export default class CampaignList extends Component {
                       <td>{campaign1.txntype===0?"Create":campaign1.txntype===1?"Update":"Delete"}</td>
                       <td>{campaign1.name}</td>
                       <td>{campaign1.tokenname}</td>
-                      <td>{(() => {
+                      <td>
+                        {(() => {
                           switch (campaign1.blockchain) {
                             case 80001:
-                              return 'Polygon Testnet Mumbai'
+                              return 'Polygon Testnet Mumbai (Deprecated)'
                             case 80002:
                               return 'Polygon Testnet Amoy'
                             case 11155111:
@@ -503,9 +628,9 @@ export default class CampaignList extends Component {
                       <td>{mint1.campaign.name}</td>
                       <td>{mint1.campaign.tokenname}</td>
                       <td>{(() => {
-                          switch (mint1.blockchain) {
+                          switch (mint1.campaign.blockchain) {
                             case 80001:
-                              return 'Polygon Testnet Mumbai'
+                              return 'Polygon Testnet Mumbai (Deprecated)'
                             case 80002:
                               return 'Polygon Testnet Amoy'
                             case 11155111:
@@ -598,9 +723,9 @@ export default class CampaignList extends Component {
                       <td>{transfer1.campaign.name}</td>
                       <td>{transfer1.campaign.tokenname}</td>
                       <td>{(() => {
-                          switch (transfer1.blockchain) {
+                          switch (transfer1.campaign.blockchain) {
                             case 80001:
-                              return 'Polygon Testnet Mumbai'
+                              return 'Polygon Testnet Mumbai (Deprecated)'
                             case 80002:
                               return 'Polygon Testnet Amoy'
                             case 11155111:

@@ -128,18 +128,16 @@ export default class MintAdd extends Component {
           totalSupply   : response.data.totalSupply,
         });
       }
-
     })
     .catch(e => {
       console.log(e);
       //return(null);
     });
 
-
     this.setState({
       campaignid: e.target.value,
       tokenname: (selectedCampaign ? selectedCampaign.tokenname : ""),
-      blockchain: "Polygon Testnet",
+      blockchain: (selectedCampaign ? selectedCampaign.blockchain : ""),
       smartcontractaddress: (selectedCampaign ? selectedCampaign.smartcontractaddress : ""),
       startdate: (selectedCampaign ? selectedCampaign.startdate : ""), 
       enddate: (selectedCampaign ? selectedCampaign.enddate : ""), 
@@ -256,7 +254,7 @@ export default class MintAdd extends Component {
             id                    : response.data.id,
             //name                : response.data.name,
             tokenname             : response.data.tokenname,
-            blockchain            : "Polygon Testnet",
+            blockchain            : response.data.blockchain,
             smartcontractaddress  : response.data.smartcontractaddress,
             description           : response.data.description,
             startdate             : response.data.startdate,
@@ -477,7 +475,6 @@ export default class MintAdd extends Component {
                         }
                       </select>
                 </div>
-
                 <div className="form-group">
                   <label htmlFor="name">Name of Token</label>
                   <input
@@ -491,7 +488,6 @@ export default class MintAdd extends Component {
                     disabled={true}
                   />
                 </div>
-                
                 <div className="form-group">
                   <label htmlFor="blockchain">Blockchain</label>
                   <input
@@ -499,13 +495,34 @@ export default class MintAdd extends Component {
                     className="form-control"
                     id="blockchain"
                     required
-                    value={this.state.blockchain}
+                    value={
+                      (() => {
+                        switch (this.state.blockchain) {
+                          case 80001:
+                            return 'Polygon Testnet Mumbai (Deprecated)'
+                          case 80002:
+                            return 'Polygon Testnet Amoy'
+                          case 11155111:
+                            return 'Ethereum Testnet Sepolia'
+                          case 43113:
+                            return 'Avalanche Testnet Fuji'
+                          case 137:
+                            return 'Polygon Mainnet'
+                          case 1:
+                            return 'Ethereum  Mainnet'
+                          case 43114:
+                            return 'Avalanche Mainnet'
+                          default:
+                            return null
+                        }
+                      }
+                      )()
+                    }
                     onChange={this.onChangeBlockchain}
                     autoComplete="off"
                     disabled={true}
                   />
                 </div>
-                
                 <div className="form-group">
                   <label htmlFor="smartcontractaddress">Smart Contract</label>
                   <input

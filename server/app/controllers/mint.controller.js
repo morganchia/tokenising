@@ -129,6 +129,8 @@ exports.approveDraftById = async (req, res) => {
 
   console.log("Received for ApproveDraftById:");
   console.log(req.params.id);
+  console.log(req.body);
+/*
   console.log(req.body.campaign.name);
   console.log(req.body.campaign.tokenname);
   console.log(req.body.mintAmount);
@@ -137,7 +139,7 @@ exports.approveDraftById = async (req, res) => {
   console.log(req.body.checkerComments);
   console.log(req.body.approverComments);
   console.log(req.body.actionby);
-
+*/
   // Validate request
   if (!req.body.campaign) { // campaignId
     res.status(400).send({
@@ -152,7 +154,29 @@ exports.approveDraftById = async (req, res) => {
 
       require('dotenv').config();
 
-      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
+      const ETHEREUM_NETWORK = (() => {
+        switch (req.body.campaign.blockchain) {
+          case 80001:
+            return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
+          case 80002:
+            return process.env.REACT_APP_POLYGON_AMOY_NETWORK
+          case 11155111:
+            return process.env.REACT_APP_ETHEREUM_SEPOLIA_NETWORK
+          case 43113:
+            return process.env.REACT_APP_AVALANCHE_FUJI_NETWORK
+          case 137:
+            return process.env.REACT_APP_POLYGON_MAINNET_NETWORK
+          case 1:
+            return process.env.REACT_APP_ETHEREUM_MAINNET_NETWORK
+          case 43114:
+            return process.env.REACT_APP_AVALANCHE_MAINNET_NETWORK
+          default:
+            return null
+        }
+        }
+      )();
+
+  //    const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
       const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
       const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
       const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;

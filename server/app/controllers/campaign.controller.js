@@ -895,7 +895,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     require('dotenv').config();
 
     const ETHEREUM_NETWORK = (() => {
-      switch (req.body.blockchain) {
+      switch (data[0].blockchain) {
           case 80001:
             return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
           case 80002:
@@ -915,7 +915,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
         }
       }
     )()
-    console.log("Using network:"+ ETHEREUM_NETWORK + "("+ req.body.blockchain+")");
+    console.log("Using network:"+ ETHEREUM_NETWORK + "("+ data[0].blockchain+")");
 
     //    const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
     const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;

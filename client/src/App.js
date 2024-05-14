@@ -47,6 +47,10 @@ import PBMCheckApprove from "./components/pbm-checkapprove.component";
 import PBMAdd from "./components/pbm-add.component";
 import PBMList from "./components/pbm-list.component";
 
+import PBMWrapCheckApprove from "./components/pbmwrap-checkapprove.component";
+import PBMWrapAdd from "./components/pbmwrap-add.component";
+import PBMWrapList from "./components/pbmwrap-list.component";
+
 import PBMTemplateAdd from "./components/pbm-template-add.component";
 import PBMTemplateList from "./components/pbm-template-list.component";
 
@@ -193,6 +197,13 @@ class App extends Component {
                     <i className='bx bx-atom' ></i>
                     <span className="links_name">PBMs</span>
                   <span className="tooltip">PBMs</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to={"/pbm"} className="nav-link">
+                    <i className='bx bx-atom' ></i>
+                    <span className="links_name">Wrap Mint PBM</span>
+                  <span className="tooltip">Wrap Mint PBM</span>
                   </Link>
                 </li>
                 <li>
@@ -374,6 +385,11 @@ class App extends Component {
 
             <Route path="/pbmtemplate" element={<PBMTemplateList/>} />
             <Route path="/pbmtemplateadd" element={<PBMTemplateAdd/>} />
+
+            <Route path="/pbmwrapadd/:dsgd/:pbm" element={<PBMWrapAdd/>} />
+            <Route path="/pbmwrapcheckapprove/:id" element={<PBMWrapCheckApprove/>} />
+            <Route path="/pbmwraplist/:id" element={<PBMWrapList/>} />
+
           </Routes>
         </div>
 

@@ -54,6 +54,7 @@ export default class Transfer extends Component {
       id: null,
       campaignid: "",
       smartcontractaddress: "",
+      blockchain: "",
       recipient: "",
       recipientwallet: "",
       transferAmount: "",
@@ -110,9 +111,10 @@ export default class Transfer extends Component {
   onChangeCampaign(e) {
 
     const selectedCampaign = this.state.campaignList.find((element) => { 
-      var el_id = element.id;             console.log("typeof(el_id)", typeof(el_id));
-      var campaign_id = e.target.value;   console.log("typeof(campaign_id)", typeof(campaign_id));
-      console.log("element.id:", element.id);   console.log("campaign_id:", campaign_id)
+      var el_id = element.id;
+      var campaign_id = e.target.value;
+      console.log("typeof(el_id)", typeof(el_id));                console.log("element.id:", element.id);   
+      console.log("typeof(campaign_id)", typeof(campaign_id));    console.log("campaign_id:", campaign_id)
       try {
         if (el_id.toString() === campaign_id) 
           return element;
@@ -150,6 +152,7 @@ export default class Transfer extends Component {
       campaignid: e.target.value,
       tokenname: (selectedCampaign ? selectedCampaign.tokenname : ""),
       smartcontractaddress: (selectedCampaign ? selectedCampaign.smartcontractaddress : ""),
+      blockchain: (selectedCampaign ? selectedCampaign.blockchain : ""),
       //recipient: (selectedCampaign ? selectedCampaign.recipient : ""), 
       totalsupply: (selectedCampaign ? selectedCampaign.amount : ""), 
       datachanged: true
@@ -256,6 +259,7 @@ export default class Transfer extends Component {
       campaignId            : this.state.campaignid,
       tokenname             : this.state.tokenname,
       smartcontractaddress  : this.state.smartcontractaddress,
+      blockchain            : this.state.blockchain,
       recipient             : this.state.recipient,
       recipientwallet       : this.state.recipientwallet,
       transferAmount        : this.state.transferAmount,
@@ -287,6 +291,8 @@ export default class Transfer extends Component {
 //          name: response.data.name,
           tokenname: response.data.tokenname,
           smartcontractaddress: response.data.smartcontractaddress,
+          blockchain: response.data.blockchain,
+
 //          description: response.data.description,
           recipient: response.data.recipient,
           recipientwallet: response.data.recipientwallet,
@@ -326,6 +332,7 @@ export default class Transfer extends Component {
       campaignid: "",
       tokenname: "",
       smartcontractaddress: "",
+      blockchain: "",
       description: "",
       startdate: "",
       enddate: "",
@@ -549,6 +556,41 @@ export default class Transfer extends Component {
                   />
                 </div>
                 <div className="form-group">
+                  <label htmlFor="blockchain">Blockchain</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="blockchain"
+                    required
+                    value={
+                      (() => {
+                        switch (this.state.blockchain) {
+                          case 80001:
+                            return 'Polygon Testnet Mumbai (Deprecated)'
+                          case 80002:
+                            return 'Polygon Testnet Amoy'
+                          case 11155111:
+                            return 'Ethereum Testnet Sepolia'
+                          case 43113:
+                            return 'Avalanche Testnet Fuji'
+                          case 137:
+                            return 'Polygon Mainnet'
+                          case 1:
+                            return 'Ethereum  Mainnet'
+                          case 43114:
+                            return 'Avalanche Mainnet'
+                          default:
+                            return null
+                        }
+                      }
+                      )()
+                    }
+                    onChange={this.onChangeBlockchain}
+                    autoComplete="off"
+                    disabled={true}
+                  />
+                </div>
+                <div className="form-group">
                   <label htmlFor="name">Campaign Smart Contract</label>
                   <input
                     type="text"
@@ -561,7 +603,6 @@ export default class Transfer extends Component {
                     disabled="true"
                   />
                 </div>
-
                 <div className="form-group">
                     <label htmlFor="recipient">Recipient *</label>
                     <select

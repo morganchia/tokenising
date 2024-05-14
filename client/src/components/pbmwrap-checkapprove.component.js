@@ -1,7 +1,6 @@
 import React, { Component } from "react";
 import PBMDataService from "../services/pbm.service";
 import CampaignDataService from "../services/campaign.service";
-import RecipientDataService from "../services/recipient.service";
 import UserOpsRoleDataService from "../services/user_opsrole.service";
 import { withRouter } from '../common/with-router';
 import AuthService from "../services/auth.service";
@@ -11,54 +10,36 @@ import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner";
 import "../LoadingSpinner.css";
 
-class PBM extends Component {
+class PBMWrapMint extends Component {
   constructor(props) {
     super(props);
-    this.onChangeName = this.onChangeName.bind(this);
-    this.onChangeTokenName = this.onChangeTokenName.bind(this);
-    this.onChangeDescription = this.onChangeDescription.bind(this);
-    this.onChangeUnderlying = this.onChangeUnderlying.bind(this);
+    this.onChangeUnderlying       = this.onChangeUnderlying.bind(this);
+    this.onChangePBMWrapMint      = this.onChangePBMWrapMint.bind(this);
 
-    this.onChangeDatafield1_name = this.onChangeDatafield1_name.bind(this);
-    this.onChangeDatafield1_value = this.onChangeDatafield1_value.bind(this);
-    this.onChangeDatafield2_name = this.onChangeDatafield2_name.bind(this);
-    this.onChangeDatafield2_value = this.onChangeDatafield2_value.bind(this);
-    this.onChangeOperator1 = this.onChangeOperator1.bind(this);
-
-    this.onChangeStartDate = this.onChangeStartDate.bind(this);
-    this.onChangeEndDate = this.onChangeEndDate.bind(this);
-    this.onChangeSponsor = this.onChangeSponsor.bind(this);
-    this.onChangeAmount = this.onChangeAmount.bind(this);
-    this.onChangeChecker = this.onChangeChecker.bind(this);
-    this.onChangeApprover = this.onChangeApprover.bind(this);
-    this.onChangeCheckerComments = this.onChangeCheckerComments.bind(this);
+    this.onChangeAmount           = this.onChangeAmount.bind(this);
+    this.onChangeChecker          = this.onChangeChecker.bind(this);
+    this.onChangeApprover         = this.onChangeApprover.bind(this);
+    this.onChangeCheckerComments  = this.onChangeCheckerComments.bind(this);
     this.onChangeApproverComments = this.onChangeApproverComments.bind(this);
-    this.getPBM = this.getPBM.bind(this);
-    this.submitPBM = this.submitPBM.bind(this);
-    this.acceptPBM = this.acceptPBM.bind(this);
-    this.approvePBM = this.approvePBM.bind(this);
-    this.rejectPBM = this.rejectPBM.bind(this);
-    this.deletePBM = this.deletePBM.bind(this);
-    this.dropRequest = this.dropRequest.bind(this);
-    this.showModal_Leave = this.showModal_Leave.bind(this);
-  //  this.showModal_nochange = this.showModal_nochange.bind(this);
-//  this.showModalDelete = this.showModalDelete.bind(this);
-  this.showModal_dropRequest = this.showModal_dropRequest.bind(this);
-  this.hideModal = this.hideModal.bind(this);
+    this.getPBMwrapmint           = this.getPBMwrapmint.bind(this);
+    this.submitPBMWrapMint        = this.submitPBMWrapMint.bind(this);
+    this.acceptPBMWrapMint        = this.acceptPBMWrapMint.bind(this);
+    this.approvePBMWrapMint       = this.approvePBMWrapMint.bind(this);
+    this.rejectPBMWrapMint        = this.rejectPBMWrapMint.bind(this);
+    this.deletePBMWrapMint        = this.deletePBMWrapMint.bind(this);
+    this.dropWrapMintRequest      = this.dropWrapMintRequest.bind(this);
+    this.showModal_Leave          = this.showModal_Leave.bind(this);
+    this.showModal_dropWrapMintRequest = this.showModal_dropWrapMintRequest.bind(this);
+    this.hideModal                = this.hideModal.bind(this);
 
     this.state = {      
-      recipient: {
-        id: null,
-        name: "",
-        walletaddress: "",
-        bank: "",
-        bankaccount: "",
-        type: ""
-      },
 
       adddatafield : false,
       hidedatafield1 : true,
       hidedatafield2 : true,  
+
+      PBMList: [],
+      pbm_id: "",
 
 
       currentPBM: {
@@ -165,7 +146,7 @@ class PBM extends Component {
   }
 
   retrieveAllMakersCheckersApprovers() {
-    UserOpsRoleDataService.getAllMakersCheckersApprovers("pbm")
+    UserOpsRoleDataService.getAllMakersCheckersApprovers("wrapmint")
       .then(response => {
         console.log("Data received by getAllCheckerApprovers:", response.data);
         let chkList = response.data.find((element) => {
@@ -207,70 +188,94 @@ class PBM extends Component {
       });
   }
 
+  async retrievePBM() {
+    await PBMDataService.getAll()
+      .then(response => {
+        this.setState({
+          PBMList: response.data
+        });
+        console.log("Response data from retrievePBM() PBMDataService.getAll:", response.data);
+      })
+      .catch(e => {
+        console.log(e);
+      });
+  }
+
+  async getPBMwrapmint(user, id) {
+    console.log("+++ id:", id);
+
+    if (id !== undefined) {
+      await PBMDataService.getAllWrapMintDraftsById(id)
+        .then(response => {
+          response.data[0].actionby = user.username;
+          this.setState({
+            currentPBM: response.data[0],
+            originalPBM: response.data[0],
+          });
+          console.log("Response from getAllDraftsByPBMId(id):",response.data[0]);
+
+          let ismaker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "MAKER" && user.id === response.data[0].maker);
+          console.log("isMaker:", (ismaker === undefined? false: true));
+          this.setState({ isMaker: (ismaker === undefined? false: true),});
+      
+          let ischecker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "CHECKER" && user.id === response.data[0].checker);
+          console.log("isChecker:", (ischecker === undefined? false: true));
+          this.setState({ isChecker: (ischecker === undefined? false: true),});
+          //if (ischecker !== undefined) {  // clears the checkers comments
+          //  this.setState({ isChecker: true, currentPBM: {checkerComments: ""}, });
+          //}
+          
+
+          let isapprover= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "APPROVER" && user.id === response.data[0].approver);
+          console.log("isApprover:", (isapprover === undefined? false: true));
+          this.setState({ isApprover: (isapprover === undefined? false: true),});
+          /*
+          if (isapprover !== undefined) {
+            this.setState({ isApprover: true, currentPBM: {approverComments: ""}, });
+          }
+          */
+
+          this.setState({ isNewPBM : (response.data[0].smartcontractaddress === "" || response.data[0].smartcontractaddress === null) });
+        })
+        .catch(e => {
+          console.log("Error from getAllDraftsByPBMId(id):", e);
+          alert("Error: " + e.response.data.message);
+        });
+    }
+  }
+
+  getAllUnderlyingAssets() {
+    CampaignDataService.getAll()
+      .then(response => {
+        if (response.data.length === 0) {
+          this.setState({
+            underlyingDSGDList: [ { id:-1, name:"No campaign available, please create a campaign first."}],
+          });
+        } else {          
+          var first_array_record = [  // add 1 empty record to front of array which is the option list
+            { }
+          ];
+          this.setState({
+            underlyingDSGDList: [first_array_record].concat(response.data)
+          });
+        }
+      })
+      .catch(e => {
+        console.log(e);
+        //return(null);
+      });
+  }
+
   componentDidMount() {
     const user = AuthService.getCurrentUser();
 
     if (!user) this.setState({ redirect: "/home" });
     this.setState({ currentUser: user, userReady: true })
 
-    this.getPBM(user, this.props.router.params.id);
+    this.getPBMwrapmint(user, this.props.router.params.id);
+    this.retrievePBM();
     this.getAllUnderlyingAssets();
-    this.getAllSponsors();
     this.retrieveAllMakersCheckersApprovers();
-/*
-    const newBlockchain = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(this.state.underlying)).blockchain;
-    this.setState({
-      blockchain: newBlockchain
-    });
-*/
-  }
-
-  onChangeName(e) {
-    const name = e.target.value;
-    this.setState({
-      datachanged: true
-    });
-
-    this.setState(function(prevState) {
-      return {
-        currentPBM: {
-          ...prevState.currentPBM,
-          name: name
-        }
-      };
-    });
-  }
-
-  onChangeTokenName(e) {
-    const tokenname = e.target.value;
-    this.setState({
-      datachanged: true
-    });
-
-    this.setState(function(prevState) {
-      return {
-        currentPBM: {
-          ...prevState.currentPBM,
-          tokenname: tokenname
-        }
-      };
-    });
-  }
-
-  onChangeDescription(e) {
-    const description = e.target.value;
-
-    this.setState({
-      datachanged: true
-    });
-    this.setState(function(prevState) {
-      return {
-        currentPBM: {
-          ...prevState.currentPBM,
-          description: description
-        }
-      };
-    });
   }
 
   onChangeUnderlying(e) {
@@ -297,131 +302,11 @@ class PBM extends Component {
       };
     });
     console.log("New currentPBM=", this.state.currentPBM);
-
   }
 
-  onChangeDatafield1_name(e) {
-    const datafield1_name = e.target.value;
+  onChangePBMWrapMint(e) {
+    const pbm_id = e.target.value;  // remove . and other chars
 
-    this.setState({
-      datachanged: true
-    });
-    this.setState(function(prevState) {
-      return {
-        currentPBM: {
-          ...prevState.currentPBM,
-          datafield1_name: datafield1_name
-        }
-      };
-    });
-
-    if (e.target.value === "") 
-      this.setState({
-        hidedatafield1 : false
-      })
-    else 
-      this.setState({
-        hidedatafield1 : true
-      });
-  }
-
-  onChangeDatafield2_name(e) {
-    const datafield2_name = e.target.value;
-
-    this.setState({
-      datachanged: true
-    });
-    this.setState(function(prevState) {
-      return {
-        currentPBM: {
-          ...prevState.currentPBM,
-          datafield2_name: datafield2_name
-        }
-      };
-    });
-
-  if (e.target.value === "") 
-    this.setState({
-      hidedatafield2 : false
-    })
-  else 
-    this.setState({
-      hidedatafield2 : true
-    })
-  }
-
-  onChangeDatafield1_value(e) {
-    const datafield1_value = e.target.value;
-
-    this.setState({
-      datachanged: true
-    });
-    this.setState(function(prevState) {
-      return {
-        currentPBM: {
-          ...prevState.currentPBM,
-          datafield1_value: datafield1_value
-        }
-      };
-    });
-  }
-
-  onChangeDatafield2_value(e) {
-    const datafield2_value = e.target.value;
-
-    this.setState({
-      datachanged: true
-    });
-    this.setState(function(prevState) {
-      return {
-        currentPBM: {
-          ...prevState.currentPBM,
-          datafield2_value: datafield2_value
-        }
-      };
-    });
-  }
-
-  onChangeOperator1(e) {
-    const operator1 = e.target.value;
-
-    this.setState({
-      datachanged: true
-    });
-    this.setState(function(prevState) {
-      return {
-        currentPBM: {
-          ...prevState.currentPBM,
-          operator1: operator1
-        }
-      };
-    });
-
-    if (e.target.value === "") {
-      this.setState(function(prevState) {
-        return {
-          currentPBM: {
-            ...prevState.currentPBM,
-            datafield2_name: "",
-            datafield2_value: "",
-          }
-        };
-      });
-  
-      this.setState({
-        hidedatafield2: true,
-      });
-    } else {
-      this.setState({
-        hidedatafield2: false,
-      });
-    }
-  }
-
-
-
-  onChangeStartDate(e) {
-    const startdate = e.target.value;
     this.setState({
       datachanged: true
     });
@@ -429,35 +314,7 @@ class PBM extends Component {
     this.setState(prevState => ({
       currentPBM: {
         ...prevState.currentPBM,
-        startdate: startdate
-      }
-    }));
-  }
-
-  onChangeEndDate(e) {
-    const enddate = e.target.value;
-    this.setState({
-      datachanged: true
-    });
-
-    this.setState(prevState => ({
-      currentPBM: {
-        ...prevState.currentPBM,
-        enddate: enddate
-      }
-    }));
-  }
-
-  onChangeSponsor(e) {
-    const sponsor = e.target.value;
-    this.setState({
-      datachanged: true
-    });
-
-    this.setState(prevState => ({
-      currentPBM: {
-        ...prevState.currentPBM,
-        sponsor: sponsor
+        pbm_id: pbm_id,
       }
     }));
   }
@@ -474,6 +331,20 @@ class PBM extends Component {
       currentPBM: {
         ...prevState.currentPBM,
         amount: amount
+      }
+    }));
+  }
+
+  updateCurrentPBM(s) {
+    
+    this.setState({
+      datachanged: true
+    });
+
+    this.setState(prevState => ({
+      currentPBM: {
+        ...prevState.currentPBM,
+        PBMsmartcontractaddress: s
       }
     }));
   }
@@ -540,97 +411,16 @@ class PBM extends Component {
     });
   }
 
-  getPBM(user, id) {
-    console.log("+++ id:", id);
-
-    if (id !== undefined) {
-      PBMDataService.getAllDraftsByPBMId(id)
-        .then(response => {
-          response.data[0].actionby = user.username;
-          this.setState({
-            currentPBM: response.data[0],
-            originalPBM: response.data[0],
-          });
-          console.log("Response from getAllDraftsByPBMId(id):",response.data[0]);
-
-          let ismaker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "MAKER" && user.id === response.data[0].maker);
-          console.log("isMaker:", (ismaker === undefined? false: true));
-          this.setState({ isMaker: (ismaker === undefined? false: true),});
-      
-          let ischecker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "CHECKER" && user.id === response.data[0].checker);
-          console.log("isChecker:", (ischecker === undefined? false: true));
-          this.setState({ isChecker: (ischecker === undefined? false: true),});
-          //if (ischecker !== undefined) {  // clears the checkers comments
-          //  this.setState({ isChecker: true, currentPBM: {checkerComments: ""}, });
-          //}
-          
-
-          let isapprover= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "APPROVER" && user.id === response.data[0].approver);
-          console.log("isApprover:", (isapprover === undefined? false: true));
-          this.setState({ isApprover: (isapprover === undefined? false: true),});
-          /*
-          if (isapprover !== undefined) {
-            this.setState({ isApprover: true, currentPBM: {approverComments: ""}, });
-          }
-          */
-
-          this.setState({ isNewPBM : (response.data[0].smartcontractaddress === "" || response.data[0].smartcontractaddress === null) });
-        })
-        .catch(e => {
-          console.log("Error from getAllDraftsByPBMId(id):", e);
-          alert("Error: " + e.response.data.message);
-
-        });
-    }
+  displayModal(msg, b1text, b2text, b3text, b0text) {
+    this.setState({
+      showm: true, 
+      modalmsg: msg, 
+      button1text: b1text,
+      button2text: b2text,
+      button3text: b3text,
+      button0text: b0text,
+    });
   }
-
-  getAllUnderlyingAssets() {
-    CampaignDataService.getAll()
-      .then(response => {
-        if (response.data.length === 0) {
-          this.setState({
-            underlyingDSGDList: [ { id:-1, name:"No campaign available, please create a campaign first."}],
-          });
-        } else {          
-          var first_array_record = [  // add 1 empty record to front of array which is the option list
-            { }
-          ];
-          this.setState({
-            underlyingDSGDList: [first_array_record].concat(response.data)
-          });
-        }
-      })
-      .catch(e => {
-        console.log(e);
-        //return(null);
-      });
-  }
-
-  getAllSponsors() {
-    RecipientDataService.findAllRecipients()
-      .then(response => {
-
-        this.setState({
-            recipient: response.data
-        });
-      })
-      .catch(e => {
-        console.log(e);
-        //return(null);
-      });
-}
-
-displayModal(msg, b1text, b2text, b3text, b0text) {
-  this.setState({
-    showm: true, 
-    modalmsg: msg, 
-    button1text: b1text,
-    button2text: b2text,
-    button3text: b3text,
-    button0text: b0text,
-  });
-}
-
 
   async validateForm() {    
     var err = "";
@@ -691,7 +481,7 @@ displayModal(msg, b1text, b2text, b3text, b0text) {
     return true;
   }
 
-async submitPBM() {
+async submitPBMWrapMint() {
   
   if (await this.validateForm()) { 
         console.log("Form Validation passed");
@@ -699,7 +489,7 @@ async submitPBM() {
         console.log("IsLoad=true");
         this.show_loading();
   
-        await PBMDataService.submitDraftById(
+        await PBMDataService.submitWrapMintDraftById(
           this.state.currentPBM.id,
           this.state.currentPBM,
         )
@@ -713,20 +503,20 @@ async submitPBM() {
           this.setState({  
             datachanged: false,
           });
-          this.displayModal("PBM submitted. Routing to checker.", "OK", null, null, null);
+          this.displayModal("WrapMint submitted. Routing to checker.", "OK", null, null, null);
         })
         .catch(e => {
           this.hide_loading();
   
           console.log(e);
           console.log(e.message);
-          this.displayModal("PBM submit failed.", null, null, null, "OK");
+          this.displayModal("WrapMint submit failed.", null, null, null, "OK");
   
           try {
             console.log(e.response.data.message);
             // Need to check draft and approved pbm names
             if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-              this.displayModal("The PBM submit failed. The new pbm name is already used, please use another name.", null, null, null, "OK");
+              this.displayModal("The WrapMint submit failed. The new WrapMint name is already used, please use another name.", null, null, null, "OK");
             }
           } catch(e) {
             this.hide_loading();
@@ -744,7 +534,7 @@ async submitPBM() {
     }
   }
     
-async acceptPBM() {
+async acceptPBMWrapMint() {
   
 //    if (await this.validateForm()) { 
 //      console.log("Form Validation passed");
@@ -752,7 +542,7 @@ async acceptPBM() {
       console.log("IsLoad=true");
       this.show_loading();
 
-      await PBMDataService.acceptDraftById(
+      await PBMDataService.acceptWrapMintDraftById(
         this.state.currentPBM.id,
         this.state.currentPBM,
       )
@@ -766,19 +556,19 @@ async acceptPBM() {
         this.setState({  
           datachanged: false,
         });
-        this.displayModal("PBM request checked, sending for approval.", "OK", null, null, null);
+        this.displayModal("WrapMint request accepted, sending for approval.", "OK", null, null, null);
       })
       .catch(e => {
         this.hide_loading();
 
         console.log(e);
         console.log(e.message);
-        this.displayModal("PBM accept failed.", null, null, null, "OK");
+        this.displayModal("WrapMint accept failed.", null, null, null, "OK");
 
         try {
           console.log(e.response.data.message);
           if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-            this.displayModal("The pbm accept failed. The new pbm name is already used, please use another name.", null, null, null, "OK");
+            this.displayModal("The wrapmint accept failed. The new wrapmint name is already used, please use another name.", null, null, null, "OK");
           }
         } catch(e) {
           this.hide_loading();
@@ -795,7 +585,7 @@ async acceptPBM() {
     this.hide_loading();
   }
 
-  async approvePBM() {
+async approvePBMWrapMint() {
   
     //    if (await this.validateForm()) { 
     //      console.log("Form Validation passed");
@@ -803,21 +593,22 @@ async acceptPBM() {
     console.log("IsLoad=true");
     this.show_loading();
 
-    await PBMDataService.approveDraftById(
+    await PBMDataService.approveWrapMintDraftById(
       this.state.currentPBM.id,
       this.state.currentPBM,
     )
     .then(response => {
       this.hide_loading();
 
-      console.log("Response: ", response);
+      console.log("!!! Response: ", response);
       console.log("IsLoad=false");
       this.hide_loading();
 
       this.setState({  
         datachanged: false,
       });
-      this.displayModal("The pbm is approved and executed successfully"+ (typeof(response.data.smartcontractaddress)!=="undefined" && response.data.smartcontractaddress!==null && response.data.smartcontractaddress!==""? " with smart contract deployed at "+response.data.smartcontractaddress+". \n\nYou can start using it to mint PBMs from DSGD now.": "."), "OK", null, null, null);
+      const defaultmsg = "The Digital SGD has been wrapped successfully and new PBM is minted.";
+      this.displayModal(defaultmsg, "OK", null, null, null);
     })
     .catch(e => {
       this.hide_loading();
@@ -830,7 +621,7 @@ async acceptPBM() {
       try {
         console.log(e.response.data.message);
         if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-          this.displayModal("The pbm update failed. The new pbm name is already used, please use another name.", null, null, null, "OK");
+          this.displayModal("The wrapmint failed. The new wrapmint name is already used, please use another name.", null, null, null, "OK");
         }
       } catch(e) {
         this.hide_loading();
@@ -847,7 +638,7 @@ async acceptPBM() {
     this.hide_loading();
   }
 
-async rejectPBM() {
+async rejectPBMWrapMint() {
 
   console.log("isChecker? ", this.state.isChecker);
   console.log("this.state.currentPBM.checkerComments: ", this.state.currentPBM.checkerComments);
@@ -865,7 +656,7 @@ async rejectPBM() {
     console.log("IsLoad=true");
     this.show_loading();
 
-    await PBMDataService.rejectDraftById(
+    await PBMDataService.rejectWrapMintDraftById(
       this.state.currentPBM.id,
       this.state.currentPBM,
     )
@@ -879,25 +670,24 @@ async rejectPBM() {
       this.setState({  
         datachanged: false,
       });
-      this.displayModal("This pbm request is rejected. Routing back to maker.", "OK", null, null, null);
+      this.displayModal("This wrapmint request is rejected. Routing back to maker.", "OK", null, null, null);
     })
     .catch(e => {
       this.hide_loading();
 
       console.log(e);
       console.log(e.message);
-      this.displayModal("PBM rejection failed.", null, null, null, "OK");
+      this.displayModal("WrapMint rejection failed.", null, null, null, "OK");
     });
   }
   this.hide_loading();
 }
-    
 
-async deletePBM() {    
+async deletePBMWrapMint() {    
     console.log("IsLoad=true");
     this.show_loading();        // show progress
 
-    await PBMDataService.approveDeleteDraftById(
+    await PBMDataService.approveDeleteWrapMintDraftById(
       this.state.currentPBM.id,
       this.state.currentPBM,
     )
@@ -905,7 +695,7 @@ async deletePBM() {
       console.log("IsLoad=false");
       this.hide_loading();     // hide progress
 
-      this.displayModal("PBM is deleted.", "OK", null, null, null);
+      this.displayModal("WrapMint is deleted.", "OK", null, null, null);
       console.log(response.data);
       //this.props.router.navigate('/inbox');
     })
@@ -918,11 +708,11 @@ async deletePBM() {
     });
   }
 
-  async dropRequest() {    
+  async dropWrapMintRequest() {    
     console.log("IsLoad=true");
     this.show_loading();        // show progress
 
-    await PBMDataService.dropRequestById(
+    await PBMDataService.dropWrapMintRequestById(
       this.state.currentPBM.id,
       this.state.currentPBM,
     )
@@ -950,33 +740,38 @@ async deletePBM() {
     this.setState({isLoading: false});
   }
 
-  /*
-  showModal_nochange = () => {
-    this.displayModal("No change is updated as you have not made any change.", null, null, null, "OK");
-  };
-*/
   showModal_Leave = () => {
     this.displayModal("You have made changes. Are you sure you want to leave this page without submitting?", "Yes, leave", null, null, "Cancel");
   };
 
-  showModal_dropRequest = () => {
+  showModal_dropWrapMintRequest = () => {
     this.displayModal("Are you sure you want to Drop this Request?", null, null, "Yes, drop", "Cancel");
   };
   
   showModalDelete = () => {
     this.displayModal("Are you sure you want to Delete this PBM?", null, "Yes, delete", null, "Cancel");
-  };
+  };0
 
   hideModal = () => {
     this.setState({ showm: false });
   };
 
-
   render() {
-    const { underlyingDSGDList, recipient, currentPBM, checkerList, approverList } = this.state;
+    const { underlyingDSGDList, PBMList, currentPBM, checkerList, approverList } = this.state;
     console.log("Render underlyingDSGDList:", underlyingDSGDList);
-    console.log("Render recipient:", recipient);
+    console.log("Render PBMList:", PBMList);
     console.log("Render currentPBM:", currentPBM);
+
+//    console.log(">>> PBMList is array and not empty? ", this.state.PBMList.length > 0)
+//    console.log(">>> currentPBM ===''? ", this.state.currentPBM ==="")
+    
+    if (this.state.PBMList.length>0 && this.state.currentPBM.id !== null && this.state.currentPBM.PBMsmartcontractaddress === null) { // wait for loading... 
+      // if didnt check currentPBM.smartcontractaddress === null, and we keep updating, it will cause infinite re-render
+      const PBMsmartcontractaddress1 = this.state.PBMList.find((ee) => ee.id === parseInt(this.state.currentPBM.pbm_id)).smartcontractaddress
+      console.log("Render ----- PBMsmartcontractaddress:", PBMsmartcontractaddress1);
+
+      this.updateCurrentPBM(PBMsmartcontractaddress1);
+    }
 
     try {
       return (
@@ -985,207 +780,54 @@ async deletePBM() {
           <div>
           <header className="jumbotron col-md-8">
             <h3>
-              <strong>{this.state.currentPBM.txntype===0?"Create ":(this.state.currentPBM.txntype===1?"Update ":(this.state.currentPBM.txntype===2?"Delete ":null))}PBM { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
+              <strong>{this.state.currentPBM.txntype===0?"Create ":(this.state.currentPBM.txntype===1?"Update ":(this.state.currentPBM.txntype===2?"Delete ":null))}Wrap Digtal SGD with PBM { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
             </h3>
           </header>
 
         </div>: null}
 
-                <div className="edit-form list-row">
-                  <h4></h4>
-                  <div className="col-md-8">
-
-                  <form autoComplete="off">
-                    <div className="form-group">
-                      <label htmlFor="name">Name</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="name"
-                        maxLength="45"
-                        value={currentPBM.name}
-                        onChange={this.onChangeName}
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                        />
-                    </div>
+          <div className="edit-form list-row">
+            <h4></h4>
+            <div className="col-md-8">
+              <form autoComplete="off">
                 <div className="form-group">
-                  <label htmlFor="description">Description</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="description"
-                    maxLength="255"
-                    required
-                    value={currentPBM.description}
-                    onChange={this.onChangeDescription}
-                    name="description"
-                    autoComplete="off"
-                    disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                    />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="name">Token Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="tokenname"
-                    maxLength="5"
-                    required
-                    value={currentPBM.tokenname}
-                    onChange={this.onChangeTokenName}
-                    name="tokenname"
-                    style={{textTransform : "uppercase"}}
-                    disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                    />
-                </div>
-
-                <label htmlFor="datafield1_name">PBM Conditions</label>
-
-                <table style={{border : '1px solid blue', width: '100%'}}>
-                <tr>
-                {/*
-                  <td style={{fontSize:"100px", border:"0"}}>(</td>
-                */}
-                  <td style={{border : '0'}}>
-                    <div className="form-group" id="datafield1_name_div" style={{ display: (this.state.hidedatafield1 || !this.state.isMaker || this.state.currentPBM.txntype===2) ? "none" : "block" }}>
-                      <label htmlFor="datafield1_name">{this.state.currentPBM.datafield1_name === ""? "Please choose a field" : ""}</label>
-                      <select
-                        onChange={this.onChangeDatafield1_name}                         
-                        className="form-control"
-                        id="datafield1_name"
-                        name="datafield1_name"
-
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                        >
-                        <option value=""></option>
-                        <option value="UEN"           selected={typeof(this.state.currentPBM.datafield1_name) === 'string' && this.state.currentPBM.datafield1_name.toUpperCase() === "UEN"}>UEN</option>
-                        <option value="Industry code" selected={typeof(this.state.currentPBM.datafield1_name) === 'string' && this.state.currentPBM.datafield1_name.toUpperCase() === "INDUSTRY CODE"}>Industry code</option>
-                        <option value="Location"      selected={typeof(this.state.currentPBM.datafield1_name) === 'string' && this.state.currentPBM.datafield1_name.toUpperCase() === "LOCATION"}>Location</option>
-                        <option value="Postal code"   selected={typeof(this.state.currentPBM.datafield1_name) === 'string' && this.state.currentPBM.datafield1_name.toUpperCase() === "POSTAL CODE"}>Postal code</option>
-                      </select>
-                    </div>
-                    { this.state.currentPBM.datafield1_name !=="" && (
-                    <div className="form-group">
-                      <label onClick={() => this.setState({ hidedatafield1: false })} htmlFor="datafield1_value">{this.state.currentPBM.datafield1_name} &nbsp;<i class="bx bx-cog" style={{ display: (!this.state.isMaker || this.state.currentPBM.txntype===2) ? "none" : "block" }}/></label>
-                      <input
-                        className="form-control"
-                        id="datafield1_value"
-                        name="datafield1_value"
-                        maxLength="16"
-                        required
-                        value={this.state.currentPBM.datafield1_value}
-                        onChange={this.onChangeDatafield1_value}
-                        autoComplete="off"
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                      />
-                    </div>
-                    )
-                  }
-                  </td>
-                  { this.state.currentPBM.datafield1_name !=="" && this.state.currentPBM.datafield1_value !=="" && (!this.state.adddatafield && this.state.currentPBM.operator1 ==="") && (
-                  <td style={{border : '0'}}>
-                    <label htmlFor="operator1">&nbsp;</label>
-                    <div className="form-group">
-                    <button onClick={() => this.setState({ adddatafield: true })} className="btn btn-primary">Add more condition?</button>
-                    </div>
-                  </td>
-                  )
-                  }
-                  { this.state.currentPBM.datafield1_name !=="" && this.state.currentPBM.datafield1_value !=="" && (this.state.adddatafield || this.state.currentPBM.operator1 !=="") && (
-                  <td style={{border : '0'}}>
-                    <div className="form-group">
-                      <label htmlFor="operator1">{this.state.currentPBM.operator1 === ""? "Please choose an operator" : ""}&nbsp;</label>
-                      <select style={{width: "90px"}}
-                            onChange={this.onChangeOperator1}                         
-                            className="form-control"
-                            id="operator1"
-                            disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                      >
-                            <option value=""></option>
-                            <option value="OR"    selected={typeof(this.state.currentPBM.operator1) === 'string' && this.state.currentPBM.operator1.toUpperCase() === "OR"}> OR </option>
-                            <option value="AND"   selected={typeof(this.state.currentPBM.operator1) === 'string' && this.state.currentPBM.operator1.toUpperCase() === "AND"}> AND </option>
-                      </select>
-                    </div>
-                  </td>
-                  )
-                  }
-                  <td style={{border : '0'}}>
-                  {  this.state.currentPBM.operator1 !=="" && this.state.currentPBM.datafield1_name !=="" && this.state.currentPBM.datafield1_value !=="" && (
-                    <div className="form-group" id="datafield2_name_div" style={{ display: (this.state.hidedatafield2 || !this.state.isMaker || this.state.currentPBM.txntype===2) ? "none" : "block" }}>
-                    <label htmlFor="datafield2_name">{this.state.currentPBM.datafield2_name === ""? "Please choose a field" : ""}</label>
-                    <select
-                      onChange={this.onChangeDatafield2_name}                         
-                      className="form-control"
-                      id="datafield2_name"
-                      name="datafield2_name"
-                      disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                    >
-                      <option value=""></option>
-                      <option value="UEN"           selected={typeof(this.state.currentPBM.datafield2_name) === 'string' && this.state.currentPBM.datafield2_name.toUpperCase() === "UEN"}>UEN</option>
-                      <option value="Industry code" selected={typeof(this.state.currentPBM.datafield2_name) === 'string' && this.state.currentPBM.datafield2_name.toUpperCase() === "INDUSTRY CODE"}>Industry code</option>
-                      <option value="Location"      selected={typeof(this.state.currentPBM.datafield2_name) === 'string' && this.state.currentPBM.datafield2_name.toUpperCase() === "LOCATION"}>Location</option>
-                      <option value="Postal code"   selected={typeof(this.state.currentPBM.datafield2_name) === 'string' && this.state.currentPBM.datafield2_name.toUpperCase() === "POSTAL CODE"}>Postal code</option>
-                    </select>
-                  </div>
-                  )}
-                  { this.state.currentPBM.datafield2_name !=="" &&  this.state.currentPBM.operator1 !=="" && this.state.currentPBM.datafield1_name !=="" && this.state.currentPBM.datafield1_value !=="" && (
-                  <div className="form-group">
-                      <label onClick={() => this.setState({ hidedatafield2: false })} htmlFor="datafield2_value">{this.state.currentPBM.datafield2_name} &nbsp;<i class="bx bx-cog" style={{ display: (!this.state.isMaker || this.state.currentPBM.txntype===2) ? "none" : "block" }}/></label>
-                    <input
-                      className="form-control"
-                      id="datafield2_value"
-                      name="datafield2_value"
-                      maxLength="16"
-                      required
-                      value={this.state.currentPBM.datafield2_value}
-                      onChange={this.onChangeDatafield2_value}
-                      autoComplete="off"
-                      disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                    />
-                  </div>
-                  )}
-                  </td>
-                {/*
-                  <td style={{fontSize:"100px", border:"0"}}>)</td>
-                */}
-                </tr>
-                </table>
-                <br/>
-
-
-                <div className="form-group">
-                  <label htmlFor="name">Underlying DSGD Smart Contract *</label>
-                  {
-                  /*
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="underlyingDSGDsmartcontractaddress"
-                    required
-                    value={currentPBM.underlyingDSGDsmartcontractaddress}
-                    name="underlyingDSGDsmartcontractaddress"
-                    disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                  />
-                  */
-                  }
+                  <label htmlFor="name">Digital SGD *</label>
                   <select
-                        onChange={this.onChangeUnderlying}                         
-                        className="form-control"
-                        id="underlyingTokenID"
-                        required
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
+                    onChange={this.onChangeUnderlying}                         
+                    className="form-control"
+                    id="underlyingTokenID"
+                    disabled={!this.state.isMaker}
                   >
+                  <option value=""> </option>
+                  {
+                    Array.isArray(underlyingDSGDList) ?
+                    underlyingDSGDList.map( (d) => {
+                      // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                        if (typeof d.id === "number")
+                          return <option value={d.id} selected={d.id === currentPBM.campaign.id}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                      })
+                    : null
+                  }
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="name">PBM *</label>
+                  <select
+                        onChange={this.onChangePBMWrapMint}                         
+                        className="form-control"
+                        id="pbm_id"
+                        disabled={!this.state.isMaker || this.state.underlyingTokenID===""}
+                      >
+                        <option > </option>
                         {
-                          Array.isArray(underlyingDSGDList) ?
-                          underlyingDSGDList.map( (d) => {
+                          Array.isArray(PBMList) ?
+                          PBMList.map( (d) => {
                             // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                              return <option value={d.id} selected={d.id === currentPBM.campaign.id}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                              return <option value={d.id} selected={d.id === currentPBM.pbm_id}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                             })
                           : null
                         }
                   </select>
-
                 </div>
                 <div className="form-group">
                   <label htmlFor="blockchain">Blockchain *</label>
@@ -1205,48 +847,6 @@ async deletePBM() {
                         <option value="43114"      disabled>Avalanche Mainnet (not in use at the moment)</option>
                       </select>
                 </div>
-
-
-                    <div className="form-group">
-                      <label htmlFor="startdate">Start Date</label>
-                      <input
-                        type="date"
-                        className="form-control"
-                        id="startdate"
-                        value={currentPBM.startdate}
-                        onChange={this.onChangeStartDate}
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="enddate">End Date</label>
-                      <input
-                        type="date"
-                        className="form-control"
-                        id="enddate"
-                        value={currentPBM.enddate}
-                        onChange={this.onChangeEndDate}
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="sponsor">Sponsor</label>
-                      <select
-                        value={currentPBM.sponsor}
-                        onChange={this.onChangeSponsor}                         
-                        className="form-control"
-                        id="sponsor"
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                        >
-                      {
-                        Array.isArray(recipient) ?
-                          recipient.map( (d) => {
-                            return <option value={d.id}>{d.name}</option>
-                          })
-                        : null
-                      }
-                      </select>
-                    </div>
                     <div className="form-group">
                       <label htmlFor="amount">Amount</label>
                       <input
@@ -1335,7 +935,7 @@ async deletePBM() {
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-primary"
-                    onClick={this.submitPBM}
+                    onClick={this.submitPBMWrapMint}
                     >
                       Submit 
                       {
@@ -1349,7 +949,7 @@ async deletePBM() {
 
                     <button
                       className="m-3 btn btn-sm btn-danger"
-                      onClick={this.showModal_dropRequest}
+                      onClick={this.showModal_dropWrapMintRequest}
                     >
                       Drop Request
                     </button>
@@ -1359,7 +959,7 @@ async deletePBM() {
                   <button
                   type="submit"
                   className="m-3 btn btn-sm btn-primary"
-                  onClick={this.acceptPBM}
+                  onClick={this.acceptPBMWrapMint}
                   >
                     Endorse
                     {
@@ -1376,7 +976,7 @@ async deletePBM() {
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-primary"
-                    onClick={this.state.currentPBM.txntype===2? this.deleteDraft: this.approvePBM}
+                    onClick={this.state.currentPBM.txntype===2? this.deleteDraft: this.approvePBMWrapMint}
                     >
                       Approve
                       {
@@ -1397,7 +997,7 @@ async deletePBM() {
                   <button
                   type="submit"
                   className="m-3 btn btn-sm btn-danger"
-                  onClick={this.rejectPBM}
+                  onClick={this.rejectPBMWrapMint}
                   >
                     Reject
                   </button> 
@@ -1422,7 +1022,7 @@ async deletePBM() {
 
                   {this.state.isLoading ? <LoadingSpinner /> : null}
 
-                  <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/inbox'} handleProceed2={this.deletePBM} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
+                  <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/inbox'} handleProceed2={this.deletePBMWrapMint} handleProceed3={this.dropWrapMintRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
                     {this.state.modalmsg}
                   </Modal>
 
@@ -1439,4 +1039,4 @@ async deletePBM() {
   }
 }
 
-export default withRouter(PBM);
+export default withRouter(PBMWrapMint);
