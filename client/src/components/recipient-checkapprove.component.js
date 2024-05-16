@@ -618,7 +618,7 @@ async deleteRecipient() {
           <div>
           <header className="jumbotron col-md-8">
             <h3>
-              <strong>{this.state.currentRecipient.txntype===0?"Create ":(this.state.currentRecipient.txntype===1?"Update ":(this.state.currentRecipient.txntype===2?"Delete ":null))}Recipient { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
+              <strong>{this.state.currentRecipient.txntype===0?"Create ":(this.state.currentRecipient.txntype===1?"Update ":(this.state.currentRecipient.txntype===2?"Delete ":null))}Recipient / Sponsor { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
             </h3>
           </header>
 

@@ -194,7 +194,7 @@ export default class TransferList extends Component {
                 {(typeof(this.state.transfers)!=="undefined" && this.state.transfers!==null && this.state.transfers.length > 0)?
                 <tr>
                   <th>Campaign</th>
-                  <th>Token</th>
+                  <th>Token Name</th>
                   <th>Blockchain</th>
                   <th>Transfered</th>
                   <th>Total Supply</th>
@@ -273,7 +273,7 @@ export default class TransferList extends Component {
                 <button
                   className="m-3 btn btn-sm btn-primary"
                 >
-                  Transfer Tokens
+                  Transfer DSGD Tokens
                 </button>
               </Link>
               :null}

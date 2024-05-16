@@ -229,7 +229,7 @@ export default class PBMList extends Component {
                 {(pbm.length > 0)?
                 <tr>
                   <th>PBM Name</th>
-                  <th>PBM Token</th>
+                  <th>PBM Token Name</th>
                   <th>Underlying Token</th>
                   <th>Blockchain</th>
                   <th>Start Date</th>
@@ -239,7 +239,9 @@ export default class PBMList extends Component {
                   <th>PBM Smart Contract</th>
                   <th>Underlying Smart Contract</th>
                   <th>View Blockchain</th>
+{/*}
                   <th>Action</th>
+{*/}
                   <th>Mint PBM</th>
                 </tr>
                 : null}
@@ -325,6 +327,7 @@ export default class PBMList extends Component {
                       )()
                         +pbm1.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
                       </td>
+{/*}
                       <td>
                         <Link
                           to={"/pbmedit/" + pbm1.id}
@@ -333,9 +336,10 @@ export default class PBMList extends Component {
                            {this.state.isMaker? "Edit / Delete" : "View"}
                         </Link>
                       </td>
+{*/}
                       <td>
                         <Link
-                          to={"/pbmwrapadd/104/26"}
+                          to={"/pbmwrapadd/"}
                           className="badge badge-warning"
                         >
                            {this.state.isMaker? "Wrap UnderlyingToken to PBM" : ""}

@@ -168,7 +168,7 @@ class App extends Component {
               <div className="sidebar open">
                 <div className="logo-details">
                   <i className='bx bxl-graphql'></i>
-                    <div className="logo_name">BCDA Token Minting Portal</div>
+                    <div className="logo_name">BCDA DSGD and PBM Portal</div>
                     {
                       /*
                       // hamburger menu
@@ -200,7 +200,7 @@ class App extends Component {
                   </Link>
                 </li>
                 <li>
-                  <Link to={"/pbm"} className="nav-link">
+                  <Link to={"/pbmwraplist"} className="nav-link">
                     <i className='bx bx-atom' ></i>
                     <span className="links_name">Wrap Mint PBM</span>
                   <span className="tooltip">Wrap Mint PBM</span>
@@ -216,16 +216,16 @@ class App extends Component {
                 <li>
                   <Link to={"/campaign"} className="nav-link">
                     <i className='bx bx-atom' ></i>
-                    <span className="links_name">Campaigns</span>
-                  <span className="tooltip">Campaigns</span>
+                    <span className="links_name">Campaigns (DSGD)</span>
+                  <span className="tooltip">Campaigns (DSGD)</span>
                   </Link>
                 </li>
                 <li>
                   <Link to={"/mint"} className="nav-link">
                     <i className='bx bx-atom' ></i>
-                    <span className="links_name">Mint</span>
+                    <span className="links_name">Mint (DSGD)</span>
                   </Link>
-                  <span className="tooltip">Mint</span>
+                  <span className="tooltip">Mint (DSGD)</span>
                 </li>
                 <li>
 {
@@ -240,9 +240,9 @@ class App extends Component {
                 <li>
                   <Link to={"/withdraw"} className="nav-link">
                     <i className='bx bx-money-withdraw' ></i>
-                    <span className="links_name">Withdraw</span>
+                    <span className="links_name">Withdraw (Off Ramp)</span>
                   </Link>
-                  <span className="tooltip">Withdraw</span>
+                  <span className="tooltip">Withdraw (Off Ramp)</span>
                 </li>
                 {
                   /*
@@ -258,8 +258,8 @@ class App extends Component {
                 <li>
                 <Link to={"/recipient"} className="nav-link">
                     <i className='bx bx-atom' ></i>
-                    <span className="links_name">Recipients</span>
-                  <span className="tooltip">Recipients</span>
+                    <span className="links_name">Recipients / Sponsors</span>
+                  <span className="tooltip">Recipients / Sponsors</span>
                   </Link>
                 </li>
                 <li>
@@ -385,10 +385,10 @@ class App extends Component {
 
             <Route path="/pbmtemplate" element={<PBMTemplateList/>} />
             <Route path="/pbmtemplateadd" element={<PBMTemplateAdd/>} />
+            <Route path="/pbmwrapadd/" element={<PBMWrapAdd/>} />
 
-            <Route path="/pbmwrapadd/:dsgd/:pbm" element={<PBMWrapAdd/>} />
             <Route path="/pbmwrapcheckapprove/:id" element={<PBMWrapCheckApprove/>} />
-            <Route path="/pbmwraplist/:id" element={<PBMWrapList/>} />
+            <Route path="/pbmwraplist" element={<PBMWrapList/>} />
 
           </Routes>
         </div>

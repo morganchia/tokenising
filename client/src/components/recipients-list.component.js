@@ -220,7 +220,7 @@ export default class RecipientList extends Component {
                 <button
                   className="m-3 btn btn-sm btn-primary"
                 >
-                  Add Recipient
+                  Add Recipient / Sponsor
                 </button>
               </Link>
               :null}

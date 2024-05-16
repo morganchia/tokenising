@@ -336,7 +336,7 @@ export default class RecipientAdd extends Component {
         <div>
         <header className="jumbotron col-md-8">
           <h3>
-            <strong>Add Recipient ({ (this.state.isMaker? "Maker" : (this.state.isChecker? "Checker": (this.state.isApprover? "Approver":null)) )})</strong>
+            <strong>Add Recipient / Sponsor ({ (this.state.isMaker? "Maker" : (this.state.isChecker? "Checker": (this.state.isApprover? "Approver":null)) )})</strong>
           </h3>
         </header>
 
@@ -346,7 +346,7 @@ export default class RecipientAdd extends Component {
 
             <div className="col-md-8">
                 <div className="form-group">
-                  <label htmlFor="name">Recipient Company Name</label>
+                  <label htmlFor="name">Name *</label>
                   <input
                     type="text"
                     className="form-control"
@@ -435,7 +435,7 @@ export default class RecipientAdd extends Component {
                 {
                   (this.state.isMaker)?
                     <button onClick={this.saveRecipient} className="btn btn-primary">
-                      Submit Recipient Request
+                      Submit Request
                     </button>
                     :null
                 }
@@ -447,14 +447,14 @@ export default class RecipientAdd extends Component {
                       Cancel
                     </button>
                     : 
-                    <Link to="/recipients">
+                    <Link to="/recipient">
                     <button className="m-3 btn btn-sm btn-secondary">
                       Cancel
                     </button>
                     </Link>
                     )
                   : 
-                  <Link to="/recipients">
+                  <Link to="/recipient">
                   <button className="m-3 btn btn-sm btn-secondary">
                     Back
                   </button>
