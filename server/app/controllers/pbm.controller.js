@@ -1103,8 +1103,8 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
             return 'amoy.polygonscan.com/tx/'
           case 11155111:
             return 'sepolia.etherscan.io/tx/'
-          case 43113:
-            return 'fuji.avascan.info/blockchain/all/tx/'
+          case 43113: // avax fuji
+            return 'testnet.snowtrace.io/tx/'
           case 137:
             return 'polygonscan.com/tx/'
           case 1:
