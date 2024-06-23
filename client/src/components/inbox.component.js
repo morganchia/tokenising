@@ -1,4 +1,5 @@
 import React, { Component } from "react";
+import DvPDataService from "../services/dvp.service";
 import PBMDataService from "../services/pbm.service";
 import CampaignDataService from "../services/campaign.service";
 import MintDataService from "../services/mint.service";
@@ -14,6 +15,7 @@ export default class CampaignList extends Component {
     super(props);
 //    this.onChangeSearchName = this.onChangeSearchName.bind(this);
 //    this.searchName = this.searchName.bind(this);
+    this.retrieveDvP = this.retrieveDvP.bind(this);
     this.retrievePBM = this.retrievePBM.bind(this);
     this.retrieveWrapMint = this.retrieveWrapMint.bind(this);
     this.retrieveCampaigns = this.retrieveCampaigns.bind(this);
@@ -24,6 +26,7 @@ export default class CampaignList extends Component {
 //    this.removeAllCampaigns = this.removeAllCampaigns.bind(this);
 
     this.state = {
+      dvp: [],
       pbm: [],
       wrapmint: [],
       campaigns: [],
@@ -56,6 +59,21 @@ export default class CampaignList extends Component {
     });
   }
 */
+  retrieveDvP(userid) {
+    if (userid !== undefined) {
+      DvPDataService.getAllDraftsByUserId(userid)
+      .then(response => {
+        this.setState({
+          dvp: response.data
+        });
+        console.log("Response data from retrievDvP() DvPDataService.getAllDraftsByUserId:", response.data);
+      })
+      .catch(e => {
+        console.log(e);
+      });
+    }
+  }
+
   retrievePBM(userid) {
     if (userid !== undefined) {
       PBMDataService.getAllDraftsByUserId(userid)
@@ -147,6 +165,7 @@ export default class CampaignList extends Component {
   }
 
   refreshList() {
+    this.retrieveDvP();
     this.retrievePBM();
     this.retrieveCampaigns();
     this.setState({
@@ -206,13 +225,13 @@ export default class CampaignList extends Component {
     console.log("isApprover:", (isapprover === undefined? false: true));
     this.setState({ isApprover: (isapprover === undefined? false: true),});
 
+    this.retrieveDvP(user.id);
     this.retrievePBM(user.id);
     this.retrieveWrapMint(user.id);
     this.retrieveCampaigns(user.id);
     this.retrieveMints(user.id);
     this.retrieveTransfers(user.id);
     this.retrieveRecipients(user.id);
-
 }
 
   showModal = () => {
@@ -237,7 +256,7 @@ export default class CampaignList extends Component {
       return <Navigate to={this.state.redirect} />
     }
 
-    const { searchName, pbm, wrapmint, campaigns, mints, transfers, recipients, CurrentUser } = this.state;
+    const { searchName, dvp, pbm, wrapmint, campaigns, mints, transfers, recipients, CurrentUser } = this.state;
 
     return (
       <div className="container">
@@ -279,6 +298,122 @@ export default class CampaignList extends Component {
             }
             </div>
             <div className="col-md-12">
+            <h5>
+              <strong>DvP smart contracts</strong>
+            </h5>
+              <table style={{ border:"1px solid"}}>
+                {(dvp.length > 0)?
+                <tr>
+                  <th>Action</th>
+                  <th>Name</th>
+                  <th>Blockchain</th>
+                  <th>Counter Party 1</th>
+                  <th>Counter Party 2</th>
+                  <th>Amount 1</th>
+                  <th>Amount 2</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  {
+                  /*
+                  <th>Smart Contract</th>
+                  */
+                  }
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+                : null}
+                {dvp && dvp.length > 0 &&
+                  dvp.map((dvp1, index) => (
+                    <tr>
+                      <td>{dvp1.txntype===0?"Create":dvp1.txntype===1?"Update":"Delete"}</td>
+                      <td>{dvp1.name}</td>
+                      <td>{(() => {
+                          switch (dvp1.blockchain) {
+                            case 80001:
+                              return 'Polygon Testnet Mumbai (Deprecated)'
+                            case 80002:
+                              return 'Polygon Testnet Amoy'
+                            case 11155111:
+                              return 'Ethereum Testnet Sepolia'
+                            case 43113:
+                              return 'Avalanche Testnet Fuji'
+                            case 137:
+                              return 'Polygon Mainnet'
+                            case 1:
+                              return 'Ethereum  Mainnet'
+                            case 43114:
+                              return 'Avalanche Mainnet'
+                            default:
+                              return null
+                          }
+                        }
+                      )()}
+                      </td>
+                      <td>
+                        {
+                            (
+                              dvp1.counterparty1 &&
+                               dvp1.counterparty1 !== undefined)
+                              ? this.shorten(dvp1.counterparty1)  :null
+                          }
+                      </td>
+                      <td>
+                        {
+                            (
+                              dvp1.counterparty2 &&
+                               dvp1.counterparty2 !== undefined)
+                              ? this.shorten(dvp1.counterparty2)  :null
+                          }
+                      </td>
+                      <td>{dvp1.amount1}</td>
+                      <td>{dvp1.amount2}</td>
+                      <td>{dvp1.startdate}</td>
+                      <td>{dvp1.enddate}</td>
+                      {
+                        /*
+                      <td>
+                            (dvp1.smartcontractaddress !== undefined && typeof dvp1.smartcontractaddress === "string")? this.shorten(dvp1.smartcontractaddress): null
+                          
+                      </td>
+                      */
+                      }
+                      <td>
+                      {
+                          dvp1.status === -1? "Rejected pending correction" : 
+                            (dvp1.status === 0? "Created pending submission":
+                              (dvp1.status === 1? "Submitted pending checker endorsement":
+                                (dvp1.status === 2? "Checked pending approval":
+                                  (dvp1.status === 3? "Approved": null)
+                                )
+                              )
+                            )
+                      }
+                      </td>
+                      <td>
+                        <Link
+                          to={"/dvpcheckapprove/" + dvp1.id}
+                          className="badge badge-warning"
+                        >
+                          {
+                            dvp1.status === -1? "View/Correct Task" : (
+                              dvp1.status === 0? "View/Submit Task": (
+                                dvp1.status === 1? "View/Endorse Task": (
+                                  dvp1.status === 2? "View/Approve Task": null
+                                )
+                              )
+                            )
+                          }
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+              </table>
+              {!(dvp.length > 0)? "You have no pending actions."
+              : null}
+
+              <br/>
+              <br/>
+
             <h5>
               <strong>PBMs</strong>
             </h5>

@@ -47,6 +47,12 @@ import PBMCheckApprove from "./components/pbm-checkapprove.component";
 import PBMAdd from "./components/pbm-add.component";
 import PBMList from "./components/pbm-list.component";
 
+import DvPCheckApprove from "./components/dvp-checkapprove.component";
+import DvPAdd from "./components/dvp-add.component";
+import DvPList from "./components/dvp-list.component";
+import DvPAddAllowance from "./components/dvp-addallowance.component";
+import DvPTransact from "./components/dvp-transact.component";
+
 import PBMWrapCheckApprove from "./components/pbmwrap-checkapprove.component";
 import PBMWrapAdd from "./components/pbmwrap-add.component";
 import PBMWrapList from "./components/pbmwrap-list.component";
@@ -193,6 +199,20 @@ class App extends Component {
                   <span className="tooltip">Inbox</span>
                 </li>
                 <li>
+                  <Link to={"/dvp"} className="nav-link">
+                    <i className='bx bx-atom' ></i>
+                    <span className="links_name">DvP Smart contracts</span>
+                  <span className="tooltip">DvP Smart Contracts</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to={"/pbmtemplate"} className="nav-link">
+                    <i className='bx bx-atom' ></i>
+                    <span className="links_name">PBM Templates</span>
+                  <span className="tooltip">PBM Templates</span>
+                  </Link>
+                </li>
+                <li>
                   <Link to={"/pbm"} className="nav-link">
                     <i className='bx bx-atom' ></i>
                     <span className="links_name">PBMs</span>
@@ -204,13 +224,6 @@ class App extends Component {
                     <i className='bx bx-atom' ></i>
                     <span className="links_name">Wrap Mint PBM</span>
                   <span className="tooltip">Wrap Mint PBM</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to={"/pbmtemplate"} className="nav-link">
-                    <i className='bx bx-atom' ></i>
-                    <span className="links_name">PBM Templates</span>
-                  <span className="tooltip">PBM Templates</span>
                   </Link>
                 </li>
                 <li>
@@ -331,6 +344,7 @@ class App extends Component {
         <div>
           <Routes>
             <Route path="/dsgd2pbm" element={<DSGD2PBM />} />
+            <Route path="/dvpaddallowance" element={<DvPAddAllowance />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
           </Routes>
@@ -378,6 +392,11 @@ class App extends Component {
             <Route path="/campaignadd" element={<CampaignAdd/>} />
             <Route path="/campaigncheckapprove/:id" element={<CampaignCheckApprove/>} />
             <Route path="/campaignedit/:id" element={<CampaignEdit/>} />
+
+            <Route path="/dvp" element={<DvPList/>} />
+            <Route path="/dvpadd" element={<DvPAdd/>} />
+            <Route path="/dvpcheckapprove/:id" element={<DvPCheckApprove/>} />
+            <Route path="/dvptransact/:id" element={<DvPTransact/>} />
 
             <Route path="/pbm" element={<PBMList/>} />
             <Route path="/pbmadd" element={<PBMAdd/>} />

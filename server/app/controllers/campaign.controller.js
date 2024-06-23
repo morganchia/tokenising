@@ -296,7 +296,7 @@ exports.approveDraftById = async (req, res) => {
         // https://stackoverflow.com/questions/67321111/file-import-callback-not-supported/68459731#68459731
         function findImports(relativePath) {
           //my imported sources are stored under the node_modules folder!
-          const absolutePath = path.resolve(__dirname, '../../node_modules', relativePath);
+          const absolutePath = path.resolve(__dirname, '../../../node_modules', relativePath);
           const source = fs.readFileSync(absolutePath, 'utf8');
           return { contents: source };
         }

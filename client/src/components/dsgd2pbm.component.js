@@ -5,6 +5,9 @@ import Web3 from 'web3'
 import './uniswap.css';
 import DSGDContract_jsonData from '../abis/ERC20TokenDSGD.abi.json';
 import PBMContract_jsonData from '../abis/ERC20TokenPBM.abi.json';
+import Modal from '../Modal.js';
+import LoadingSpinner from "../LoadingSpinner";
+import "../LoadingSpinner.css";
 
 const INFURA_API_KEY = "9e5e7f94e05c4a7ea7bc11400626dc0b";
 const CONTRACT_OWNER_WALLET = "0x35f4b28D730398992525F0f6Cf5b6D1d94c98feA";
@@ -395,6 +398,21 @@ export default class dsgd2pbm extends Component {
     });
   }
 
+  displayModal(msg, b1text, b2text, b3text, b0text) {
+    this.setState({
+      showm: true, 
+      modalmsg: msg, 
+      button1text: b1text,
+      button2text: b2text,
+      button3text: b3text,
+      button0text: b0text,
+    });
+  }
+  
+  hideModal = () => {
+    this.setState({ showm: false });
+  };
+
   render() {
     return (
       <center>
@@ -453,6 +471,11 @@ export default class dsgd2pbm extends Component {
       </form>
       </div>
       </div>
+
+      <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/dsgd2pbm'} handleProceed2={this.deleteDvP} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
+                    {this.state.modalmsg}
+      </Modal>
+
       </center>
     );  // return
   }  // render

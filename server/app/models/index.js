@@ -38,6 +38,8 @@ db.mints               = require("./mints.model.js")(sequelize, Sequelize);
 db.mints_draft         = require("./mints_draft.model.js")(sequelize, Sequelize);
 db.transfers           = require("./transfers.model.js")(sequelize, Sequelize);
 db.transfers_draft     = require("./transfers_draft.model.js")(sequelize, Sequelize);
+db.dvp                 = require("./dvp.model.js")(sequelize, Sequelize);
+db.dvp_draft           = require("./dvp_draft.model.js")(sequelize, Sequelize);
 db.pbm                 = require("./pbm.model.js")(sequelize, Sequelize);
 db.pbm_draft           = require("./pbm_draft.model.js")(sequelize, Sequelize);
 db.pbm_templates       = require("./pbm_templates.model.js")(sequelize, Sequelize);
@@ -192,6 +194,40 @@ db.campaigns_draft.hasOne(db.user, {
 });
 
 
+db.dvp.belongsTo(db.recipients, {
+  foreignKey: "counterparty1",
+  targetKey: "id"
+});
+db.dvp.belongsTo(db.recipients, {
+  foreignKey: "counterparty2",
+  targetKey: "id"
+});
+db.dvp_draft.belongsTo(db.recipients, {
+  foreignKey: "id",
+  sourceKey: "counterparty1"
+});
+db.dvp_draft.belongsTo(db.recipients, {
+  foreignKey: "id",
+  sourceKey: "counterparty2"
+});
+db.dvp.belongsTo(db.campaigns, {
+  foreignKey: "underlyingTokenID1",
+  targetKey: "id",
+});
+db.dvp.belongsTo(db.campaigns, {
+  foreignKey: "underlyingTokenID2",
+  targetKey: "id",
+});
+db.dvp_draft.belongsTo(db.campaigns, {
+  foreignKey: "id",
+  sourceKey: "underlyingTokenID1"
+});
+db.dvp_draft.belongsTo(db.campaigns, {
+  foreignKey: "id",
+  sourceKey: "underlyingTokenID2"
+});
+
+
 db.pbm.belongsTo(db.recipients, {
   foreignKey: "sponsor",
   targetKey: "id"
@@ -201,11 +237,11 @@ db.pbm_draft.belongsTo(db.recipients, {
   sourceKey: "sponsor"
 });
 
+
 db.pbm_templates.belongsTo(db.recipients, {
   foreignKey: "sponsor",
   targetKey: "id"
 });
-
 db.pbm.belongsTo(db.campaigns, {
   foreignKey: "underlyingTokenID",
   targetKey: "id",

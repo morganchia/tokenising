@@ -1,11 +1,10 @@
 module.exports = (sequelize, Sequelize) => {
-  const PBM = sequelize.define("pbm", {
+  const DvP = sequelize.define("dvp", {
     id: {
       type: Sequelize.INTEGER,
       primaryKey: true,
       unique: true,
-      autoIncrement: true,
-      initialAutoIncrement: 2000000000,
+      autoIncrement: true
     },
     name: {
       type: Sequelize.STRING,  // varchar(255)
@@ -15,63 +14,48 @@ module.exports = (sequelize, Sequelize) => {
     description: {
       type: Sequelize.STRING,  // varchar(255)
     },
-    tokenname: {
-      type: Sequelize.STRING,  // varchar(45)
-      allowNull: false
-    },
-    underlyingTokenID: {  
-      type: Sequelize.INTEGER,  
-      allowNull: false
-    },
-    underlyingDSGDsmartcontractaddress: {  // varchar(255)
+    counterparty1: {  // wallet addr
       type: Sequelize.STRING,
       allowNull: false  
     },
+    counterparty2: {  // wallet addr
+      type: Sequelize.STRING,
+      allowNull: false  
+    },
+    underlyingTokenID1: {  
+      type: Sequelize.INTEGER,  
+      allowNull: false
+    },
+    underlyingTokenID2: {  
+      type: Sequelize.INTEGER,  
+      allowNull: false
+    },
     smartcontractaddress: {  // varchar(255)
-      type: Sequelize.STRING  
+      type: Sequelize.STRING,
+      allowNull: false  
+    },
+    smartcontractaddress1: {  // varchar(255)
+      type: Sequelize.STRING,
+      allowNull: false  
+    },
+    smartcontractaddress2: {  // varchar(255)
+      type: Sequelize.STRING,
+      allowNull: false  
+    },
+    amount1: {
+      type: Sequelize.BIGINT
+    },
+    amount2: {
+      type: Sequelize.BIGINT
+    },
+    blockchain: {
+      type: Sequelize.INTEGER   // chain id
     },
     startdate: {
       type: Sequelize.DATE
     },
     enddate: {
       type: Sequelize.DATE
-    },
-    sponsor: {
-      type: Sequelize.INTEGER   // recipient id
-    },
-    amount: {
-      type: Sequelize.BIGINT
-    },
-    blockchain: {
-      type: Sequelize.INTEGER   // chain id
-    },
-    operator1: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    datafield1_name: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    datafield1_value: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    operator2: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    datafield2_name: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    datafield2_value: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    bool_between_fields: {
-      type: Sequelize.STRING,
-      defaultValue: null,
     },
     status: {
       type: Sequelize.INTEGER  // 0=created pending checker, 1=checker ack, 2=approver ack
@@ -102,5 +86,5 @@ module.exports = (sequelize, Sequelize) => {
     }
   });
 
-  return PBM;
+  return DvP;
 };

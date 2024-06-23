@@ -75,6 +75,30 @@ module.exports = (sequelize, Sequelize) => {
       PBMunderlyingTokenID: {  
         type: Sequelize.INTEGER
       },
+      underlyingTokenID1: {  
+        type: Sequelize.INTEGER
+      },
+      underlyingTokenID2: {  
+        type: Sequelize.INTEGER
+      },
+      smartcontractaddress1: {  // varchar(255)
+        type: Sequelize.STRING  
+      },
+      smartcontractaddress2: {  // varchar(255)
+        type: Sequelize.STRING  
+      },
+      counterparty1: {  // varchar(255)
+        type: Sequelize.STRING  
+      },
+      counterparty2: {  // varchar(255)
+        type: Sequelize.STRING  
+      },
+      amount1: {
+        type: Sequelize.BIGINT
+      },
+      amount2: {
+        type: Sequelize.BIGINT
+      },
       status: {
         type: Sequelize.INTEGER  // 0=created, 1=submitted pending checker, 2=checked, 3=approved
       },

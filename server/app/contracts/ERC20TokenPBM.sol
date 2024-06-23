@@ -97,8 +97,10 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
      */
     function wrapMint(address toUser, uint256 amount) external  whenNotExpired {
         //require(underlyingToken.allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
+        // # PBM conditions
 
-//        underlyingToken.transferFrom(_msgSender(), address(this), amount);  // <-- transfer from toUser!!
+        // underlyingToken.transferFrom(_msgSender(), address(this), amount);  // <-- transfer from toUser!!
+
         underlyingToken.transferFrom(toUser, address(this), amount);  // <-- transfer from toUser!!
         _mint(toUser, amount);
         emit wMint(owner, toUser, address(this), amount);

@@ -1,11 +1,10 @@
 module.exports = (sequelize, Sequelize) => {
-  const PBMs_Draft = sequelize.define("pbms_draft", {
+  const DvPs_Draft = sequelize.define("dvps_draft", {
     id: {
       type: Sequelize.INTEGER,
       primaryKey: true,
       unique: true,
-      autoIncrement: true,
-      initialAutoIncrement: 2000000000,
+      autoIncrement: true
     },
     name: {
       type: Sequelize.STRING,  // varchar(45)
@@ -14,21 +13,46 @@ module.exports = (sequelize, Sequelize) => {
     },
     description: {
       type: Sequelize.STRING,  // varchar(255)
-    },
-    tokenname: {
-      type: Sequelize.STRING,  // varchar(45)
-      allowNull: false
-    },
-    underlyingTokenID: {  
-      type: Sequelize.INTEGER,  
-      allowNull: false
-    },
-    underlyingDSGDsmartcontractaddress: {  // varchar(255)
+    },    counterparty1: {  // wallet addr
       type: Sequelize.STRING,
       allowNull: false  
     },
+    counterparty1: {  // wallet addr
+      type: Sequelize.STRING,
+      allowNull: false  
+    },
+    counterparty2: {  // wallet addr
+      type: Sequelize.STRING,
+      allowNull: false  
+    },
+    underlyingTokenID1: {  
+      type: Sequelize.INTEGER,  
+      allowNull: false
+    },
+    underlyingTokenID2: {  
+      type: Sequelize.INTEGER,  
+      allowNull: false
+    },
     smartcontractaddress: {  // varchar(255)
-      type: Sequelize.STRING  
+      type: Sequelize.STRING,
+      allowNull: true  
+    },
+    smartcontractaddress1: {  // varchar(255)
+      type: Sequelize.STRING,
+      allowNull: false  
+    },
+    smartcontractaddress2: {  // varchar(255)
+      type: Sequelize.STRING,
+      allowNull: false  
+    },
+    amount1: {
+      type: Sequelize.BIGINT
+    },
+    amount2: {
+      type: Sequelize.BIGINT
+    },
+    blockchain: {
+      type: Sequelize.INTEGER   // chain id
     },
     startdate: {
       type: Sequelize.DATE
@@ -36,45 +60,8 @@ module.exports = (sequelize, Sequelize) => {
     enddate: {
       type: Sequelize.DATE
     },
-    sponsor: {
-      type: Sequelize.INTEGER   // recipient id
-    },
-    amount: {
-      type: Sequelize.BIGINT
-    },
-    blockchain: {
-      type: Sequelize.INTEGER   // chain id
-    },
     txntype: {
       type: Sequelize.INTEGER  // 0=create, 1=edit, 2=delete
-    },
-    operator1: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    datafield1_name: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    datafield1_value: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    operator2: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    datafield2_name: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    datafield2_value: {
-      type: Sequelize.STRING,
-      defaultValue: null,
-    },
-    bool_between_fields: {
-      type: Sequelize.STRING,
-      defaultValue: null,
     },
     status: {
       type: Sequelize.INTEGER  // 0=created, 1=submitted pending checker, 2=checked, 3=approved
@@ -95,11 +82,11 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.BOOLEAN,
       defaultValue: false,
     },
-    sponsor_changed: {
+    amount1_changed: {
       type: Sequelize.BOOLEAN,
       defaultValue: false,
     },
-    amount_changed: {
+    amount2_changed: {
       type: Sequelize.BOOLEAN,
       defaultValue: false,
     },
@@ -115,10 +102,10 @@ module.exports = (sequelize, Sequelize) => {
     enddate_original: {
       type: Sequelize.DATE
     },
-    sponsor_original: {
-      type: Sequelize.INTEGER   // recipient id
+    amount1_original: {
+      type: Sequelize.BIGINT
     },
-    amount_original: {
+    amount2_original: {
       type: Sequelize.BIGINT
     },
     actionby: {
@@ -143,7 +130,7 @@ module.exports = (sequelize, Sequelize) => {
     approverComments: {
       type: Sequelize.STRING 
     },
-    approvedpbmid: {
+    approveddvpid: {
       type: Sequelize.INTEGER  // reference the id in Pbm table
     },
     createdAt: {
@@ -156,5 +143,5 @@ module.exports = (sequelize, Sequelize) => {
     }
   });
 
-  return PBMs_Draft;
+  return DvPs_Draft;
 };
