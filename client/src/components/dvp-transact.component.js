@@ -15,6 +15,7 @@ import "../LoadingSpinner.css";
 class DvP extends Component {
   constructor(props) {
     super(props);
+    /*
     this.onChangeName = this.onChangeName.bind(this);
     this.onChangeDescription = this.onChangeDescription.bind(this);
     this.onChangeUnderlying1 = this.onChangeUnderlying1.bind(this);
@@ -30,13 +31,17 @@ class DvP extends Component {
     this.onChangeApprover = this.onChangeApprover.bind(this);
     this.onChangeCheckerComments = this.onChangeCheckerComments.bind(this);
     this.onChangeApproverComments = this.onChangeApproverComments.bind(this);
+*/
+
     this.getDvP = this.getDvP.bind(this);
-    this.submitDvP = this.submitDvP.bind(this);
+    this.executeDvP = this.executeDvP.bind(this);
+    /*
     this.acceptDvP = this.acceptDvP.bind(this);
     this.approveDvP = this.approveDvP.bind(this);
     this.rejectDvP = this.rejectDvP.bind(this);
     this.deleteDvP = this.deleteDvP.bind(this);
     this.dropRequest = this.dropRequest.bind(this);
+    */
     this.showModal_Leave = this.showModal_Leave.bind(this);
   //  this.showModal_nochange = this.showModal_nochange.bind(this);
 //  this.showModalDelete = this.showModalDelete.bind(this);
@@ -213,15 +218,9 @@ class DvP extends Component {
     this.getDvP(user, this.props.router.params.id);
     this.getAllUnderlyingAssets();
     this.getAllCounterpartys();
-    this.retrieveAllMakersCheckersApprovers();
-/*
-    const newBlockchain = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(this.state.underlying)).blockchain;
-    this.setState({
-      blockchain: newBlockchain
-    });
-*/
+//    this.retrieveAllMakersCheckersApprovers();
   }
-
+/*
   onChangeName(e) {
     const name = e.target.value;
     this.setState({
@@ -398,11 +397,7 @@ class DvP extends Component {
 
   onChangeChecker(e) {
     const checker = e.target.value;
-    /*
-    this.setState({
-      datachanged: true
-    });
-    */
+
     this.setState(prevState => ({
       currentDvP: {
         ...prevState.currentDvP,
@@ -429,11 +424,7 @@ class DvP extends Component {
 
   onChangeApprover(e) {
     const approver = e.target.value;
-    /*
-    this.setState({
-      datachanged: true
-    });
-  */
+
     this.setState(prevState => ({
       currentDvP: {
         ...prevState.currentDvP,
@@ -457,19 +448,20 @@ class DvP extends Component {
       };
     });
   }
+*/
 
   getDvP(user, id) {
-    console.log("+++ id:", id);
+    console.log("+++ findOne(id):", id);
 
     if (id !== undefined) {
-      DvPDataService.getAllDraftsByDvPId(id)
+      DvPDataService.findOne(id)
         .then(response => {
           response.data[0].actionby = user.username;
           this.setState({
             currentDvP: response.data[0],
             originalDvP: response.data[0],
           });
-          console.log("Response from getAllDraftsByDvPId(id):",response.data[0]);
+          console.log("Response from findOne(id):",response.data[0]);
 
           let ismaker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "MAKER" && user.id === response.data[0].maker);
           console.log("isMaker:", (ismaker === undefined? false: true));
@@ -495,8 +487,8 @@ class DvP extends Component {
           this.setState({ isNewDvP : (response.data[0].smartcontractaddress === "" || response.data[0].smartcontractaddress === null) });
         })
         .catch(e => {
-          console.log("Error from getAllDraftsByDvPId(id):", e);
-          alert("Error: " + e.response.data.message);
+          console.log("Error from findOne(id):", e);
+          alert("Error: " + e.response.data[0].message);
 
         });
 
@@ -571,44 +563,20 @@ displayModal(msg, b1text, b2text, b3text, b0text) {
   });
 }
 
-
 async validateForm() {    
     var err = "";
-
-    if (!(typeof this.state.currentDvP.name ==='string' || this.state.currentDvP.name instanceof String)) {
-      err += "- Name cannot be empty\n";
-    } else if ((this.state.currentDvP.name.trim() === "")) {
-      err += "- Name cannot be empty\n"; 
-    } else if (this.state.isNewDvP) { // only check if new dvp, dont need to check if it is existing dvp because surely will have name alrdy
-      await DvPDataService.findByNameExact(this.state.currentDvP.name.trim())
-      .then(response => {
-        console.log("Find duplicate name:",response.data);
-
-        if (response.data.length > 0) {
-          err += "- Name of dvp is already present (duplicate name)\n";
-          console.log("Found dvp name (duplicate!):"+this.state.currentDvP.name);
-        } else {
-          console.log("Didnt find dvp name1 (ok no duplicate):"+this.state.currentDvP.name);
-        }
-      })
-      .catch(e => {
-        console.log("Didnt find dvp name2 (ok no duplicate):"+this.state.currentDvP.name);
-        // ok to proceed
-      });
-    }
         
       // dont need t check description, it can be empty
+    if (this.state.currentDvP.amount1 === "") err += "- Amount 1 cannot be empty\n";
+    if (parseInt(this.state.currentDvP.amount1) <=  0) err += "- Amount 1 must be more than zero\n";
     if (! validator.isDate(this.state.currentDvP.startdate)) err += "- Start Date is invalid\n";
     if (! validator.isDate(this.state.currentDvP.enddate)) err += "- End Date is invalid\n";
-    if (this.state.currentDvP.sponsor === "") err += "- Sponsor cannot be empty\n";
-    if (this.state.currentDvP.amount === "") err += "- Amount cannot be empty\n";
-    if (parseInt(this.state.currentDvP.amount) <=  0) err += "- Amount must be more than zero\n";
     if (this.state.currentDvP.startdate.trim() !== "" && this.state.currentDvP.enddate.trim() !== "" && this.state.currentDvP.startdate > this.state.currentDvP.enddate) err += "- Start date cannot be later than End date\n";    
 
     console.log("start date:'"+this.state.currentDvP.startdate+"'");
     console.log("end date:'"+this.state.currentDvP.enddate+"'");
     console.log("Start > End? "+ (this.state.currentDvP.startdate > this.state.currentDvP.enddate));
-
+/*
     if (this.state.currentDvP.checker === "" || this.state.currentDvP.checker === null) err += "- Checker cannot be empty\n";
     if (this.state.currentDvP.approver === "" || this.state.currentDvP.approver === null) err += "- Approver cannot be empty\n";
     if (this.state.currentDvP.checker === this.state.currentUser.id.toString() 
@@ -620,7 +588,7 @@ async validateForm() {
       if (this.state.currentDvP.checker!==null && this.state.currentDvP.checker!=="" 
             && this.state.currentDvP.checker === this.state.currentDvP.approver) err += "- Checker and Approver cannot be the same person\n";
     }
-
+*/
     if (err !=="" ) {
       err = "Form validation issues found:\n"+err;
       //alert(err);
@@ -631,7 +599,7 @@ async validateForm() {
     return true;
   }
 
-async submitDvP() {
+async executeDvP() {
   
   if (await this.validateForm()) { 
         console.log("Form Validation passed");
@@ -639,7 +607,7 @@ async submitDvP() {
         console.log("IsLoad=true");
         this.show_loading();
   
-        await DvPDataService.submitDraftById(
+        await DvPDataService.executeDvPById(
           this.state.currentDvP.id,
           this.state.currentDvP,
         )
@@ -653,26 +621,24 @@ async submitDvP() {
           this.setState({  
             datachanged: false,
           });
-          this.displayModal("DvP submitted. Routing to checker.", "OK", null, null, null);
+          this.displayModal("DvP executed successfully.", "OK", null, null, null);
         })
         .catch(e => {
           this.hide_loading();
   
-          console.log(e);
-          console.log(e.message);
-          this.displayModal("DvP submit failed.", null, null, null, "OK");
-  
           try {
-            console.log(e.response.data.message);
-            // Need to check draft and approved dvp names
-            if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-              this.displayModal("The DvP submit failed. The new dvp name is already used, please use another name.", null, null, null, "OK");
-            }
+            console.log("e->response->data->msg:  ", e.response.data.message);
+            console.log(e.message);
+            this.displayModal("DvP submit failed. "+e.response.data.message, null, null, null, "OK");
+                // Need to check draft and approved dvp names
+//            if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
+//              this.displayModal("The DvP submit failed. The new dvp name is already used, please use another name.", null, null, null, "OK");
+//            }
           } catch(e) {
             this.hide_loading();
   
             console.log("Error: ",e);
-            console.log("Response error:",e.response.data.message);
+            console.log("Response error:", e.response.data.message);
             if (e.response.data.message !== "") 
               this.displayModal("Error: "+e.response.data.message+". Please contact tech support.", null, null, null, "OK");
             else
@@ -684,6 +650,7 @@ async submitDvP() {
     }
   }
     
+/*
 async acceptDvP() {  // checker endorse
   
 //    if (await this.validateForm()) { 
@@ -757,7 +724,7 @@ async approveDvP() {
       this.setState({  
         datachanged: false,
       });
-      this.displayModal("The DvP smart contract is approved and executed successfully"+ (typeof(response.data.smartcontractaddress)!=="undefined" && response.data.smartcontractaddress!==null && response.data.smartcontractaddress!==""? " with smart contract deployed at "+response.data.smartcontractaddress+". \n\nYou can start using it to transacting using the DvP smart contract now.": "."), "OK", null, null, null);
+      this.displayModal("The DvP smart contract is approved, executed successfully"+ (typeof(response.data.smartcontractaddress)!=="undefined" && response.data.smartcontractaddress!==null && response.data.smartcontractaddress!==""? " and deployed at "+response.data.smartcontractaddress+". \n\nYou can start using it to transacting using the DvP smart contract now.": "."), "OK", null, null, null);
     })
     .catch(e => {
       this.hide_loading();
@@ -831,7 +798,6 @@ async rejectDvP() {
   }
   this.hide_loading();
 }
-    
 
 async deleteDvP() {    
     console.log("IsLoad=true");
@@ -882,7 +848,7 @@ async deleteDvP() {
       console.log(e);
     });
   }
-
+*/
   show_loading() {
     this.setState({isLoading: true});
   }
@@ -891,11 +857,6 @@ async deleteDvP() {
     this.setState({isLoading: false});
   }
 
-  /*
-  showModal_nochange = () => {
-    this.displayModal("No change is updated as you have not made any change.", null, null, null, "OK");
-  };
-*/
   showModal_Leave = () => {
     this.displayModal("You have made changes. Are you sure you want to leave this page without submitting?", "Yes, leave", null, null, "Cancel");
   };
@@ -1066,7 +1027,7 @@ async deleteDvP() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="blockchain">Blockchain to Deploy at</label>
+                    <label htmlFor="blockchain">Blockchain to deploy at</label>
                     {// use the blockchain where the underlying was deployed
                     }
                     <select
@@ -1133,7 +1094,7 @@ async deleteDvP() {
                     </tr>
                     </table>
                     <br/>
-
+{/*
                     <div className="form-group">
                       <label htmlFor="checker">Checker *</label>
                       <select
@@ -1200,36 +1161,41 @@ async deleteDvP() {
                         disabled={!this.state.isApprover}
                         />
                     </div>
-
+*/}
 
                   </form>
                   {
-                  this.state.isMaker?
+                  //this.state.isMaker?
                   <>
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-primary"
-                    onClick={this.submitDvP}
+                    onClick={this.executeDvP}
+                    disabled={this.state.currentDvP.smartcontractaddress === ""}
+
                     >
-                      Submit 
+                      Execute DvP transaction 
                       {
-                        (this.state.currentDvP.txntype===0? " Create ":
-                        (this.state.currentDvP.txntype===1? " Update ":
-                        (this.state.currentDvP.txntype===2? " Delete ":null)))
+                        //(this.state.currentDvP.txntype===0? " Create ":
+                        //(this.state.currentDvP.txntype===1? " Update ":
+                        //(this.state.currentDvP.txntype===2? " Delete ":null)))
                       }
-                      Request
-
+                      
                     </button> 
-
+{/*
                     <button
                       className="m-3 btn btn-sm btn-danger"
                       onClick={this.showModal_dropRequest}
                     >
                       Drop Request
                     </button>
+*/}
                 </>
 
-                  : (this.state.isChecker? 
+                  
+                  /*
+                  :
+                  (this.state.isChecker? 
                   <button
                   type="submit"
                   className="m-3 btn btn-sm btn-primary"
@@ -1261,8 +1227,9 @@ async deleteDvP() {
                       Request
 
                     </button> 
-                    : null
-                  ))
+                  */
+//                    : null
+//                  ))
                   }
    &nbsp;
                   {

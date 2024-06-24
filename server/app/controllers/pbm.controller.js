@@ -1168,9 +1168,15 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
                             console.log('Receipt: ', receipt);
 
                             if (receipt.status) { //  === true
-                                console.log("Approve() successful. ");
+                              res.send({
+                                message: "Approve() successful. "
+                              });
+                              errorSent = true;
                             } else {
-                                console.log("Transaction failed, please check "+url1+" for error.");
+                              res.status(400).send({ 
+                                message: "Transaction failed, please check "+url+" for error.",
+                              });
+                              errorSent = true;
                             }
 
                           }

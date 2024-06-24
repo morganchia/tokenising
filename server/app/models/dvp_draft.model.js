@@ -25,6 +25,16 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.STRING,
       allowNull: false  
     },
+    /*
+    counterparty1name: {  // recipient name
+      type: Sequelize.STRING,
+      allowNull: true  
+    },
+    counterparty2name: {  // recipient name
+      type: Sequelize.STRING,
+      allowNull: true  
+    },
+    */
     underlyingTokenID1: {  
       type: Sequelize.INTEGER,  
       allowNull: false
@@ -33,6 +43,16 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.INTEGER,  
       allowNull: false
     },
+    /*
+    Token1name: {  // varchar(45)
+      type: Sequelize.STRING,
+      allowNull: true  
+    },
+    Token2name: {  // varchar(45)
+      type: Sequelize.STRING,
+      allowNull: true  
+    },
+    */
     smartcontractaddress: {  // varchar(255)
       type: Sequelize.STRING,
       allowNull: true  

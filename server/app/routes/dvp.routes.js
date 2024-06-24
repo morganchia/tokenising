@@ -37,11 +37,10 @@ module.exports = app => {
 /*
   router.get("/finddraftbynameexact", dvp.findDraftByNameExact);
   router.get("/finddraftbyapprovedid", dvp.findDraftByApprovedId);
-  
-  // Retrieve a single DvP with id
-  router.get("/:id", dvp.findOne);
-
 */
+  // Retrieve a single DvP with id
+  router.get("/findone", dvp.findOne);
+
   // sequence matters
   router.put("/submitdraftbyid/:id", dvp.submitDraftById);
   router.put("/acceptdraftbyid/:id", dvp.acceptDraftById);
@@ -49,6 +48,7 @@ module.exports = app => {
   router.put("/rejectdraftbyid/:id", dvp.rejectDraftById);
   router.put("/approvedeletedraftbyid/:id", dvp.approveDeleteDraftById); 
   router.put("/droprequestbyid/:id", dvp.dropRequestById);
+  router.put("/executedvpbyid/:id", dvp.executeDvPById);
 /*
   router.put("/submitwrapmintdraftbyid/:id", dvp.submitWrapMintDraftById);
   router.put("/acceptwrapmintdraftbyid/:id", dvp.acceptWrapMintDraftById);

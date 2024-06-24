@@ -598,11 +598,12 @@ async validateForm() {
     }
         
       // dont need t check description, it can be empty
+    if (this.state.currentDvP.amount1 === "") err += "- Amount 1 cannot be empty\n";
+    if (this.state.currentDvP.amount2 === "") err += "- Amount 2 cannot be empty\n";
+    if (parseInt(this.state.currentDvP.amount1) <=  0) err += "- Amount 1 must be more than zero\n";
+    if (parseInt(this.state.currentDvP.amount2) <=  0) err += "- Amount 2 must be more than zero\n";
     if (! validator.isDate(this.state.currentDvP.startdate)) err += "- Start Date is invalid\n";
     if (! validator.isDate(this.state.currentDvP.enddate)) err += "- End Date is invalid\n";
-    if (this.state.currentDvP.sponsor === "") err += "- Sponsor cannot be empty\n";
-    if (this.state.currentDvP.amount === "") err += "- Amount cannot be empty\n";
-    if (parseInt(this.state.currentDvP.amount) <=  0) err += "- Amount must be more than zero\n";
     if (this.state.currentDvP.startdate.trim() !== "" && this.state.currentDvP.enddate.trim() !== "" && this.state.currentDvP.startdate > this.state.currentDvP.enddate) err += "- Start date cannot be later than End date\n";    
 
     console.log("start date:'"+this.state.currentDvP.startdate+"'");
@@ -757,7 +758,7 @@ async approveDvP() {
       this.setState({  
         datachanged: false,
       });
-      this.displayModal("The DvP smart contract is approved and executed successfully"+ (typeof(response.data.smartcontractaddress)!=="undefined" && response.data.smartcontractaddress!==null && response.data.smartcontractaddress!==""? " with smart contract deployed at "+response.data.smartcontractaddress+". \n\nYou can start using it to transacting using the DvP smart contract now.": "."), "OK", null, null, null);
+      this.displayModal("The DvP smart contract is approved, executed successfully"+ (typeof(response.data.smartcontractaddress)!=="undefined" && response.data.smartcontractaddress!==null && response.data.smartcontractaddress!==""? " and deployed at "+response.data.smartcontractaddress+". \n\nYou can start using it to transacting using the DvP smart contract now.": "."), "OK", null, null, null);
     })
     .catch(e => {
       this.hide_loading();

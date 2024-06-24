@@ -177,7 +177,7 @@ refreshList() {
   };
 
   shorten(s) {
-    return(s.substring(0,6) + "..." + s.slice(-4));
+    return(s.substring(0,6) + "..." + s.slice(-3));
   }
 
 
@@ -233,6 +233,10 @@ refreshList() {
                   <th>DvP Name</th>
                   <th>Counter Party 1</th>
                   <th>Counter Party 2</th>
+{/*
+                  <th>Token 1</th>
+                  <th>Token 2</th>
+*/}
                   <th>Amount 1</th>
                   <th>Amount 2</th>
                   <th>Smart Contract Address</th>
@@ -249,6 +253,12 @@ refreshList() {
                       <td>{dvp1.name}</td>
                       <td>{this.shorten(dvp1.counterparty1)}</td>
                       <td>{this.shorten(dvp1.counterparty2)}</td>
+{/*
+                      <td>{dvp1.counterparty1name}</td>
+                      <td>{dvp1.counterparty2name}</td>
+                      <td>{dvp1.Token1name}</td>
+                      <td>{dvp1.Token2name}</td>
+*/}
                       <td>{dvp1.amount1}</td>
                       <td>{dvp1.amount2}</td>
                       <td>{this.shorten(dvp1.smartcontractaddress)}</td>

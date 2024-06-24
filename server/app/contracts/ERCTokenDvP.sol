@@ -83,7 +83,8 @@ contract ERCTokenDVP {
         enddate = newEnddate;
     }
 
-    function executeTrade() public withinDateRange {
+//    function executeTrade() public withinDateRange {
+    function executeTrade() public  {
         require(IERC20(token1).balanceOf(counterparty1) >= amount1, "Counterparty 1 has insufficient token1 balance");
         require(IERC20(token2).balanceOf(counterparty2) >= amount2, "Counterparty 2 has insufficient token2 balance");
 

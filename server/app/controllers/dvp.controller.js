@@ -111,7 +111,6 @@ exports.draftCreate = async (req, res) => {
   });
 };  // draftCreate
 
-
 exports.create_review = async (req, res) => {
   // Validate request
   if (!req.body.name) {
@@ -340,6 +339,9 @@ exports.approveDraftById = async (req, res) => {  //
     console.log("Startdate (unix time) = ", Number(new Date(req.body.startdate)));
     console.log("Enddate   (unix time) = ", Number(new Date(req.body.enddate)));
     try {
+      const this_amount1 = req.body.amount1 * 1e18;
+      const this_amount2 = req.body.amount2 * 1e18;
+
       // Deploy contract
       const deployContract = async () => {
         console.log('Attempting to deploy from account:', signer.address);
@@ -352,8 +354,8 @@ exports.approveDraftById = async (req, res) => {  //
             req.body.counterparty2, 
             req.body.smartcontractaddress1, 
             req.body.smartcontractaddress2, 
-            req.body.amount1, 
-            req.body.amount2, 
+            this_amount1.toString(), 
+            this_amount2.toString(), 
             Number(new Date(req.body.startdate)),
             Number(new Date(req.body.enddate))
           ],
@@ -765,6 +767,301 @@ exports.approveDraftById = async (req, res) => {  //
   } // ExecutionSucc
 }; // approveDraftById
 
+exports.executeDvPById = async (req, res) => {  // 
+  // Steps:
+  // 1. Is this a new DvP creation or Edit? If approveddvpid === '-1' then it is a new creation
+  // 2. If new dvp creation:
+  //   a. Check if smart contract is compiled (ABI and ByteCode files are present)
+  //   b. Sign smart contract
+  //   c. Deploy smart contract
+  //   d. Update DvP_Draft table status to "3"
+  //   e. Insert entry in DvP table
+  // 3. If edit existing dvp:
+  //   a. Update smart contract info such as total supply or date
+  //   b. Update DvP_Draft table status to "3"
+  //   c. Update entry in DvP table
+
+  var errorSent = false;
+
+  // Validate request
+  if (req.body.smartcontractaddress === "" || req.body.smartcontractaddress === null) {
+    res.status(400).send({
+      message: "Content can not be empty!"
+    });
+    return;
+  }
+  
+  const draft_id = req.params.id;
+
+  console.log("Received executeDvPById :");
+  console.log(req.body);
+
+////////////////////////////// Blockchain ////////////////////////
+
+  require('dotenv').config();
+  const ETHEREUM_NETWORK = (() => {switch (req.body.blockchain) {
+      case 80001:
+        return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
+      case 80002:
+        return process.env.REACT_APP_POLYGON_AMOY_NETWORK
+      case 11155111:
+        return process.env.REACT_APP_ETHEREUM_SEPOLIA_NETWORK
+      case 43113:
+        return process.env.REACT_APP_AVALANCHE_FUJI_NETWORK
+      case 137:
+        return process.env.REACT_APP_POLYGON_MAINNET_NETWORK
+      case 1:
+        return process.env.REACT_APP_ETHEREUM_MAINNET_NETWORK
+      case 43114:
+        return process.env.REACT_APP_AVALANCHE_MAINNET_NETWORK
+      default:
+        return null
+    }
+  }
+  )()
+
+  //  const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
+  const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
+  const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
+
+  console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+
+  async function dvpExec() {  // create and deploy new smart contract
+    var errorSent = false;
+    updatestatus = false;
+
+    fs = require("fs");
+
+    try { // read the ABI file
+      
+      console.log("DvP ABI and Bytecode files are present, just read them, no need to recompile...");
+      console.log("Read DvP ABI JSON file.");
+      ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenDvP.abi.json").toString());
+      console.log("Read DvP Bytecode JSON file.");
+      bytecode = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenDvP.bytecode.json").toString());
+    } catch(err) {
+      console.error("Err7 while reading ABI and Bytecode files: ",err)
+      if (!errorSent) {
+        console.log("Sending error 400 back to client");
+        res.status(400).send({ 
+          message: err
+        });
+        errorSent = true;
+      }
+      return false;
+    } // try read the ABI file
+    
+    // Creation of Web3 class
+    Web3 = require("web3");
+/*
+    // Setting up a HttpProvider
+    web3 = new Web3( 
+      Web3.providers.HttpProvider(
+        `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+      ) 
+    );
+    //console.log("web3: =========>", web3);
+*/
+    console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+    // Creating a signing account from a private key
+//    const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
+    // console.log("signer:", signer);  // contains private key
+    console.log("req.body = ", req.body);
+
+    console.log("Startdate (unix time) = ", Number(new Date(req.body.startdate)));
+    console.log("Enddate   (unix time) = ", Number(new Date(req.body.enddate)));
+
+    const createInstance = (abi1, contractaddr1) => {
+      const bscProvider = new Web3(
+          new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`),
+      );
+      console.log("createInstance - Contract Addr: "+ contractaddr1);
+      const web3BSC = new Web3(bscProvider);
+      const contractz = new web3BSC.eth.Contract(
+        abi1,
+        contractaddr1,
+      );
+      return { web3BSC, contractz };
+    }; // createInstance
+
+    try {  // try 3z createInstance and exec
+      const DvPcontractInstance = createInstance(ABI, req.body.smartcontractaddress);   // executing using PBMcontractowner's private key
+      console.log("executeDvP()...");
+
+      var url = "https://"+ (() => {
+        switch (req.body.blockchain) {
+          case 80001:
+            return 'mumbai.polygonscan.com/tx/'
+          case 80002:
+            return 'amoy.polygonscan.com/tx/'
+          case 11155111:
+            return 'sepolia.etherscan.io/tx/'
+          case 43113: // avax fuji
+            return 'testnet.snowtrace.io/tx/'
+          case 137:
+            return 'polygonscan.com/tx/'
+          case 1:
+            return 'etherscan.io/tx/'
+          case 43114:
+            return 'avascan.info/blockchain/all/tx/'
+          default:
+            return null
+        }
+      }
+      )() ;
+
+      async function exec_approve() {
+        const tx = {
+          // this is the address responsible for this transaction
+          from: CONTRACT_OWNER_WALLET,
+          // target address, this could be a smart contract address
+          to: req.body.smartcontractaddress,
+          // gas fees for the transaction
+          gas: 2100000,
+          // this encodes the ABI of the method and the arguments
+          data: await DvPcontractInstance.contractz.methods
+            .executeTrade()
+            .encodeABI(),
+        };
+        console.log("Create executeTrade() txn data: ", tx.data);
+                  
+        // sign the transaction with a private key. It'll return messageHash, v, r, s, rawTransaction, transactionHash
+        const signPromise = await DvPcontractInstance.web3BSC.eth.accounts.signTransaction(
+            tx,
+            SIGNER_PRIVATE_KEY,
+          );
+        console.log("Create signPromise: ", signPromise);
+
+        // the rawTransaction here is already serialized so you don't need to serialize it again
+        // Send the signed txn
+        var url1;
+        try { // 6c sendSignedTransaction
+          const sendTxn = await DvPcontractInstance.web3BSC.eth.sendSignedTransaction(
+              signPromise.rawTransaction,
+              (error1c, hash) => {
+                url1 = url + hash;
+                console.log("url = "+ url1);
+                if (error1c) {
+                    console.log("Something went wrong when submitting your signed transaction:", error1c)
+                } else {
+                    console.log("Signed Txn sent!, hash: ", hash);
+                    var timer = 1;
+                    // retry every second to chk for receipt
+                    const interval = setInterval(() => {
+                        console.log("Attempting to get transaction receipt...");
+
+                        // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
+                        DvPcontractInstance.web3BSC.eth.getTransactionReceipt(hash, (error3, receipt) => {
+                          if (receipt) {
+                            clearInterval(interval);
+
+                            console.log('--> RECEIPT received <--');  
+                            console.log('Receipt: ', receipt);
+
+                            if (receipt.status && !errorSent) { //  === true
+                              res.send({
+                                message: "executeTrade() successful. "
+                              });
+                              errorSent = true;
+                            } else {
+                              res.status(400).send({ 
+                                message: "Transaction failed, please check "+url1+" for error.",
+                              });
+                              errorSent = true;
+                            }
+
+                          }
+                          if (error3) {
+                              console.log("!! getTransactionReceipt error: ", error3)
+                              clearInterval(interval);
+                          }
+                        });
+                        if (timer > 750) {
+                          // end loop and return
+                        
+                          clearInterval(interval);
+                        } else {
+                          timer++;
+                        }
+                    }, 1000);
+                }
+            })
+          .on("error", err => {
+              console.log("sentSignedTxn error: ", err)
+              // do something on transaction error
+          });
+          console.log("sendSignedTxn: ", sendTxn);
+          return Promise.resolve(sendTxn);
+        } catch(err6c) {  // try 6c
+          console.error("Err 6c: ",err6c);
+          console.log("Transaction failed, please check "+url1+" for error.");
+
+          if (!errorSent) {
+            res.status(400).send({ 
+              message: "Transaction failed, please check "+url1+" for error.",
+            });
+            errorSent = true;
+          }
+
+          return false;
+        } // try 6c
+
+      } // exec_approve
+
+      return(await exec_approve());
+
+    } catch(ee) { // try 3z
+      console.log("Error:", ee)
+    } // try 3z createInstance and exec
+
+  } //dvpExec
+
+  var ExecutionSucc = false;
+  ExecutionSucc = await dvpExec();
+  console.log("Execution status:", ExecutionSucc);
+
+  ////////////////////////////// Blockchain ////////////////////////
+
+  if (ExecutionSucc) {
+
+        // write to audit
+        AuditTrail.create(
+          { 
+            action                : "DvP Execute - success",
+            name                  : req.body.name,
+            description           : req.body.description, 
+            blockchain            : req.body.blockchain,
+      
+            counterparty1         : req.body.counterparty1,
+            counterparty2         : req.body.counterparty2,
+            smartcontractaddress1 : req.body.smartcontractaddress1,
+            smartcontractaddress2 : req.body.smartcontractaddress2,
+            underlyingTokenID1    : req.body.underlyingTokenID1,
+            underlyingTokenID2    : req.body.underlyingTokenID2,
+            amount1               : req.body.amount1,
+            amount2               : req.body.amount2,
+      
+            startdate             : req.body.startdate, 
+            enddate               : req.body.enddate, 
+            txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
+      
+            smartcontractaddress  : req.body.smartcontractaddress,
+      
+            actionby              : req.body.actionby,
+            status                : 4,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+          }, 
+        )
+        .then(auditres => {
+          console.log("Data written to audittrail for executing dvp request:", auditres);
+
+        })
+        .catch(err => {
+          console.log("Error while logging to audittrail for executing dvp request: "+err.message);
+        });
+
+  } // ExecutionSucc
+}; // executeDvPById
 
 exports.findDraftByNameExact = (req, res) => {
   const name = req.query.name;
@@ -1118,24 +1415,57 @@ exports.getAllDraftsByDvPId = (req, res) => {
 
 // Find a single DvP with an id
 exports.findOne = (req, res) => {
-  const id = req.params.id;
+  const id = req.query.id;
+  console.log("====== dvp.findOne(id) ",id);
+  var condition = id ? 
+       {id : id}
+      : null;
 
-  DvP.findByPk(id, {
-    include: db.recipients
-  })
+  DvP.findAll(
+    { 
+/*
+      where: condition
+    },
+    { include: db.recipients},
+*/
+      where: condition,
+      //include: db.recipients
+/*
+      include: [
+        {
+          model: db.recipients,
+          on: {
+            id: db.Sequelize.where(db.Sequelize.col("dvps.counterparty1"), "=", db.Sequelize.col("recipient.id")),
+          },
+          attributes: ['id','name'],
+        },
+        {
+          model: db.campaigns,
+          on: {
+            id: db.Sequelize.where(db.Sequelize.col("dvps.underlyingTokenID1"), "=", db.Sequelize.col("campaign.id")),
+          },
+          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
+        }
+      ]
+  */
+    },
+    )
     .then(data => {
-      //console.log("DvP.findByPk:", data)
-      if (data) {
-        res.send(data);
-      } else {
-        res.status(404).send({
-          message: `Cannot find DvP with id=${id}.`
+      console.log("DvP_Draft.findAll:", data)
+      if (data.length === 0) {
+        console.log("Data is empyty!!!");
+        res.status(500).send({
+          message: "No such record in the system" 
         });
-      }
+      } else
+      res.send(data);
     })
     .catch(err => {
+      console.log("Error while retreiving dvp5: "+err.message);
+
       res.status(500).send({
-        message: "Error retrieving DvP with id=" + id
+        message:
+          err.message || "Some error occurred while retrieving dvp."
       });
     });
 };

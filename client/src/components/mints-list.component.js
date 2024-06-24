@@ -141,7 +141,7 @@ export default class MintList extends Component {
   };
 
   shorten(s) {
-    return(s.substring(0,6) + "..." + s.slice(-4));
+    return(s.substring(0,6) + "..." + s.slice(-3));
   }
 
 

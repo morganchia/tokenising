@@ -62,6 +62,10 @@ class DvPDataService {
     return http.put(`/dvp/droprequestbyid/${id}`, data);
   }
 
+  executeDvPById(id, data) {
+    console.log("Calling /dvp/executedvpbyid?id");
+    return http.put(`/dvp/executedvpbyid/${id}`, data);
+  }
 /*
   delete(id) {
     return http.delete(`/dvp/${id}`);
@@ -75,9 +79,14 @@ class DvPDataService {
     return http.get(`/dvp/findByName?name=${name}`);
   }
 */
+  findOne(id) {
+    return http.get(`/dvp/findone?id=${id}`);
+  }
+
   getAllDraftsByUserId(id) {
     return http.get(`/dvp/getalldraftsbyuserid?id=${id}`);
   }
+  
   getAllDraftsByDvPId(id) {
     return http.get(`/dvp/getalldraftsbydvpid?id=${id}`);
   }
@@ -104,7 +113,7 @@ class DvPDataService {
     return http.get(`/dvp/getInWalletMintedTotalSupply?id=${id}`);
   }
 
-    */
+*/
 
 }
 
