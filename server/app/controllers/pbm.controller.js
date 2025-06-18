@@ -12,15 +12,19 @@ function createStringWithZeros(num) { return ("0".repeat(num)); }
 
 // Create and Save a new PBM draft
 exports.wrapMint_draftCreate = async (req, res) => {
-
+  var errorSent = false;
+  
   console.log("Received for WrapMint draft Create:");
   console.log(req.body);
 
   // Validate request
   if (!req.body.underlyingTokenID || !req.body.pbm_id) {
-    res.status(400).send({
-      message: "WrapMint Content can not be empty!"
-    });
+    if (!errorSent) {
+      res.status(400).send({
+        message: "WrapMint Content can not be empty!"
+      });
+      errorSent = true;
+    }
     return;
   }
 
@@ -71,10 +75,13 @@ exports.wrapMint_draftCreate = async (req, res) => {
     res.send(data);
   })
   .catch(err => {
-    res.status(500).send({
-      message:
-        err.message || "Some error occurred while creating the wrapMint draft."
-    });
+    if (!errorSent) {
+      res.status(500).send({
+        message:
+          err.message || "Some error occurred while creating the wrapMint draft."
+      });
+      errorSent = true;
+    }
     console.log("Error while creating wrapMint draft: "+err.message);
   });
 };  // wrapMint_draftCreate
@@ -82,10 +89,15 @@ exports.wrapMint_draftCreate = async (req, res) => {
 // Create and Save a new PBM draft
 exports.draftCreate = async (req, res) => {
   // Validate request
+  var errorSent = false;
+
   if (!req.body.name) {
-    res.status(400).send({
-      message: "Content can not be empty!"
-    });
+    if (!errorSent) {
+      res.status(400).send({
+        message: "Content can not be empty!"
+      });
+      errorSent = true;
+    }
     return;
   }
 
@@ -191,10 +203,15 @@ exports.draftCreate = async (req, res) => {
 // Create and Save a new PBM template
 exports.templateCreate = async (req, res) => {
   // Validate request
+  var errorSent = false;
+
   if (!req.body.templatename) {
-    res.status(400).send({
-      message: "Content can not be empty!"
-    });
+    if (!errorSent) {
+      res.status(400).send({
+        message: "Content can not be empty!"
+      });
+      errorSent = true;
+    }
     return;
   }
 
@@ -287,23 +304,35 @@ exports.templateCreate = async (req, res) => {
       console.log("Error while logging to audittrail for creating pbm template request: "+err.message);
     });
   
-    res.send(data);
+    if (!errorSent) {
+      res.send(data);
+      errorSent = true;
+    }
   })
   .catch(err => {
-    res.status(500).send({
-      message:
-        err.message || "Some error occurred while creating the PBM template."
-    });
+    if (!errorSent) {
+      res.status(500).send({
+        message:
+          err.message || "Some error occurred while creating the PBM template."
+      });
+      errorSent = true;
+    }
     console.log("Error while creating pbm template: "+err.message);
   });
 };  // template Create
 
 exports.create_review = async (req, res) => {
   // Validate request
+
+  var errorSent = false;
+
   if (!req.body.name) {
-    res.status(400).send({
-      message: "Content can not be empty!"
-    });
+    if (!errorSent) {
+      res.status(400).send({
+        message: "Content can not be empty!"
+      });
+      errorSent = true;
+    }
     return;
   }
 
@@ -351,12 +380,16 @@ exports.approveDraftById = async (req, res) => {  //
   //   c. Update entry in PBM table
 
   var errorSent = false;
+  var updatestatus = false;
 
   // Validate request
   if (!req.body.name) {
-    res.status(400).send({
-      message: "Content can not be empty!"
-    });
+    if (!errorSent) {
+      res.status(400).send({
+        message: "Content can not be empty!"
+      });
+      errorSent = true;
+    }
     return;
   }
   
@@ -365,9 +398,12 @@ exports.approveDraftById = async (req, res) => {  //
   if (req.body.txntype !==0     // create pbm
     && req.body.txntype !==1    // update pbm
     ) {
-      res.status(400).send({
-        message: "Invalid transaction type!"
-      });
+      if (!errorSent) {
+        res.status(400).send({
+          message: "Invalid transaction type!"
+        });
+        errorSent = true;
+      }
       return;  
   }
   const isNewPBM = (req.body.smartcontractaddress === "" || req.body.smartcontractaddress === null? true : false); // Create = true, Edit/Update = false
@@ -480,7 +516,6 @@ exports.approveDraftById = async (req, res) => {  //
 
       async function dAppCreate() {
         updatestatus = false;
-        var errorSent = false;
 
         fs = require("fs");
 
@@ -548,7 +583,7 @@ exports.approveDraftById = async (req, res) => {  //
               {
                 from: signer.address,
                 data: contractTx.encodeABI(),
-                gas: 4700000,
+                gas: 8700000,  // 4700000,
               },
               signer.privateKey
             );
@@ -556,7 +591,7 @@ exports.approveDraftById = async (req, res) => {  //
             //console.log('Sending signed txn:', createTransaction);
 
 
-            const createReceipt = await web3.eth.sendSignedTransaction(
+            const createReceipt = await web3.eth.sendSignedTransaction( // deploying PBM contract
               createTransaction.rawTransaction, 
             
               function (error1, hash) {
@@ -575,7 +610,7 @@ exports.approveDraftById = async (req, res) => {  //
                   var timer = 1;
                   // retry every second to chk for receipt
                   const interval = setInterval(function() {
-                    console.log("Attempting to get transaction receipt...");
+                    console.log("Attempting A to get transaction receipt... ("+timer+")");
     
                     // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
                     web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
@@ -590,7 +625,7 @@ exports.approveDraftById = async (req, res) => {  //
                         return(receipt.status);
                       }
                       if (error3) {
-                        console.log("!! getTransactionReceipt error: ", error3)
+                        console.log("!! getTransactionReceipt error (1): ", error3)
                         clearInterval(interval);
                         if (!errorSent) {
                           console.log("Sending error 400 back to client");
@@ -600,7 +635,19 @@ exports.approveDraftById = async (req, res) => {  //
                           errorSent = true;
                         }
                         return false;
-                          }
+                      }
+                      if (timer > 180) {
+                        console.log("!! getTransactionReceipt error (1): timeout after 180 seconds");
+                        clearInterval(interval);
+                        if (!errorSent) {
+                          console.log("Sending error 400 back to client");
+                          res.status(400).send({ 
+                            message: "Timeout after 180 seconds, please check the PBM status after 5 minutes and try again if the PBM isnt created.",
+                          });
+                          errorSent = true;
+                        }
+                        return false;
+                      }
                     });
                     timer++;
                   }, 1000);
@@ -646,7 +693,6 @@ exports.approveDraftById = async (req, res) => {  //
       } //dAppCreate
 
       async function dAppUpdate() {
-        var errorSent = false;
         updatestatus = false;
     
         // Readng ABI from JSON file
@@ -684,7 +730,7 @@ exports.approveDraftById = async (req, res) => {  //
     
             console.log('**** Signing update txn('+CONTRACT_OWNER_WALLET+','+req.body.amount );
             const nonce = await web3.eth.getTransactionCount(CONTRACT_OWNER_WALLET, "latest") //get latest nonce
-            const createTransaction = await web3.eth.accounts.signTransaction(
+            const createTransaction = await web3.eth.accounts.signTransaction(  
               { // Sign transaction to setTotalSupply in smart contract
                 nonce: nonce,
                 from: signer.address,
@@ -692,14 +738,14 @@ exports.approveDraftById = async (req, res) => {  //
                 data: ERC20TokenPBMcontract.methods.updateTotalSupply(
                         web3.utils.toBN( setToTalSupply )
                       ).encodeABI(),
-                gas: 4700000,
+                gas: 8700000, // 4700000,
               },
               SIGNER_PRIVATE_KEY
             ); // signTransaction
             console.log('**** Sending signed txn...');
             //console.log('Sending signed txn:', createTransaction);
     
-            const createReceipt = await web3.eth.sendSignedTransaction(
+            const createReceipt = await web3.eth.sendSignedTransaction(  // updating smart contract updateTotalSupply()
               createTransaction.rawTransaction, 
             
               function (error1, hash) {
@@ -718,7 +764,7 @@ exports.approveDraftById = async (req, res) => {  //
                   var timer = 1;
                   // retry every second to chk for receipt
                   const interval = setInterval(function() {
-                    console.log("Attempting to get transaction receipt...");
+                    console.log("Attempting B to get transaction receipt... ("+timer+")");
     
                     // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
                     web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
@@ -733,7 +779,7 @@ exports.approveDraftById = async (req, res) => {  //
                         return(receipt.status);
                       }
                       if (error3) {
-                        console.log("!! getTransactionReceipt error3: ", error3)
+                        console.log("!! getTransactionReceipt error (2): ", error3)
                         if (!errorSent) {
                           console.log("Sending error 400 back to client");
                           res.status(400).send({ 
@@ -742,6 +788,18 @@ exports.approveDraftById = async (req, res) => {  //
                           errorSent = true;
                         }
                         clearInterval(interval);
+                        return false;
+                      }
+                      if (timer > 180) {
+                        console.log("!! getTransactionReceipt error (2): timeout after 180 seconds");
+                        clearInterval(interval);
+                        if (!errorSent) {
+                          console.log("Sending error 400 back to client");
+                          res.status(400).send({ 
+                            message: "Timeout after 180 seconds, please check the PBM status after 5 minutes and try again if the PBM isnt created.",
+                          });
+                          errorSent = true;
+                        }
                         return false;
                       }
                     });
@@ -795,7 +853,7 @@ exports.approveDraftById = async (req, res) => {  //
       } else {                              // update pbm
         updatestatus = await dAppUpdate(); 
       }
-      console.log("Update status:", updatestatus);
+      console.log("approveDraftById Update status (1):", updatestatus);
 
 ////////////////////////////// Blockchain ////////////////////////
 
@@ -859,9 +917,12 @@ exports.approveDraftById = async (req, res) => {  //
 
 
       } else {
-        res.send({
-          message: `${req.body}. Record updated =${num}. Cannot update PBM with id=${id}. Maybe PBM was not found or req.body is empty!`
-        });
+        if (!errorSent) {
+          res.send({
+            message: `${req.body}. Record updated =${num}. Cannot update PBM with id=${id}. Maybe PBM was not found or req.body is empty!`
+          });
+          errorSent = true;
+        }
       }
     })
     .catch(err => {
@@ -903,7 +964,10 @@ exports.approveDraftById = async (req, res) => {  //
       )
       .then(data => {
         console.log("PBM create success:", data);
-        res.send(data);
+        if (!errorSent) {
+          res.send(data);
+          errorSent = true;
+        }
       })
       .catch(err => {
         console.log("Error while creating pbm: "+err.message);
@@ -943,7 +1007,10 @@ exports.approveDraftById = async (req, res) => {  //
       )
       .then(data => {
         console.log("PBM update success:", data);
-        res.send(data);
+        if (!errorSent) {
+          res.send(data);
+          errorSent = true;
+        }
       })
       .catch(err => {
         console.log("Error while updating pbm: "+err.message);
@@ -963,12 +1030,16 @@ exports.approveDraftById = async (req, res) => {  //
 exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready 
 
   var errorSent = false;
+  var updatestatus = false;
 
   // Validate request
   if (!req.body.pbm_id) {
-    res.status(400).send({
-      message: "Content cannot be empty!"
-    });
+    if (!errorSent) {
+      res.status(400).send({
+        message: "Content cannot be empty!"
+      });
+      errorSent = true;
+    }
     return;
   }
   
@@ -977,9 +1048,12 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
   if (req.body.txntype !==0     // create pbm
     && req.body.txntype !==1    // update pbm
     ) {
-      res.status(400).send({
-        message: "Invalid transaction type!"
-      });
+      if (!errorSent) {
+        res.status(400).send({
+          message: "Invalid transaction type!"
+        });
+        errorSent = true;
+      }
       return;  
   }
 
@@ -991,7 +1065,11 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
   // const PBMContract_bytecode_json     = "./server/app/abis/ERC20TokenPBM.bytecode.json";
   const PBMContractAddr1            = req.body.PBMsmartcontractaddress;
   const DSGDContractAddr1           = req.body.campaign.smartcontractaddress;
-  const amountToSend                = req.body.amount * 1e18;
+
+  //const amountToSend                = (req.body.amount * 1e18).toString();
+  const BN = require('bn.js');
+  const amountToSend = new BN(req.body.amount).mul(new BN("1000000000000000000")).toString();
+
 ////////////////////////////// Blockchain ////////////////////////
 
   // https://www.geeksforgeeks.org/how-to-deploy-contract-from-nodejs-using-web3/
@@ -1029,12 +1107,11 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
 
   const WrapMint = async () => {  //parameters you need
 
-    updatestatus = false;
     var errorSent = false;
 
     fs = require("fs");
 
-    try {  // 7a
+    try {  // 7a  check file existence
       if (! (fs.existsSync(PBMContract_abi_json) 
             //  && fs.existsSync(PBMContract_bytecode_json)
             )) {
@@ -1085,7 +1162,7 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
       return { web3BSC, contractz };
     }; // createInstance
 
-    try {  // try 3z
+    try {  // try 3z  - do exec_approve() and exec_WrapMint()
       const PBMcontractInstance = createInstance(PBM_ABI, PBMContractAddr1);   // executing using PBMcontractowner's private key
       console.log("wrapMint(): From ("+PBMContractAddr1+"), To ("+PBMContractAddr1+")");
       const DSGDcontractInstance = createInstance(DSGD_ABI, DSGDContractAddr1);   // executing using DSGDcontractowner's private key
@@ -1095,7 +1172,7 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
       // Step 2: Estimate gas fee for Wrapmint
       //
 
-      var url = "https://"+ (() => {
+      var url9 = "https://"+ (() => {
         switch (req.body.campaign.blockchain) {
           case 80001:
             return 'mumbai.polygonscan.com/tx/'
@@ -1117,19 +1194,19 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
       }
       )() ;
 
-      async function exec_approve() {
+      async function exec_approve() {  // execute approve() txn to grant max limits
         const tx = {
           // this is the address responsible for this transaction
           from: CONTRACT_OWNER_WALLET,
           // target address, this could be a smart contract address
           to: DSGDContractAddr1,
           // gas fees for the transaction
-          gas: 2100000,
+          gas: 8700000,  // 2100000,
           // this encodes the ABI of the method and the arguments
           data: await DSGDcontractInstance.contractz.methods
             .approve(
               PBMContractAddr1, "115792089237316195423570985008687907853269984665640564039457000000000000000000"
-            )
+            )  // approves max limits
             .encodeABI(),
         };
         console.log("Create approve() txn data: ", tx.data);
@@ -1143,13 +1220,13 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
 
         // the rawTransaction here is already serialized so you don't need to serialize it again
         // Send the signed txn
+        var url1;
         try { // 6c
-
-          const sendTxn = await DSGDcontractInstance.web3BSC.eth.sendSignedTransaction(
+          const sendTxn = await DSGDcontractInstance.web3BSC.eth.sendSignedTransaction(   // sending transaction Approve()
               signPromise.rawTransaction,
               (error1c, hash) => {
-                var url1 = url + hash
-                console.log("url = "+ url1);
+                url1 = url9 + hash
+                console.log("url1 = "+ url1);
                 if (error1c) {
                     console.log("Something went wrong when submitting your signed transaction:", error1c)
                 } else {
@@ -1157,7 +1234,7 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
                     var timer = 1;
                     // retry every second to chk for receipt
                     const interval = setInterval(() => {
-                        console.log("Attempting to get transaction receipt...");
+                        console.log("Attempting C to get Approve() set_limit transaction receipt... ("+timer+")");
 
                         // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
                         DSGDcontractInstance.web3BSC.eth.getTransactionReceipt(hash, (error3, receipt) => {
@@ -1167,31 +1244,37 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
                             console.log('--> RECEIPT received <--');  
                             console.log('Receipt: ', receipt);
 
-                            if (receipt.status) { //  === true
-                              res.send({
-                                message: "Approve() successful. "
-                              });
-                              errorSent = true;
+                            if (receipt.status) { // dont send message back, as this is 1st step only... still need to wrap mint.
+                              console.log("Approve() is successful.... now return true...");
+                              return true
                             } else {
-                              res.status(400).send({ 
-                                message: "Transaction failed, please check "+url+" for error.",
-                              });
-                              errorSent = true;
+                              if (!errorSent) {
+                                res.status(400).send({ 
+                                  message: "Transaction failed, please check "+url1+" for error.",
+                                });
+                                errorSent = true;
+                              }
                             }
-
                           }
                           if (error3) {
-                              console.log("!! getTransactionReceipt error: ", error3)
+                              console.log("!! getTransactionReceipt error(3): ", error3)
                               clearInterval(interval);
                           }
                         });
-                        if (timer > 750) {
-                          // end loop and return
-                        
+                        if (timer > 180) {
+                          console.log("!! getTransactionReceipt error (3): timeout after 180 seconds");
                           clearInterval(interval);
-                        } else {
-                          timer++;
+                          if (!errorSent) {
+                            console.log("Sending error 400 back to client");
+                            res.status(400).send({ 
+                              message: "Timeout after 180 seconds, please try again after the 5 minutes as the network could be busy now.",
+                            });
+                            errorSent = true;
+                          }
+                          return false;
                         }
+  
+                        timer++;
                     }, 1000);
                 }
             })
@@ -1213,10 +1296,14 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
         } // try 6c
       } // function exec_approve()
 
-      await exec_approve();
+      updatestatus =  await exec_approve();
 
-      const gasFees = await PBMcontractInstance.contractz.methods.wrapMint(
-        PBMContractAddr1, amountToSend.toString() 
+      const gasFees = 2100000;
+/*
+        const gasFees = await PBMcontractInstance.contractz.methods.wrapMint(
+          PBMContractAddr1, 
+          //amountToSend
+          "1000000000000000000000"
       )
       .estimateGas({ 
         from: CONTRACT_OWNER_WALLET, //caller of this func
@@ -1230,6 +1317,7 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
         return 2100000;  // if error then use default fee
       }
       );
+*/
       console.log("Estimated gas fee for wrapMint: ", gasFees);    
 
       //
@@ -1246,15 +1334,16 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
           // this encodes the ABI of the method and the arguments
           data: await PBMcontractInstance.contractz.methods
             .wrapMint(
-              CONTRACT_OWNER_WALLET, amountToSend.toString()
+              CONTRACT_OWNER_WALLET, 
+              "1000000000000000000000"
+              //amountToSend
             )
             .encodeABI(),
         };
         console.log("Create wrapMint() txn data: ", tx.data);
                   
         // sign the transaction with a private key. It'll return messageHash, v, r, s, rawTransaction, transactionHash
-        const signPromise =
-          await PBMcontractInstance.web3BSC.eth.accounts.signTransaction(
+        const signPromise = await PBMcontractInstance.web3BSC.eth.accounts.signTransaction(
             tx,
             SIGNER_PRIVATE_KEY,
           );
@@ -1262,21 +1351,29 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
 
         // the rawTransaction here is already serialized so you don't need to serialize it again
         // Send the signed txn
-        try { // 6
-
-          const sendTxn = await PBMcontractInstance.web3BSC.eth.sendSignedTransaction(
+        var url2;
+        try { // 6    sending WrapMint txn
+          const sendTxn = await PBMcontractInstance.web3BSC.eth.sendSignedTransaction(   // WrapMint
               signPromise.rawTransaction,
               (error1, hash) => {
-                url += hash;
-                console.log("url = "+ url);
+                url2 = url9 + hash;
+                console.log("url2 = " + url2);
                 if (error1) {
-                    console.log("Something went wrong when submitting your signed transaction:", error1)
+                    console.log("Something went wrong when submitting your signed transaction (WrapMint):", error1)
+                    if (!errorSent) {
+                      res.status(400).send({ 
+                        message: "Transaction failed: "+ error1,
+                      });
+                      errorSent = true;
+                    }
+                    return(false);
+      
                 } else {
                     console.log("Txn sent!, hash: ", hash);
                     var timer = 1;
                     // retry every second to chk for receipt
                     const interval = setInterval(() => {
-                        console.log("Attempting to get transaction receipt...");
+                        console.log("Attempting D to get WrapMint() transaction receipt... ("+timer+")");
 
                         // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
                         PBMcontractInstance.web3BSC.eth.getTransactionReceipt(hash, (error3, receipt) => {
@@ -1289,35 +1386,47 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
                               console.log('Sending response back to client (1).. ');
 
                             if (receipt.status) { //  === true
-                              res.send({
-                                message: "WrapMint successful. "
-                              });
-                              errorSent = true;
+                              if (!errorSent) {
+                                res.send({
+                                  message: "The Digital SGD has been wrapped successfully and new PBM is minted."
+                                });
+                                errorSent = true;
+                              }
                             } else {
+                              if (!errorSent) {
+                                res.status(400).send({ 
+                                  message: "Transaction failed, please check "+url2+" for error.",
+                                });
+                                errorSent = true;
+                              }
+                            }
+                            return(receipt.status);
+                          }
+                          if (error3) {                              
+                            console.log("!! getTransactionReceipt error(5): ", error3)
+                            if (!errorSent) {
                               res.status(400).send({ 
-                                message: "Transaction failed, please check "+url+" for error.",
+                                message: "Transaction failed: "+ error3,
                               });
                               errorSent = true;
                             }
-
-                            return(receipt.status);
-                          }
-                          if (error3) {
-                              console.log("!! getTransactionReceipt error: ", error3)
-                              clearInterval(interval);
+                            clearInterval(interval);
+                            return(false);
                           }
                         });
-                        if (timer > 750) {
+                        if (timer > 180) {
                           // end loop and return
                           
                           clearInterval(interval);
 
-                          console.log('Sending response back to client (2).. ');
-                          res.send({
-                            message: "WrapMint is submitted please check "+url+" for status later.",
-                          });
-  
-                          return(true);
+                          console.log('WrapMint timed out! Sending response back to client (2).. please check 5 minutes later on '+url2+' if the wrap mint is completed.');
+                          if (!errorSent) {
+                            res.send({ 
+                              message: "WrapMint timed out, please check 5 minutes later on "+url2+" if the wrap mint is completed.",
+                            });
+                            errorSent = true;
+                          }
+                          return(false);
                           
                         } else {
                           timer++;
@@ -1327,7 +1436,13 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
             })
           .on("error", err => {
               console.log("sentSignedTxn error: ", err)
-              // do something on transaction error
+              if (!errorSent) {
+                res.status(400).send({ 
+                  message: "Transaction failed: "+ err,
+                });
+                errorSent = true;
+              }
+              return(false);
           });
           console.log("sendSignedTxn: ", sendTxn);
           return Promise.resolve(sendTxn);
@@ -1335,35 +1450,42 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
           console.error("Err 6a: ",err6);
 
           if (!errorSent) {
-            console.log("Sending error 400 back to client");
             res.status(400).send({ 
-              message: "Transaction failed, please check "+url+" for error.",
+              message: "Transaction failed: "+ err6,
             });
             errorSent = true;
           }
-          return false;
-    
+          return(false);
+
         } // try 6
       } // function exec_wrapMint()
-      await exec_wrapMint();
 
+      if (updatestatus) {
+        updatestatus = await exec_wrapMint();
+      } else {
+        return false;
+        // do nothing
+      }
     } catch(err3) {  // try 3z
       console.error("Err 3: ",err3)
       if (!errorSent) {
         console.log("Sending error 400 back to client");
+        
         res.status(400).send({ 
-          message: "Transaction failed, please check "+url+" for error.",
+          message: err3,
         });
         errorSent = true;
       }
       return false;
     } // try 3z
+
+    return updatestatus;
   } // function WrapMint
 
   updatestatus = await WrapMint();
 
   //updatestatus = await execWrapMint();
-  console.log("Update status:", updatestatus);
+  console.log("approveWrapMintDraftById Update status (2):", updatestatus);
 
 ////////////////////////////// Update to database ////////////////////////
 
@@ -1408,9 +1530,12 @@ exports.approveWrapMintDraftById = async (req, res) => {  // xxxxx not ready
       });
 
       } else {
-        res.send({
-          message: `${req.body}. Record updated =${num}. Cannot update WrapMint with id=${id}. Maybe WrapMint was not found or req.body is empty!`
-        });
+        if (!errorSent) {
+          res.send({
+            message: `${req.body}. Record updated =${num}. Cannot update WrapMint with id=${id}. Maybe WrapMint was not found or req.body is empty!`
+          });
+          errorSent = true;
+        }
       }
     })
     .catch(err => {
@@ -1539,8 +1664,10 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     // Creation of Web3 class
     Web3 = require("web3");
 
+    console.log("In PBM.findAll:  ", data);
+
     require('dotenv').config();
-    const ETHEREUM_NETWORK = (() => {switch (req.body.campaign.blockchain) {
+    const ETHEREUM_NETWORK = (() => {switch (data[0].blockchain) {
           case 80001:
             return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
           case 80002:
@@ -1581,17 +1708,32 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     console.log("Querying token: ", _tokenAddress);
     const contract1 = new Web3Client.eth.Contract(ABI, _tokenAddress);
   
-    const _inWallet = await contract1.methods.balanceOf(CONTRACT_OWNER_WALLET).call(); 
-    const inWallet = await Web3Client.utils.fromWei(_inWallet)
-    console.log("In Wallet: ", inWallet);
-  
-    const _totalMinted = await contract1.methods._incirculation().call(); 
-    const totalMinted = await Web3Client.utils.fromWei(_totalMinted)
-    console.log("total Minted: ", totalMinted);
-  
-    const _totalSupply = await contract1.methods.totalSupply().call(); 
-    const totalSupply = await Web3Client.utils.fromWei(_totalSupply) 
-    console.log("total Supply: ", totalSupply);
+    var inWallet = 0;
+    try {
+      const _inWallet = await contract1.methods.balanceOf(CONTRACT_OWNER_WALLET).call(); 
+      inWallet = await Web3Client.utils.fromWei(_inWallet)
+      console.log("In Wallet: ", inWallet);
+    } catch (err) {
+      console.log("Error while retreiving inWallet: "+err.message);
+    }
+
+    var totalMinted = 0
+    try {
+      const _totalMinted = await contract1.methods._incirculation().call(); 
+      totalMinted = await Web3Client.utils.fromWei(_totalMinted)
+      console.log("total Minted: ", totalMinted);
+    } catch (err) {
+      console.log("Error while retreiving _incirculation: "+err.message);
+    }
+
+    var totalSupply = 0
+    try {
+      const _totalSupply = await contract1.methods.totalSupply().call(); 
+      totalSupply = await Web3Client.utils.fromWei(_totalSupply) 
+      console.log("total Supply: ", totalSupply);
+    } catch (err) {
+      console.log("Error while retreiving totalSupply: "+err.message);
+    }  
   
     res.send(
       {
@@ -2329,7 +2471,7 @@ exports.acceptWrapMintDraftById = async (req, res) => {
 }; // acceptWrapMintDraftById
 
 exports.rejectDraftById = async (req, res) => {
-  
+  var errorSent = false;
   const id = req.params.id;
   const draft_id = req.params.id;
 
@@ -2389,25 +2531,34 @@ exports.rejectDraftById = async (req, res) => {
         console.log("Error while logging to audittrail for rejecting pbm request: "+err.message);
       });
       
-      res.send({
-        message: "PBM was rejected."
-      });
+      if (!errorSent) {
+          res.send({
+          message: "PBM was rejected."
+        });
+        errorSent = true;
+      }
     } else {
-      res.send({
-        message: `${req.body}. Record updated =${num}. Cannot reject PBM with id=${draft_id}. Maybe PBM was not found or req.body is empty!`
-      });
+      if (!errorSent) {
+        res.send({
+          message: `${req.body}. Record updated =${num}. Cannot reject PBM with id=${draft_id}. Maybe PBM was not found or req.body is empty!`
+        });
+        errorSent = true;
+      }
     }
   })
   .catch(err => {
     console.log(err);
-    res.status(500).send({
-      message: `Error rejecting PBM. ${err}`
-    });
+    if (!errorSent) {
+      res.status(500).send({
+        message: `Error rejecting PBM. ${err}`
+      });
+      errorSent = true;
+    }
   });
 }; // rejectDraftById
 
 exports.rejectWrapMintDraftById = async (req, res) => {
-  
+  var errorSent = false;
   const id = req.params.id;
   const draft_id = req.params.id;
 
@@ -2452,26 +2603,36 @@ exports.rejectWrapMintDraftById = async (req, res) => {
         console.log("Error while logging to audittrail for rejecting wrapmint request: "+err.message);
       });
       
-      res.send({
-        message: "WrapMint was rejected."
-      });
+      if (!errorSent) {
+        res.send({
+          message: "WrapMint was rejected."
+        });
+        errorSent = true;
+      }
     } else {
-      res.send({
-        message: `${req.body}. Record updated =${num}. Cannot reject WrapMint with id=${draft_id}. Maybe WrapMint was not found or req.body is empty!`
-      });
+      if (!errorSent) {
+        res.send({
+          message: `${req.body}. Record updated =${num}. Cannot reject WrapMint with id=${draft_id}. Maybe WrapMint was not found or req.body is empty!`
+        });
+        errorSent = true;
+      }
     }
   })
   .catch(err => {
     console.log(err);
-    res.status(500).send({
-      message: `Error rejecting WrapMint. ${err}`
-    });
+    if (!errorSent) {
+      res.status(500).send({
+        message: `Error rejecting WrapMint. ${err}`
+      });
+      errorSent = true;
+    }
   });
 }; // rejectWrapMintDraftById
 
 // Update a PBM by the id in the request
 exports.update = async (req, res) => {
-  
+  var updatestatus = false;
+  var errorSent = false;
   const id = req.params.id;
   const draft_id = req.params.id;
 
@@ -2557,28 +2718,31 @@ exports.update = async (req, res) => {
             data: ERC20TokenPBMcontract.methods.updateTotalSupply(
                     web3.utils.toBN( setToTalSupply )
                   ).encodeABI(),
-            gas: 4700000,
+            gas: 8700000,  // 4700000,
           },
           SIGNER_PRIVATE_KEY
         ); // signTransaction
         console.log('**** Sending signed txn...');
         //console.log('Sending signed txn:', createTransaction);
 
-        const createReceipt = await web3.eth.sendSignedTransaction(
+        const createReceipt = await web3.eth.sendSignedTransaction(  // updateTotalSupply()
           createTransaction.rawTransaction, 
         
           function (error1, hash) {
             if (error1) {
                 console.log("Error1111 when submitting your signed transaction:", error1);
-                res.status(400).send({ 
-                  message: error1
-                });
+                if (!errorSent) {
+                  res.status(400).send({ 
+                    message: error1
+                  });
+                  errorSent = true;
+                }
             } else {
               console.log("Txn sent!, hash: ", hash);
               var timer = 1;
               // retry every second to chk for receipt
               const interval = setInterval(function() {
-                console.log("Attempting to get transaction receipt...");
+                console.log("Attempting E to get transaction receipt... ("+timer+")");
 
                 // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
                 web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
@@ -2593,8 +2757,20 @@ exports.update = async (req, res) => {
                     return(receipt.status);
                   }
                   if (error3) {
-                    console.log("!! getTransactionReceipt error: ", error3)
+                    console.log("!! getTransactionReceipt error(6): ", error3)
                     clearInterval(interval);
+                    return false;
+                  }
+                  if (timer > 180) {
+                    console.log("!! getTransactionReceipt error (6): timeout after 180 seconds");
+                    clearInterval(interval);                      
+                    console.log("Sending 22222 error 400 back to client");
+                    if (!errorSent) {
+                      res.status(400).send({ 
+                        message: "Timeout after 180 seconds, please check the PBM status after 5 minutes and try again if the PBM is not created.",
+                      });
+                      errorSent = true;
+                    }
                     return false;
                   }
                 });
@@ -2624,7 +2800,7 @@ exports.update = async (req, res) => {
 
   updatestatus = null;
   //updatestatus = await dAppUpdate();
-  console.log("Update status:", updatestatus);
+  console.log("exports.update Update status (3):", updatestatus);
   ////////////////////////////// Blockchain ////////////////////////
 
   if (updatestatus) {
@@ -2695,26 +2871,37 @@ exports.update = async (req, res) => {
             console.log("Error while logging to audittrail for approving pbm update request: "+err.message);
           });
 
-
-          res.send({
-            message: "PBM was updated successfully."
-          });
+          if (!errorSent) {
+            res.send({
+              message: "PBM was updated successfully."
+            });
+            errorSent = true;
+          }
         } else {
-          res.send({
-            message: `${req.body}. Record updated =${num}. Cannot update PBM with id=${id}. Maybe PBM was not found or req.body is empty!`
-          });
+          if (!errorSent) {
+            res.send({
+              message: `${req.body}. Record updated =${num}. Cannot update PBM with id=${id}. Maybe PBM was not found or req.body is empty!`
+            });
+            errorSent = true;
+          }
         }
       })
       .catch(err => {
         console.log(err);
-        res.status(500).send({
-          message: `Error updating PBM. ${err}`
-        });
+        if (!errorSent) {
+          res.status(500).send({
+            message: `Error updating PBM. ${err}`
+          });
+          errorSent = true;
+        }
       });
   } else {
-    res.status(500).send({
-      message: "Error updating PBM. "
-    });
+    if (!errorSent) {
+      res.status(500).send({
+        message: "Error updating PBM. "
+      });
+      errorSent = true;
+    }
   }
 }; // update
 
@@ -3096,6 +3283,7 @@ exports.dropWrapMintRequestById = async (req, res) => {  /// xxxx not ready
 // Delete a PBM with the specified id in the request
 exports.delete = (req, res) => {
   const id = req.params.id;
+  var errorSent = false;
 
   console.log(req.body.actionby);
 
@@ -3104,24 +3292,35 @@ exports.delete = (req, res) => {
   })
     .then(num => {
       if (num == 1) {
-        res.send({
-          message: "PBM was deleted successfully!"
-        });
+        if (!errorSent) {
+          res.send({
+            message: "PBM was deleted successfully!"
+          });
+          errorSent = true;
+        }
       } else {
-        res.send({
-          message: `Cannot delete PBM with id=${id}. Maybe PBM was not found!`
-        });
+        if (!errorSent) {
+          res.send({
+            message: `Cannot delete PBM with id=${id}. Maybe PBM was not found!`
+          });
+          errorSent = true;
+        }
       }
     })
     .catch(err => {
-      res.status(500).send({
-        message: "Could not delete PBM with id=" + id
-      });
+      if (!errorSent) {
+        res.status(500).send({
+          message: "Could not delete PBM with id=" + id
+        });
+        errorSent = true;
+      }
     });
 }; // delete
 
 // Delete all PBM from the database.
 exports.deleteAll = (req, res) => {
+  var errorSent = false;
+
   PBM.destroy({
     where: {},
     truncate: false
@@ -3130,10 +3329,13 @@ exports.deleteAll = (req, res) => {
       res.send({ message: `${nums} PBM were deleted successfully!` });
     })
     .catch(err => {
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while removing all pbm."
-      });
+      if (!errorSent) {
+        res.status(500).send({
+          message:
+            err.message || "Some error occurred while removing all pbm."
+        });
+        errorSent = true;
+      }
     });
 }; // deleteAll
 

@@ -45,6 +45,11 @@ db.pbm_draft           = require("./pbm_draft.model.js")(sequelize, Sequelize);
 db.pbm_templates       = require("./pbm_templates.model.js")(sequelize, Sequelize);
 db.wrapmints_draft     = require("./wrapmints_draft.model.js")(sequelize, Sequelize);
 db.wrapmints           = require("./wrapmints.model.js")(sequelize, Sequelize);
+db.bonds               = require("./bond.model.js")(sequelize, Sequelize);
+db.bonds_draft         = require("./bond_draft.model.js")(sequelize, Sequelize);
+db.repos               = require("./repo.model.js")(sequelize, Sequelize);
+db.repos_draft         = require("./repo_draft.model.js")(sequelize, Sequelize);
+
 
 db.role.belongsToMany(db.user, {
   through: "user_roles",
@@ -115,7 +120,23 @@ db.transfers.belongsTo(db.campaigns, {
   foreignKey: "campaignId",
   sourceKey: "id"
 });
+db.transfers.belongsTo(db.bonds, {
+  foreignKey: "campaignId",
+  sourceKey: "id"
+});
+db.transfers.belongsTo(db.pbm, {
+  foreignKey: "campaignId",
+  sourceKey: "id"
+});
 db.transfers_draft.belongsTo(db.campaigns, {
+  foreignKey: "campaignId",
+  sourceKey: "id"
+});
+db.transfers_draft.belongsTo(db.bonds, {
+  foreignKey: "campaignId",
+  sourceKey: "id"
+});
+db.transfers_draft.belongsTo(db.pbm, {
   foreignKey: "campaignId",
   sourceKey: "id"
 });
@@ -228,6 +249,40 @@ db.dvp_draft.belongsTo(db.campaigns, {
 });
 
 
+db.repos.belongsTo(db.recipients, {
+  foreignKey: "counterparty1",
+  targetKey: "id"
+});
+db.repos.belongsTo(db.recipients, {
+  foreignKey: "counterparty2",
+  targetKey: "id"
+});
+db.repos_draft.belongsTo(db.recipients, {
+  foreignKey: "id",
+  sourceKey: "counterparty1"
+});
+db.repos_draft.belongsTo(db.recipients, {
+  foreignKey: "id",
+  sourceKey: "counterparty2"
+});
+db.repos.belongsTo(db.campaigns, {
+  foreignKey: "underlyingTokenID1",
+  targetKey: "id",
+});
+db.repos.belongsTo(db.campaigns, {
+  foreignKey: "underlyingTokenID2",
+  targetKey: "id",
+});
+db.repos_draft.belongsTo(db.campaigns, {
+  foreignKey: "id",
+  sourceKey: "underlyingTokenID1"
+});
+db.repos_draft.belongsTo(db.campaigns, {
+  foreignKey: "id",
+  sourceKey: "underlyingTokenID2"
+});
+
+
 db.pbm.belongsTo(db.recipients, {
   foreignKey: "sponsor",
   targetKey: "id"
@@ -235,6 +290,31 @@ db.pbm.belongsTo(db.recipients, {
 db.pbm_draft.belongsTo(db.recipients, {
   foreignKey: "id",
   sourceKey: "sponsor"
+});
+
+db.bonds.belongsTo(db.recipients, {
+  foreignKey: "issuer",
+  targetKey: "id"
+});
+db.bonds_draft.belongsTo(db.recipients, {
+  foreignKey: "issuer",
+  targetKey: "id"
+});
+db.bonds.belongsTo(db.recipients, {
+  foreignKey: "id",
+  sourceKey: "sponsor"
+});
+db.bonds_draft.belongsTo(db.recipients, {
+  foreignKey: "id",
+  sourceKey: "sponsor"
+});
+db.bonds.belongsTo(db.campaigns, {
+  foreignKey: "cashTokenID",
+  targetKey: "id",
+});
+db.bonds_draft.belongsTo(db.campaigns, {
+  foreignKey: "cashTokenID",
+  targetKey: "id",
 });
 
 
@@ -264,6 +344,14 @@ db.wrapmints_draft.belongsTo(db.campaigns, {
 });
 
 
+db.bonds.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "actionby"
+});
+db.bonds_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "actionby"
+});
 
 db.pbm.hasOne(db.user, {
   foreignKey: "id",
@@ -282,6 +370,15 @@ db.wrapmints_draft.hasOne(db.user, {
   sourceKey: "actionby"
 });
 
+db.bonds.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "maker"
+});
+db.bonds_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "maker"
+});
+
 db.pbm.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "maker"
@@ -299,6 +396,15 @@ db.wrapmints_draft.hasOne(db.user, {
   sourceKey: "maker"
 });
 
+db.bonds.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "checker"
+});
+db.bonds_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "checker"
+});
+
 db.pbm.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "checker"
@@ -314,6 +420,15 @@ db.pbm_draft.hasOne(db.user, {
 db.wrapmints_draft.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "checker"
+});
+
+db.bonds.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "approver"
+});
+db.bonds_draft.hasOne(db.user, {
+  foreignKey: "id",
+  sourceKey: "approver"
 });
 
 db.pbm.hasOne(db.user, {

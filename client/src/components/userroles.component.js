@@ -16,6 +16,9 @@ export default class Settings extends Component {
         campaign_makers: "",
         campaign_checkers: "",
         campaign_approvers: "",
+        bond_makers : "",
+        bond_checkers : "",
+        bond_approvers : "",
         mint_makers : "",
         mint_checkers : "",
         mint_approvers : "",
@@ -28,6 +31,12 @@ export default class Settings extends Component {
         recipient_makers : "",
         recipient_checkers : "",
         recipient_approvers : "",
+        pbm_makers : "",
+        pbm_checkers : "",
+        pbm_approvers : "",
+        dvp_makers : "",
+        dvp_checkers : "",
+        dvp_approvers : "",
       }
     };
   }
@@ -40,6 +49,9 @@ export default class Settings extends Component {
         const campaign_makers = response.data.filter(role => {return role.transactionType.toUpperCase() === "CAMPAIGN" && role.opsroleId === 1});
         const campaign_checkers = response.data.filter(role => {return role.transactionType.toUpperCase() === "CAMPAIGN" && role.opsroleId === 2});
         const campaign_approvers = response.data.filter(role => {return role.transactionType.toUpperCase() === "CAMPAIGN" && role.opsroleId === 3});
+        const bond_makers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 1});
+        const bond_checkers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 2});
+        const bond_approvers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 3});
         const mint_makers = response.data.filter(role => {return role.transactionType.toUpperCase() === "MINT" && role.opsroleId === 1});
         const mint_checkers = response.data.filter(role => {return role.transactionType.toUpperCase() === "MINT" && role.opsroleId === 2});
         const mint_approvers = response.data.filter(role => {return role.transactionType.toUpperCase() === "MINT" && role.opsroleId === 3});
@@ -52,6 +64,12 @@ export default class Settings extends Component {
         const recipient_makers = response.data.filter(role => {return role.transactionType.toUpperCase() === "RECIPIENT" && role.opsroleId === 1});
         const recipient_checkers = response.data.filter(role => {return role.transactionType.toUpperCase() === "RECIPIENT" && role.opsroleId === 2});
         const recipient_approvers = response.data.filter(role => {return role.transactionType.toUpperCase() === "RECIPIENT" && role.opsroleId === 3});
+        const pbm_makers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 1});
+        const pbm_checkers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 2});
+        const pbm_approvers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 3});
+        const dvp_makers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 1});
+        const dvp_checkers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 2});
+        const dvp_approvers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 3});
         console.log("campaign_makers:", campaign_makers);
         
         this.setState({
@@ -60,6 +78,9 @@ export default class Settings extends Component {
             campaign_makers     : campaign_makers,
             campaign_checkers   : campaign_checkers,
             campaign_approvers  : campaign_approvers,
+            bond_makers          : bond_makers,
+            bond_checkers        : bond_checkers,
+            bond_approvers       : bond_approvers,
             mint_makers         : mint_makers,
             mint_checkers       : mint_checkers,
             mint_approvers      : mint_approvers,
@@ -72,6 +93,12 @@ export default class Settings extends Component {
             recipient_makers     : recipient_makers,
             recipient_checkers   : recipient_checkers,
             recipient_approvers  : recipient_approvers,
+            pbm_makers           : pbm_makers,
+            pbm_checkers         : pbm_checkers,
+            pbm_approvers        : pbm_approvers,
+            dvp_makers           : dvp_makers,
+            dvp_checkers         : dvp_checkers,
+            dvp_approvers        : dvp_approvers,
           }
         });
       }
@@ -133,6 +160,16 @@ export default class Settings extends Component {
                     <td valign="top">{_useropsroles.campaign_approvers.map(persons=><p>{persons.user.username}</p>)}</td>
                   </tr>
                 : null}
+
+                {(typeof(_useropsroles.bond_makers)!=="undefined" && _useropsroles.bond_makers)?
+                  <tr>
+                    <td>Bond</td>
+                    <td valign="top">{_useropsroles.bond_makers.map(persons=><p>{persons.user.username}</p>)}</td>
+                    <td valign="top">{_useropsroles.bond_checkers.map(persons=><p>{persons.user.username}</p>)}</td>
+                    <td valign="top">{_useropsroles.bond_approvers.map(persons=><p>{persons.user.username}</p>)}</td>
+                  </tr>
+                : null}
+
                 {(typeof(_useropsroles.mint_makers)!=="undefined" && _useropsroles.mint_makers)?
                   <tr>
                     <td>Mint</td>
@@ -141,6 +178,7 @@ export default class Settings extends Component {
                     <td valign="top">{_useropsroles.mint_approvers.map(persons=><p>{persons.user.username}</p>)}</td>
                   </tr>
                 : null}
+
                 {(typeof(_useropsroles.transfer_makers)!=="undefined" && _useropsroles.transfer_makers)?
                   <tr>
                     <td>Transfer</td>
@@ -149,6 +187,7 @@ export default class Settings extends Component {
                     <td valign="top">{_useropsroles.transfer_approvers.map(persons=><p>{persons.user.username}</p>)}</td>
                   </tr>
                 : null}
+
                 {(typeof(_useropsroles.withdraw_makers)!=="undefined" && _useropsroles.withdraw_makers)?
                   <tr>
                     <td>Withdraw</td>
@@ -157,6 +196,7 @@ export default class Settings extends Component {
                     <td valign="top">{_useropsroles.withdraw_approvers.map(persons=><p>{persons.user.username}</p>)}</td>
                   </tr>
                 : null}
+
                 {(typeof(_useropsroles.recipient_makers)!=="undefined" && _useropsroles.recipient_makers)?
                   <tr>
                     <td>Recipients Maintenance</td>
@@ -166,7 +206,23 @@ export default class Settings extends Component {
                   </tr>
                 : null}
 
+                {(typeof(_useropsroles.pbm_makers)!=="undefined" && _useropsroles.pbm_makers)?
+                  <tr>
+                    <td>PBM</td>
+                    <td valign="top">{_useropsroles.pbm_makers.map(persons=><p>{persons.user.username}</p>)}</td>
+                    <td valign="top">{_useropsroles.pbm_checkers.map(persons=><p>{persons.user.username}</p>)}</td>
+                    <td valign="top">{_useropsroles.pbm_approvers.map(persons=><p>{persons.user.username}</p>)}</td>
+                  </tr>
+                : null}
 
+                {(typeof(_useropsroles.dvp_makers)!=="undefined" && _useropsroles.dvp_makers)?
+                  <tr>
+                    <td>DvP</td>
+                    <td valign="top">{_useropsroles.dvp_makers.map(persons=><p>{persons.user.username}</p>)}</td>
+                    <td valign="top">{_useropsroles.dvp_checkers.map(persons=><p>{persons.user.username}</p>)}</td>
+                    <td valign="top">{_useropsroles.dvp_approvers.map(persons=><p>{persons.user.username}</p>)}</td>
+                  </tr>
+                : null}
               </table>
 
               {

@@ -31,6 +31,7 @@ class DvP extends Component {
     this.onChangeCheckerComments = this.onChangeCheckerComments.bind(this);
     this.onChangeApproverComments = this.onChangeApproverComments.bind(this);
     this.getDvP = this.getDvP.bind(this);
+    this.createDvPDraft = this.createDvPDraft.bind(this);
     this.submitDvP = this.submitDvP.bind(this);
     this.acceptDvP = this.acceptDvP.bind(this);
     this.approveDvP = this.approveDvP.bind(this);
@@ -38,7 +39,7 @@ class DvP extends Component {
     this.deleteDvP = this.deleteDvP.bind(this);
     this.dropRequest = this.dropRequest.bind(this);
     this.showModal_Leave = this.showModal_Leave.bind(this);
-  //  this.showModal_nochange = this.showModal_nochange.bind(this);
+//  this.showModal_nochange = this.showModal_nochange.bind(this);
 //  this.showModalDelete = this.showModalDelete.bind(this);
     this.showModal_dropRequest = this.showModal_dropRequest.bind(this);
     this.hideModal = this.hideModal.bind(this);
@@ -59,7 +60,7 @@ class DvP extends Component {
 
 
       currentDvP: {
-        id: null,
+        id: 0,    // 0 for new dvp draft
         name: "",
         description: "",
         underlyingTokenID1: "",
@@ -210,16 +211,28 @@ class DvP extends Component {
     if (!user) this.setState({ redirect: "/home" });
     this.setState({ currentUser: user, userReady: true })
 
+    let ismaker= user.opsrole.find((el) => 
+      el.opsrole.name.toUpperCase() === "MAKER"
+    );
+    console.log("isMaker:", (ismaker === undefined? false: true));
+    this.setState({ isMaker: (ismaker === undefined? false: true),});
+
+    let ischecker= user.opsrole.find((el) => 
+      el.opsrole.name.toUpperCase() === "CHECKER"
+    );
+    console.log("isChecker:", (ischecker === undefined? false: true));
+    this.setState({ isChecker: (ischecker === undefined? false: true),});
+
+    let isapprover= user.opsrole.find((el) => 
+    el.opsrole.name.toUpperCase() === "APPROVER"
+    );
+    console.log("isApprover:", (isapprover === undefined? false: true));
+    this.setState({ isApprover: (isapprover === undefined? false: true),});
+
     this.getDvP(user, this.props.router.params.id);
     this.getAllUnderlyingAssets();
     this.getAllCounterpartys();
     this.retrieveAllMakersCheckersApprovers();
-/*
-    const newBlockchain = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(this.state.underlying)).blockchain;
-    this.setState({
-      blockchain: newBlockchain
-    });
-*/
   }
 
   onChangeName(e) {
@@ -461,7 +474,7 @@ class DvP extends Component {
   getDvP(user, id) {
     console.log("+++ id:", id);
 
-    if (id !== undefined) {
+    if (id !== undefined && id != 0) {
       DvPDataService.getAllDraftsByDvPId(id)
         .then(response => {
           response.data[0].actionby = user.username;
@@ -471,39 +484,122 @@ class DvP extends Component {
           });
           console.log("Response from getAllDraftsByDvPId(id):",response.data[0]);
 
-          let ismaker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "MAKER" && user.id === response.data[0].maker);
-          console.log("isMaker:", (ismaker === undefined? false: true));
-          this.setState({ isMaker: (ismaker === undefined? false: true),});
-      
-          let ischecker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "CHECKER" && user.id === response.data[0].checker);
-          console.log("isChecker:", (ischecker === undefined? false: true));
-          this.setState({ isChecker: (ischecker === undefined? false: true),});
-          //if (ischecker !== undefined) {  // clears the checkers comments
-          //  this.setState({ isChecker: true, currentDvP: {checkerComments: ""}, });
-          //}
-          
-
-          let isapprover= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "APPROVER" && user.id === response.data[0].approver);
-          console.log("isApprover:", (isapprover === undefined? false: true));
-          this.setState({ isApprover: (isapprover === undefined? false: true),});
-          /*
-          if (isapprover !== undefined) {
-            this.setState({ isApprover: true, currentDvP: {approverComments: ""}, });
-          }
-          */
-
           this.setState({ isNewDvP : (response.data[0].smartcontractaddress === "" || response.data[0].smartcontractaddress === null) });
         })
         .catch(e => {
           console.log("Error from getAllDraftsByDvPId(id):", e);
           alert("Error: " + e.response.data.message);
-
-        });
-
-
+        }
+      );
     }
   }
 
+  async createDvPDraft() {  // for Maker
+
+    if (this.state.isMaker) {  // only for Makers
+      
+        if (await this.validateForm() === true) { 
+
+        console.log("Creating DvP draft this.state.underlyingDSGDList= ", this.state.underlyingDSGDList);
+        if (this.state.currentDvP.underlyingTokenID1 < 1000000000) { // DSGD 1 ~ 1000000000,   PBM > 1000000000
+          console.log("Creating DvP draft underlyingDSGDsmartcontractaddress1= ", this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID1)).smartcontractaddress);
+        } else {
+          console.log("Creating DvP draft underlyingPBMsmartcontractaddress1= ", this.state.PBMList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID1)).smartcontractaddress);
+        }
+
+        if (this.state.currentDvP.underlyingTokenID2 < 1000000000) { // DSGD 1 ~ 1000000000,   PBM > 1000000000
+          console.log("Creating DvP draft underlyingDSGDsmartcontractaddress2= ", this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID2)).smartcontractaddress);
+        } else {
+          console.log("Creating DvP draft underlyingPBMsmartcontractaddress2= ", this.state.PBMList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID2)).smartcontractaddress);
+        }
+
+        var data = {
+          name               : this.state.currentDvP.name,
+          description        : this.state.currentDvP.description,
+
+          counterparty1      : this.state.currentDvP.counterparty1,
+          counterparty2      : this.state.currentDvP.counterparty2,
+          underlyingTokenID1 : this.state.currentDvP.underlyingTokenID1,
+          underlyingTokenID2 : this.state.currentDvP.underlyingTokenID2,
+          smartcontractaddress1  : (this.state.currentDvP.underlyingTokenID1 < 1000000000 ? this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID1)).smartcontractaddress : this.state.PBMList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID1)).smartcontractaddress),
+          smartcontractaddress2  : (this.state.currentDvP.underlyingTokenID2 < 1000000000 ? this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID2)).smartcontractaddress : this.state.PBMList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID2)).smartcontractaddress),
+          blockchain         : this.state.currentDvP.blockchain,
+          amount1            : this.state.currentDvP.amount1,
+          amount2            : this.state.currentDvP.amount2,
+          startdate          : this.state.currentDvP.startdate,
+          enddate            : this.state.currentDvP.enddate,
+          txntype            : 0,    // create
+          maker              : this.state.currentUser.id,
+          checker            : this.state.checker,
+          approver           : this.state.approver,
+          actionby           : this.state.currentUser.username,
+          approveddvpid      : -1,
+        };
+    
+        console.log("Form Validation passed! creating dvp smart contract...");
+        //alert("Form validation passed! creating dvp...");
+
+        console.log("IsLoad=true");
+        this.show_loading();  // show progress
+
+
+        await DvPDataService.draftCreate(data)
+        .then(response => {
+          console.log("Response: ", response);
+          console.log("IsLoad=false");
+          this.hide_loading();  // hide progress
+    
+          this.setState({
+            id                  : response.data.id,
+            name                : response.data.name,
+            description         : response.data.description,
+  
+            underlyingTokenID1  : response.data.underlyingTokenID1,
+            underlyingTokenID2  : response.data.underlyingTokenID2,
+            smartcontractaddress1: response.data.smartcontractaddress1,
+            smartcontractaddress2: response.data.smartcontractaddress2,
+            startdate           : response.data.startdate,
+            enddate             : response.data.enddate,
+            counterparty1       : response.data.counterparty1,
+            counterparty2       : response.data.counterparty2,
+            amount1             : response.data.amount1,
+            amount2             : response.data.amount2,
+
+            submitted: true,
+
+          });
+//          this.displayModal("DvP draft submitted for review" + (response.data.smartcontractaddress !==""? " with smart contract deployed at "+response.data.smartcontractaddress + ". You can start minting now.": "." ) ,
+//                              "OK", null, null);
+          this.displayModal("DvP smart contract creation request submitted for review.", "OK", null, null, null);
+
+          //console.log("Responseeeee"+response.data);
+        })
+        .catch(e => {
+        
+          this.hide_loading();  // hide progress
+
+          console.log("Error: ",e);
+          console.log("Response error:",e.response.data.message);
+          if (e.response.data.message !== "") 
+            this.displayModal("Error: "+e.response.data.message+".\n\nPlease contact tech support.", null, null, null, "OK");
+          else
+            this.displayModal("Error: "+e.message+".\n\nPlease contact tech support.", null, null, null, "OK");
+        });
+      } else {
+        console.log("Form Validation failed >>>");
+        //alert("Form Validation failed >>>");
+        this.hide_loading();  // hide progress
+      }
+    } else {
+      this.displayModal("Error: this role is only for maker.", null, null, null, "OK");
+    }
+
+    console.log("IsLoad=false");
+    this.hide_loading();  // hide progress
+
+  }
+
+  
   getAllUnderlyingAssets() {
     CampaignDataService.getAll()
       .then(response => {
@@ -926,7 +1022,7 @@ async deleteDvP() {
           <div>
           <header className="jumbotron col-md-8">
             <h3>
-              <strong>{this.state.currentDvP.txntype===0?"Create ":(this.state.currentDvP.txntype===1?"Update ":(this.state.currentDvP.txntype===2?"Delete ":null))}DvP { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
+              <strong>{currentDvP.txntype===0?"Create ":(currentDvP.txntype===1?"Update ":(currentDvP.txntype===2?"Delete ":null))}DvP { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
             </h3>
           </header>
 
@@ -946,7 +1042,7 @@ async deleteDvP() {
                         maxLength="45"
                         value={currentDvP.name}
                         onChange={this.onChangeName}
-                        disabled={!this.state.isMaker || this.state.currentDvP.txntype===2}
+                        disabled={!this.state.isMaker || currentDvP.txntype===2}
                         />
                     </div>
                   <div className="form-group">
@@ -961,7 +1057,7 @@ async deleteDvP() {
                       onChange={this.onChangeDescription}
                       name="description"
                       autoComplete="off"
-                      disabled={!this.state.isMaker || this.state.currentDvP.txntype===2}
+                      disabled={!this.state.isMaker || currentDvP.txntype===2}
                       />
                   </div>
 
@@ -979,7 +1075,7 @@ async deleteDvP() {
                             recipientList.map( (d) => {
                                 // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
                                 if (typeof d.id === "number")
-                                  return <option value={d.id} selected={d.walletaddress === this.state.currentDvP.counterparty1}>{d.name} ({d.walletaddress})</option>
+                                  return <option value={d.id} selected={d.walletaddress === currentDvP.counterparty1}>{d.name} ({d.walletaddress})</option>
                               })
                             : null
                           }
@@ -999,7 +1095,7 @@ async deleteDvP() {
                             recipientList.map( (d) => {
                                 // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
                                 if (typeof d.id === "number")
-                                  return <option value={d.walletaddress} selected={d.walletaddress === this.state.currentDvP.counterparty2}>{d.name} ({d.walletaddress})</option>
+                                  return <option value={d.walletaddress} selected={d.walletaddress === currentDvP.counterparty2}>{d.name} ({d.walletaddress})</option>
                               })
                             : null
                           }
@@ -1020,7 +1116,7 @@ async deleteDvP() {
                             underlyingDSGDList.map( (d) => {
                               // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
                                 if (typeof d.id === "number")
-                                  return <option value={d.id} selected={d.id === this.state.currentDvP.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                                  return <option value={d.id} selected={d.id === currentDvP.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                               })
                             : null
                           }
@@ -1030,7 +1126,7 @@ async deleteDvP() {
                             PBMList.map( (d) => {
                               // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
                                 if (typeof d.id === "number")
-                                  return <option value={d.id} selected={d.id === this.state.currentDvP.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                                  return <option value={d.id} selected={d.id === currentDvP.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                               })
                             : null
                           }
@@ -1042,7 +1138,7 @@ async deleteDvP() {
                           onChange={this.onChangeUnderlying2}                         
                           className="form-control"
                           id="underlyingTokenID2"
-                          disabled={!this.state.isMaker || this.state.underlyingTokenID1 === ""}
+                          disabled={!this.state.isMaker || currentDvP.underlyingTokenID1 === ""}
                         >
                           <option value=""> </option>
                           <option value="" disabled>--- DSGD ---</option>
@@ -1050,8 +1146,8 @@ async deleteDvP() {
                             Array.isArray(underlyingDSGDList) ?
                             underlyingDSGDList.map( (d) => {
                               // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                              if (typeof d.id === "number" && d.blockchain === this.state.currentDvP.blockchain)
-                                return <option value={d.id} selected={d.id === this.state.currentDvP.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                              if (typeof d.id === "number" && d.blockchain === currentDvP.blockchain)
+                                return <option value={d.id} selected={d.id === currentDvP.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                             })
                             : null
                           }
@@ -1060,8 +1156,8 @@ async deleteDvP() {
                             Array.isArray(PBMList) ?
                             PBMList.map( (d) => {
                               // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                              if (typeof d.id === "number" && d.blockchain === this.state.currentDvP.blockchain)
-                                return <option value={d.id} selected={d.id === this.state.currentDvP.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                              if (typeof d.id === "number" && d.blockchain === currentDvP.blockchain)
+                                return <option value={d.id} selected={d.id === currentDvP.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                             })
                             : null
                           }
@@ -1078,9 +1174,9 @@ async deleteDvP() {
                           disabled="true"
                         >
                           <option >   </option>
-                          <option value="80002"  selected={this.state.currentDvP.blockchain === 80002}>Polygon   Testnet Amoy</option>
-                          <option value="11155111" selected={this.state.currentDvP.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
-                          <option value="80001"  selected={this.state.currentDvP.blockchain === 80001} disabled>Polygon   Testnet Mumbai (Deprecated)</option>
+                          <option value="80002"  selected={currentDvP.blockchain === 80002}>Polygon   Testnet Amoy</option>
+                          <option value="11155111" selected={currentDvP.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
+                          <option value="80001"  selected={currentDvP.blockchain === 80001} disabled>Polygon   Testnet Mumbai (Deprecated)</option>
                           <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
                           <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
                           <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
@@ -1103,11 +1199,11 @@ async deleteDvP() {
                           min="0"
                           step="1"
                           required
-                          value={this.state.currentDvP.amount1}
+                          value={currentDvP.amount1}
                           onChange={this.onChangeAmount1}
                           name="amount1"
                           autoComplete="off"
-                          disabled={!this.state.currentDvP.isMaker}
+                          disabled={!this.state.isMaker}
                         />
                       </div>
                     </td>
@@ -1124,7 +1220,7 @@ async deleteDvP() {
                           min="0"
                           step="1"
                           required
-                          value={this.state.currentDvP.amount2}
+                          value={currentDvP.amount2}
                           onChange={this.onChangeAmount2}
                           name="amount2"
                           autoComplete="off"
@@ -1143,7 +1239,7 @@ async deleteDvP() {
                             onChange={this.onChangeChecker}                         
                             className="form-control"
                             id="checker"
-                            disabled={!this.state.isMaker || this.state.currentDvP.txntype===2}
+                            disabled={!this.state.isMaker || currentDvP.txntype===2}
                             >
                             {
                               Array.isArray(checkerList) ?
@@ -1166,7 +1262,7 @@ async deleteDvP() {
                         onChange={this.onChangeCheckerComments}
                         name="checkerComments"
                         autoComplete="off"
-                        disabled={!this.state.isChecker}
+                        disabled={!this.state.isChecker || currentDvP.id === 0 || currentDvP.status !== 1 }
                         />
                     </div>
                     <div className="form-group">
@@ -1176,7 +1272,7 @@ async deleteDvP() {
                           onChange={this.onChangeApprover}                         
                           className="form-control"
                           id="approver"
-                          disabled={!this.state.isMaker || this.state.currentDvP.txntype===2}
+                          disabled={!this.state.isMaker || currentDvP.txntype===2}
                           >
                         {
                           Array.isArray(approverList) ?
@@ -1199,101 +1295,119 @@ async deleteDvP() {
                         onChange={this.onChangeApproverComments}
                         name="approverComments"
                         autoComplete="off"
-                        disabled={!this.state.isApprover}
+                        disabled={!this.state.isApprover || currentDvP.id === 0 || currentDvP.status !== 2 }
                         />
                     </div>
-
-
                   </form>
-                  {
-                  this.state.isMaker?
-                  <>
+
+
+              {  //// buttons!
+
+
+                  this.state.isMaker && currentDvP.id === 0 &&  // creating new draft
+                        <button 
+                        onClick={this.createDvPDraft} 
+                        type="submit"
+                        className="m-3 btn btn-sm btn-primary"
+                        >
+                          Submit Request
+                        </button>
+              }
+                    
+              { 
+                  this.state.isMaker && currentDvP.status <= 0 &&  // creating draft or amending draft
+                        <>
+                            <button
+                            type="submit"
+                            className="m-3 btn btn-sm btn-primary"
+                            onClick={this.submitDvP}
+                            >
+                              Submit 
+                              {
+                                (currentDvP.txntype===0? " Create ":
+                                (currentDvP.txntype===1? " Update ":
+                                (currentDvP.txntype===2? " Delete ":null)))
+                              }
+                              Request
+                            </button> 
+
+                            <button
+                              className="m-3 btn btn-sm btn-danger"
+                              onClick={this.showModal_dropRequest}
+                            >
+                              Drop Request
+                            </button>
+                        </>
+              }
+
+              {
+                this.state.isChecker && currentDvP.status === 1 && 
                     <button
-                    type="submit"
-                    className="m-3 btn btn-sm btn-primary"
-                    onClick={this.submitDvP}
+                      type="submit"
+                      className="m-3 btn btn-sm btn-primary"
+                      onClick={this.acceptDvP}
                     >
-                      Submit 
+                      Endorse
                       {
-                        (this.state.currentDvP.txntype===0? " Create ":
-                        (this.state.currentDvP.txntype===1? " Update ":
-                        (this.state.currentDvP.txntype===2? " Delete ":null)))
+                        (currentDvP.txntype===0? " Create ":
+                        (currentDvP.txntype===1? " Update ":
+                        (currentDvP.txntype===2? " Delete ":null)))
                       }
                       Request
-
                     </button> 
-
-                    <button
-                      className="m-3 btn btn-sm btn-danger"
-                      onClick={this.showModal_dropRequest}
-                    >
-                      Drop Request
-                    </button>
-                </>
-
-                  : (this.state.isChecker? 
-                  <button
-                  type="submit"
-                  className="m-3 btn btn-sm btn-primary"
-                  onClick={this.acceptDvP}
-                  >
-                    Endorse
-                    {
-                      (this.state.currentDvP.txntype===0? " Create ":
-                      (this.state.currentDvP.txntype===1? " Update ":
-                      (this.state.currentDvP.txntype===2? " Delete ":null)))
-                    }
-                    Request
-
-                  </button> 
-                  :
-                  (
-                    this.state.isApprover?
+              }
+              
+              {
+                    this.state.isApprover && currentDvP.status === 2 &&
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-primary"
-                    onClick={this.state.currentDvP.txntype===2? this.deleteDraft: this.approveDvP}
+                    onClick={currentDvP.txntype===2? this.deleteDraft: this.approveDvP}
                     >
                       Approve
                       {
-                        (this.state.currentDvP.txntype===0? " Create ":
-                        (this.state.currentDvP.txntype===1? " Update ":
-                        (this.state.currentDvP.txntype===2? " Delete ":null)))
+                        (currentDvP.txntype===0? " Create ":
+                        (currentDvP.txntype===1? " Update ":
+                        (currentDvP.txntype===2? " Delete ":null)))
                       }
                       Request
 
                     </button> 
-                    : null
-                  ))
-                  }
-   &nbsp;
-                  {
-                    this.state.isChecker || this.state.isApprover ?
-
-                  <button
-                  type="submit"
-                  className="m-3 btn btn-sm btn-danger"
-                  onClick={this.rejectDvP}
-                  >
-                    Reject
-                  </button> 
-                  : null
-                  }
-  &nbsp;
-                  { 
-
-                   ((this.state.datachanged) ? 
-                    <button className="m-3 btn btn-sm btn-secondary" onClick={this.showModal_Leave}>
-                      Back
-                    </button>
-                    : 
-                    <Link to="/inbox">
-                    <button className="m-3 btn btn-sm btn-secondary">
-                      Back
-                    </button>
-                    </Link>
-                   )
-                   }
+                
+              }
+&nbsp;
+              {
+                currentDvP.id !== 0 && (this.state.isChecker || this.state.isApprover) && 
+                currentDvP.status < 2 &&   // status < 2 still in draft and not deployed yet
+                    <button
+                    type="submit"
+                    className="m-3 btn btn-sm btn-danger"
+                    onClick={this.rejectDvP}
+                    >
+                      Reject
+                    </button> 
+              }
+&nbsp;
+              { 
+                this.state.isMaker?
+                (this.state.datachanged ? 
+                  <button className="m-3 btn btn-sm btn-secondary" onClick={this.showModal_Leave}>
+                    Cancel
+                  </button>
+                  : 
+                  <Link to="/dvp">
+                  <button className="m-3 btn btn-sm btn-secondary">
+                    Cancel
+                  </button>
+                  </Link>
+                )
+              : 
+                <Link to="/dvp">
+                <button className="m-3 btn btn-sm btn-secondary">
+                  Cancel
+                </button>
+                </Link>
+              }  
 
 
                   {this.state.isLoading ? <LoadingSpinner /> : null}

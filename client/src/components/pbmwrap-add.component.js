@@ -231,9 +231,9 @@ class PBMWrap extends Component {
     if (this.state.underlyingTokenID === "") err += "- Underlying Digital SGD cannot be empty\n"; 
     if (this.state.pbm_id === "") err += "- PBM cannot be empty\n"; 
 
-    if (parseFloat(this.state.inwallet) === 0) err += "- Underlying Digital SGD must be more than zero\n"
+    if (parseFloat(this.state.inwallet) === 0) err += "- Underlying Digital SGD must be more than zero. You need to mint the tokens before wrapping it.\n"
     if (this.state.amount === "") err += "- Amount cannot be empty\n";
-    if (parseFloat(this.state.inwallet) > 0 && this.state.amount !== "" && this.state.amount > parseFloat(this.state.inwallet)) err += "- Amount cannot be more than Digital SGD available in the wallet. You need to mint more Digital SGD to wrap and mint PBM.\n"; 
+    if (parseFloat(this.state.inwallet) > 0 && this.state.amount !== "" && this.state.amount > parseFloat(this.state.inwallet)) err += "- Amount cannot be more than Digital SGD available in the wallet. You need to mint more tokens to wrap and mint PBM.\n"; 
     if (this.state.checker === "") err += "- Checker cannot be empty\n";
     if (this.state.approver === "") err += "- Approver cannot be empty\n";
     if (this.state.checker === this.state.currentUser.id.toString() 

@@ -808,9 +808,11 @@ export default class PBMEdit extends Component {
                         id="underlyingTokenID"
                         disabled={!this.state.isMaker}
                       >
+                        <option value=""> </option>
                         {
                           Array.isArray(underlyingDSGDList) ?
                           underlyingDSGDList.map( (d) => {
+                            if (typeof d.id === "number")
                             // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
                               return <option value={d.id} selected={d.id === this.state.underlyingTokenID}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                             })
@@ -860,9 +862,9 @@ export default class PBMEdit extends Component {
                       >
                         <option value=""></option>
                         <option value="UEN"           selected={typeof(this.state.datafield1_name) === 'string' && this.state.datafield1_name.toUpperCase() === "UEN"}>UEN</option>
-                        <option value="Industry code" selected={typeof(this.state.datafield1_name) === 'string' && this.state.datafield1_name.toUpperCase() === "INDUSTRY CODE"}>Industry code</option>
+                        <option value="IndustryCode" selected={typeof(this.state.datafield1_name) === 'string' && this.state.datafield1_name.toUpperCase() === "INDUSTRYCODE"}>Industry code</option>
                         <option value="Location"      selected={typeof(this.state.datafield1_name) === 'string' && this.state.datafield1_name.toUpperCase() === "LOCATION"}>Location</option>
-                        <option value="Postal code"   selected={typeof(this.state.datafield1_name) === 'string' && this.state.datafield1_name.toUpperCase() === "POSTAL CODE"}>Postal code</option>
+                        <option value="PostalCode"   selected={typeof(this.state.datafield1_name) === 'string' && this.state.datafield1_name.toUpperCase() === "POSTALCODE"}>Postal code</option>
                       </select>
                     </div>
                     { this.state.datafield1_name !=="" && (
@@ -924,9 +926,9 @@ export default class PBMEdit extends Component {
                     >
                       <option value=""></option>
                       <option value="UEN"           selected={typeof(this.state.datafield2_name) === 'string' && this.state.datafield2_name.toUpperCase() === "UEN"}>UEN</option>
-                      <option value="Industry code" selected={typeof(this.state.datafield2_name) === 'string' && this.state.datafield2_name.toUpperCase() === "INDUSTRY CODE"}>Industry code</option>
+                      <option value="IndustryCode" selected={typeof(this.state.datafield2_name) === 'string' && this.state.datafield2_name.toUpperCase() === "INDUSTRYCODE"}>Industry code</option>
                       <option value="Location"      selected={typeof(this.state.datafield2_name) === 'string' && this.state.datafield2_name.toUpperCase() === "LOCATION"}>Location</option>
-                      <option value="Postal code"   selected={typeof(this.state.datafield2_name) === 'string' && this.state.datafield2_name.toUpperCase() === "POSTAL CODE"}>Postal code</option>
+                      <option value="PostalCode"   selected={typeof(this.state.datafield2_name) === 'string' && this.state.datafield2_name.toUpperCase() === "POSTALCODE"}>Postal code</option>
                     </select>
                   </div>
                   )}

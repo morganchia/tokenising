@@ -734,9 +734,11 @@ export default class PBMEdit extends Component {
                         id="underlyingTokenID"
                         disabled={!this.state.isMaker}
                       >
+                        <option value=""> </option>
                         {
                           Array.isArray(underlyingDSGDList) ?
                           underlyingDSGDList.map( (d) => {
+                              if (typeof d.id === "number")
                               return <option value={d.id}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                             })
                           : null
@@ -783,9 +785,9 @@ export default class PBMEdit extends Component {
                       >
                         <option value=""></option>
                         <option value="UEN">UEN</option>
-                        <option value="Industry code">Industry code</option>
+                        <option value="IndustryCode">Industry code</option>
                         <option value="Location">Location</option>
-                        <option value="Postal code">Postal code</option>
+                        <option value="PostalCode">Postal code</option>
                       </select>
                     </div>
                     { this.state.datafield1_name !=="" && (
@@ -847,9 +849,9 @@ export default class PBMEdit extends Component {
                     >
                       <option value=""></option>
                       <option value="UEN">UEN</option>
-                      <option value="Industry code">Industry code</option>
+                      <option value="IndustryCode">Industry code</option>
                       <option value="Location">Location</option>
-                      <option value="Postal code">Postal code</option>
+                      <option value="PostalCode">Postal code</option>
                     </select>
                   </div>
                   )}

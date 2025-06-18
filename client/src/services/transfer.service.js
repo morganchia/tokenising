@@ -46,12 +46,20 @@ class TransferDataService {
     return http.put(`/transfers/approvedeletedraftbyid/${id}`, data);
   }
 
+  transferToWallet(id, data) {
+    console.log("Calling /transfers/transferToWallet?id");
+    return http.put(`/transfers/transferToWallet/${id}`, data);
+  }
+
   rejectDraftById(id, data) {
     console.log("Calling /transfers/rejectdraftbyid?id");
     return http.put(`/transfers/rejectdraftbyid/${id}`, data);
   }
 
-
+  dropRequestById(id, data) {
+    console.log("Calling /transfers/droprequestbyid?id");
+    return http.put(`/transfers/droprequestbyid/${id}`, data);
+  }
 
   delete(id) {
     return http.delete(`/transfers/${id}`);

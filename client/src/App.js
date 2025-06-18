@@ -8,6 +8,8 @@ import "./sidebar.css";
 import AuthService from "./services/auth.service";
 
 import DSGD2PBM from "./components/dsgd2pbm.component";
+import BondCouponAllowance from "./components/bond-couponallowance.component";
+import BondCouponTrigger from "./components/bond-coupontrigger.component";
 import Login from "./components/login.component";
 import Register from "./components/register.component";
 import Home from "./components/home.component";
@@ -25,9 +27,9 @@ import RecipientCheckApprove from "./components/recipient-checkapprove.component
 import Withdraw from "./components/withdraw.component";
 
 import TransferList from "./components/transfers-list.component";
-import TransferAdd from "./components/transfer-add.component";
+//import TransferAdd from "./components/transfer-add.component";
 import TransferCheckApprove from "./components/transfer-checkapprove.component";
-import TransferAddOld from "./components/transfer-add.component(withoutmakerchecker)";
+//import TransferAddOld from "./components/transfer-add.component(withoutmakerchecker)";
 
 import Order from "./components/order.component";
 import AuditTrail from "./components/audittrail.component";
@@ -43,15 +45,24 @@ import CampaignEdit from "./components/campaign-edit.component";
 import CampaignCheckApprove from "./components/campaign-checkapprove.component";
 import CampaignsList from "./components/campaigns-list.component";
 
+import BridgeList from "./components/bridge.component";
+
+import BondCheckApprove from "./components/bond-checkapprove.component";
+import BondList from "./components/bond-list.component";
+
+
 import PBMCheckApprove from "./components/pbm-checkapprove.component";
 import PBMAdd from "./components/pbm-add.component";
 import PBMList from "./components/pbm-list.component";
 
 import DvPCheckApprove from "./components/dvp-checkapprove.component";
-import DvPAdd from "./components/dvp-add.component";
+//import DvPAdd from "./components/dvp-add.component";
 import DvPList from "./components/dvp-list.component";
 import DvPAddAllowance from "./components/dvp-addallowance.component";
 import DvPTransact from "./components/dvp-transact.component";
+
+import RepoList from "./components/repo-list.component";
+import RepoCheckApprove from "./components/repo-checkapprove.component";
 
 import PBMWrapCheckApprove from "./components/pbmwrap-checkapprove.component";
 import PBMWrapAdd from "./components/pbmwrap-add.component";
@@ -199,17 +210,17 @@ class App extends Component {
                   <span className="tooltip">Inbox</span>
                 </li>
                 <li>
+                  <Link to={"/bridge"} className="nav-link">
+                    <i className='bx bx-atom' ></i>
+                    <span className="links_name">Bridge (Tokens)</span>
+                    <span className="tooltip">Bridge (Tokens)</span>
+                  </Link>
+                </li>
+                <li>
                   <Link to={"/dvp"} className="nav-link">
                     <i className='bx bx-atom' ></i>
                     <span className="links_name">DvP Smart contracts</span>
                   <span className="tooltip">DvP Smart Contracts</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to={"/pbmtemplate"} className="nav-link">
-                    <i className='bx bx-atom' ></i>
-                    <span className="links_name">PBM Templates</span>
-                  <span className="tooltip">PBM Templates</span>
                   </Link>
                 </li>
                 <li>
@@ -218,27 +229,48 @@ class App extends Component {
                     <span className="links_name">PBMs</span>
                   <span className="tooltip">PBMs</span>
                   </Link>
+                    <li>
+                      <Link to={"/pbmtemplate"} className="nav-link">
+                        <i className='bx bx-atom' ></i>
+                        <span className="links_name">PBM Templates</span>
+                      <span className="tooltip">PBM Templates</span>
+                      </Link>
+                    </li>
                 </li>
                 <li>
                   <Link to={"/pbmwraplist"} className="nav-link">
                     <i className='bx bx-atom' ></i>
                     <span className="links_name">Wrap Mint PBM</span>
-                  <span className="tooltip">Wrap Mint PBM</span>
+                    <span className="tooltip">Wrap Mint PBM</span>
                   </Link>
                 </li>
                 <li>
                   <Link to={"/campaign"} className="nav-link">
                     <i className='bx bx-atom' ></i>
-                    <span className="links_name">Campaigns (DSGD)</span>
-                  <span className="tooltip">Campaigns (DSGD)</span>
+                    <span className="links_name">Campaigns (Tokens)</span>
+                    <span className="tooltip">Campaigns (Tokens)</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to={"/bond"} className="nav-link">
+                    <i className='bx bx-atom' ></i>
+                    <span className="links_name">Bond (Tokens)</span>
+                    <span className="tooltip">Bond (Tokens)</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to={"/repo"} className="nav-link">
+                    <i className='bx bx-atom' ></i>
+                    <span className="links_name">Repo</span>
+                  <span className="tooltip">Repo</span>
                   </Link>
                 </li>
                 <li>
                   <Link to={"/mint"} className="nav-link">
                     <i className='bx bx-atom' ></i>
-                    <span className="links_name">Mint (DSGD)</span>
+                    <span className="links_name">Mint (Tokens)</span>
                   </Link>
-                  <span className="tooltip">Mint (DSGD)</span>
+                  <span className="tooltip">Mint (Tokens)</span>
                 </li>
                 <li>
 {
@@ -246,9 +278,9 @@ class App extends Component {
 }
                   <Link to={"/transfer"} className="nav-link">
                     <i className='bx bx-transfer' ></i>
-                    <span className="links_name">Transfer</span>
+                    <span className="links_name">Transfer (Tokens)</span>
                   </Link>
-                  <span className="tooltip">Transfer</span>
+                  <span className="tooltip">Transfer (Tokens)</span>
                 </li>
                 <li>
                   <Link to={"/withdraw"} className="nav-link">
@@ -370,8 +402,10 @@ class App extends Component {
             <Route path="/withdraw" element={<Withdraw />} />
 
             <Route path="/transfer" element={<TransferList />} />
+          {/* 
             <Route path="/transferadd" element={<TransferAdd />} />
             <Route path="/transferaddold" element={<TransferAddOld />} />
+          */}
             <Route path="/transfercheckapprove/:id" element={<TransferCheckApprove/>} />
 
             <Route path="/audittrail" element={<AuditTrail />} />
@@ -393,10 +427,20 @@ class App extends Component {
             <Route path="/campaigncheckapprove/:id" element={<CampaignCheckApprove/>} />
             <Route path="/campaignedit/:id" element={<CampaignEdit/>} />
 
+            <Route path="/bridge" element={<BridgeList/>} />
+
+            <Route path="/bond" element={<BondList/>} />
+            <Route path="/bondcheckapprove/:id" element={<BondCheckApprove/>} />
+            <Route path="/bondcouponallowance/:id" element={<BondCouponAllowance />} />
+            <Route path="/bondcouponallowance" element={<BondCouponAllowance />} />
+            <Route path="/bondcoupontrigger/:id" element={<BondCouponTrigger />} />
+
             <Route path="/dvp" element={<DvPList/>} />
-            <Route path="/dvpadd" element={<DvPAdd/>} />
             <Route path="/dvpcheckapprove/:id" element={<DvPCheckApprove/>} />
             <Route path="/dvptransact/:id" element={<DvPTransact/>} />
+
+            <Route path="/repo" element={<RepoList/>} />
+            <Route path="/repocheckapprove/:id" element={<RepoCheckApprove/>} />
 
             <Route path="/pbm" element={<PBMList/>} />
             <Route path="/pbmadd" element={<PBMAdd/>} />

@@ -237,13 +237,14 @@ refreshList() {
                   <th>Token 1</th>
                   <th>Token 2</th>
 */}
-                  <th>Amount 1</th>
-                  <th>Amount 2</th>
+                  <th>Amt 1</th>
+                  <th>Amt 2</th>
                   <th>Smart Contract Address</th>
                   <th>Blockchain</th>
                   <th>Start Date</th>
                   <th>End Date</th>
                   <th>View Blockchain</th>
+                  <th>Counterparties Set Allowance</th>
                   <th>Action</th>
                 </tr>
                 : null}
@@ -312,13 +313,16 @@ refreshList() {
                         +dvp1.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
                       </td>
                       <td>
+                        <a href={window.location.origin + "/dvpaddallowance/"} target="_blank" rel="noreferrer">Set Allowance <i className='bx bx-link-external'></i></a>
+                      </td>
+                      <td>
                         <Link
                           to={"/dvptransact/" + dvp1.id}
                           className="badge badge-warning"
                         >
                            {
                            //this.state.isMaker? "Edit / Delete" : "View"}
-                           this.state.isMaker? "Execute DvP" : ""
+                           this.state.isMaker? "Trigger DvP" : ""
                            }
                         </Link>
                       </td>
@@ -329,7 +333,7 @@ refreshList() {
               {
               this.state.isMaker? 
                 <Link
-                  to={"/dvpadd/"}
+                  to={"/dvpcheckapprove/0"}
                 >
                   <button
                     className="m-3 btn btn-sm btn-primary"

@@ -339,8 +339,14 @@ exports.approveDraftById = async (req, res) => {  //
     console.log("Startdate (unix time) = ", Number(new Date(req.body.startdate)));
     console.log("Enddate   (unix time) = ", Number(new Date(req.body.enddate)));
     try {
-      const this_amount1 = req.body.amount1 * 1e18;
-      const this_amount2 = req.body.amount2 * 1e18;
+//      const this_amount1 = req.body.amount1 * 1e18;
+//      const this_amount2 = req.body.amount2 * 1e18;
+//const this_amount1 = web3.utils.toWei(req.body.amount1, "ether"); // returns string
+//const this_amount2 = web3.utils.toWei(req.body.amount2, "ether"); // returns string
+
+const BN = require('bn.js');
+const this_amount1 = new BN(req.body.amount1).mul(new BN("1000000000000000000")); 
+const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000")); 
 
       // Deploy contract
       const deployContract = async () => {
@@ -368,7 +374,7 @@ exports.approveDraftById = async (req, res) => {  //
           {
             from: signer.address,
             data: contractTx.encodeABI(),
-            gas: 4700000,
+            gas: 8700000, // 4700000,
           },
           signer.privateKey
         );
@@ -510,7 +516,7 @@ exports.approveDraftById = async (req, res) => {  //
             data: ERCTokenDvPcontract.methods.updateTotalSupply(
                     web3.utils.toBN( setToTalSupply )
                   ).encodeABI(),
-            gas: 4700000,
+            gas: 8700000,  // 4700000,
           },
           SIGNER_PRIVATE_KEY
         ); // signTransaction
@@ -918,7 +924,7 @@ exports.executeDvPById = async (req, res) => {  //
           // target address, this could be a smart contract address
           to: req.body.smartcontractaddress,
           // gas fees for the transaction
-          gas: 2100000,
+          gas: 9700000, //8700000,  // 2100000,
           // this encodes the ABI of the method and the arguments
           data: await DvPcontractInstance.contractz.methods
             .executeTrade()
@@ -966,7 +972,7 @@ exports.executeDvPById = async (req, res) => {  //
                               errorSent = true;
                             } else {
                               res.status(400).send({ 
-                                message: "Transaction failed, please check "+url1+" for error.",
+                                message: "Transaction failed, please check "+url1+" for the error.",
                               });
                               errorSent = true;
                             }
@@ -995,11 +1001,11 @@ exports.executeDvPById = async (req, res) => {  //
           return Promise.resolve(sendTxn);
         } catch(err6c) {  // try 6c
           console.error("Err 6c: ",err6c);
-          console.log("Transaction failed, please check "+url1+" for error.");
+          console.log("Transaction failed, please check "+url1+" for the error.");
 
           if (!errorSent) {
             res.status(400).send({ 
-              message: "Transaction failed, please check "+url1+" for error.",
+              message: "Transaction failed, please check "+url1+" for the error.",
             });
             errorSent = true;
           }
@@ -1257,6 +1263,13 @@ exports.getAll = (req, res) => {
 
   DvP.findAll(
   {
+    /*
+    where: { 
+      status : { 
+        [Op.ne] : -9 
+      }
+    },
+    */
     include: [
       {
         model: db.recipients,
@@ -1807,7 +1820,7 @@ exports.update = async (req, res) => {
             data: ERCTokenDvPcontract.methods.updateTotalSupply(
                     web3.utils.toBN( setToTalSupply )
                   ).encodeABI(),
-            gas: 4700000,
+            gas: 8700000,  // 4700000,
           },
           SIGNER_PRIVATE_KEY
         ); // signTransaction

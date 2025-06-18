@@ -561,7 +561,7 @@ exports.approveDraftById = async (req, res) => {
                 data: ERC20TokenDSGDcontract.methods.updateTotalSupply(
                         web3.utils.toBN( setToTalSupply )
                       ).encodeABI(),
-                gas: 4700000,
+                gas: 8700000,  // 4700000,
               },
               SIGNER_PRIVATE_KEY
             ); // signTransaction
@@ -1479,7 +1479,7 @@ exports.update = async (req, res) => {
             data: ERC20TokenDSGDcontract.methods.updateTotalSupply(
                     web3.utils.toBN( setToTalSupply )
                   ).encodeABI(),
-            gas: 4700000,
+            gas: 8700000, // 4700000,
           },
           SIGNER_PRIVATE_KEY
         ); // signTransaction

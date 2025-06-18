@@ -1,14 +1,14 @@
 import React, { Component } from "react";
 import { Link, Navigate } from "react-router-dom";
-import DvPDataService from "../services/dvp.service";
-import CampaignDataService from "../services/campaign.service";
-import PBMDataService from "../services/pbm.service";
-import RecipientDataService from "../services/recipient.service";
-import UserOpsRoleDataService from "../services/user_opsrole.service";
-import AuthService from "../services/auth.service";
+import DvPDataService from "../services/dvp.service.js";
+import CampaignDataService from "../services/campaign.service.js";
+import PBMDataService from "../services/pbm.service.js";
+import RecipientDataService from "../services/recipient.service.js";
+import UserOpsRoleDataService from "../services/user_opsrole.service.js";
+import AuthService from "../services/auth.service.js";
 import validator from 'validator';
 import Modal from '../Modal.js';
-import LoadingSpinner from "../LoadingSpinner";
+import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
 
 export default class DvPEdit extends Component {
@@ -125,10 +125,10 @@ export default class DvPEdit extends Component {
     if (underlyingTokenIDx === "") 
       newBlockchain = "";
     else {
-      if (underlyingTokenIDx < 1000000000) {
+      if (underlyingTokenIDx < 1000000000) { // cash token
         newBlockchain = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenIDx)).blockchain;
         console.log("New blockchain=", newBlockchain);
-      } else {
+      } else if (underlyingTokenIDx < 2000000000) { // PBM token
         newBlockchain = this.state.PBMList.find((ee) => ee.id === parseInt(underlyingTokenIDx)).blockchain;
         console.log("New blockchain=", newBlockchain);
       }

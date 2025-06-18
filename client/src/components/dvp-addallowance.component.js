@@ -75,7 +75,7 @@ export default class dvpaddallowance extends Component {
         window.web3 = new Web3(window.web3.currentProvider)
       }
       else {
-        window.alert('Non-Ethereum browser detected. You should consider trying MetaMask!')
+        window.alert('Non-Ethereum browser detected. Please connect using MetaMask or EIP-1193 compatible wallet.')
         //setWalleterror( true );
         this.setState({ ...this.state, walleterror:true });
       }
@@ -240,8 +240,12 @@ export default class dvpaddallowance extends Component {
     const Token2_abi =  JSON.parse(JSON.stringify(Token2_jsonData));
     const Token2Addr1 = this.state.Token2Addr;
     const Token2Owner1 = this.state.Token2Owner;
-    var amountToSend = this.state.token_amount * 1e18;
-
+    
+    
+    //var amountToSend = this.state.token_amount * 1e18;
+    const BN = require('bn.js');
+    const amountToSend = new BN(this.state.token_amount).mul(new BN("1000000000000000000")); 
+    
 
     try { // try 0
       await Token.methods.approve(spenderAddr1,  amountToSend.toString()).send({  // executing via Metamask's private key hence need user to approve via Metamask
@@ -323,29 +327,29 @@ export default class dvpaddallowance extends Component {
     return (
       <center>
       <div class="outer">
-      <div class="swap-container">
-      <h1>Approve DvP Smart Contract to Pull Tokens from my Wallet</h1>
-      <br/>
-      <form class="swap-form">
-        <div class="input-group">
-              <label htmlFor="DvPsmartcontract">Select DvP Smart Contract</label>
-              <select
-                onChange={this.onChangeSmartContract}                         
-                class="select"
-                id="DvPsmartcontract"
-              >
-                <option value=""> </option>
-                {
-                  Array.isArray(this.state.DVPList) ?
-                  this.state.DVPList.map( (d) => {
-                      // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                        return <option value={d.id}>{d.name} ({d.smartcontractaddress})</option>
-                    })
-                  : null
-                }
-              </select>
+        <div class="swap-container">
+        <h1>Approve DvP Smart Contract to Pull Tokens from my Wallet</h1>
+        <br/>
+        <form class="swap-form">
+          <div class="input-group">
+                <label htmlFor="DvPsmartcontract">Select DvP Smart Contract</label>
+                <select
+                  onChange={this.onChangeSmartContract}                         
+                  class="select"
+                  id="DvPsmartcontract"
+                >
+                  <option value=""> </option>
+                  {
+                    Array.isArray(this.state.DVPList) ?
+                    this.state.DVPList.map( (d) => {
+                        // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                          return <option value={d.id}>{d.name} ({d.smartcontractaddress})</option>
+                      })
+                    : null
+                  }
+                </select>
           </div>
- 
+
           {this.state.connectedAccount && (
             <>
               <br/>
@@ -355,7 +359,7 @@ export default class dvpaddallowance extends Component {
               </div>
 
             </>
-            )}
+          )}
           <br/>
           <div class="input-group">
               <label for="currency-from">Set Allowance [balance: {this.state.TokenBalance} {this.state.Symbol} tokens]</label>
@@ -373,7 +377,7 @@ export default class dvpaddallowance extends Component {
               </label>
               <label><small>{this.state.TokenAddr}</small></label>
           </div>
-    
+
           <button 
             type="button"
             class={(this.state.DVPsmartcontractaddress === "" || this.state.token_amount <= 0)? "uniswapdisabled" : "uniswap"}
@@ -383,10 +387,10 @@ export default class dvpaddallowance extends Component {
                 if (this.state.token_amount > 0) this.askUser2SignTxn()
               }
             } >
-            Approve</button>
+            Approve
+          </button>
 
           <br/>
-          
           {this.state.connectedAccount && (
             <>
               <br/>
@@ -395,11 +399,10 @@ export default class dvpaddallowance extends Component {
                 <label style={{color:'green'}}><small>{this.state.connectedAccount}</small></label>
 
               </div>
-
             </>
             )}
-      </form>
-      </div>
+        </form>
+        </div>
       </div>
 
       <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/dvpaddallowance'} handleProceed2={this.deleteDvP} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>

@@ -26,6 +26,12 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
     IERC20Metadata public immutable underlyingToken;
     address public immutable owner;
 
+    string public field1;
+    string public field1value;
+    string public field2;
+    string public field2value;
+    string public operator;
+
     uint256 public contractExpiry;
 
     // RBAC related constants
@@ -53,7 +59,12 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
         address _underlyingAddress,
         string memory _name,
         string memory _symbol,
-        uint256 _contractExpiry
+        uint256 _contractExpiry,
+        string memory _field1,
+        string memory _field1value,
+        string memory _operator,
+        string memory _field2,
+        string memory _field2value
     ) ERC20(_name, _symbol) {
         owner = _msgSender();
         // Initialises the base DSGD token
@@ -63,6 +74,12 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
         _grantRole(MERCHANT_ADMIN_ROLE, owner);
         _setRoleAdmin(MERCHANT_ROLE, MERCHANT_ADMIN_ROLE);
 
+        field1 = _field1;
+        field1value = _field1value;
+        operator = _operator;
+        field2 = _field2;
+        field2value = _field2value;
+        
         // Sets the contract expiry
         contractExpiry = _contractExpiry;
     }
@@ -98,28 +115,9 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
     function wrapMint(address toUser, uint256 amount) external  whenNotExpired {
         //require(underlyingToken.allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
 
-//        underlyingToken.transferFrom(_msgSender(), address(this), amount);  // <-- transfer from toUser!!
         underlyingToken.transferFrom(toUser, address(this), amount);  // <-- transfer from toUser!!
         _mint(toUser, amount);
         emit wMint(owner, toUser, address(this), amount);
-
-/*
-        // Attempt to transfer tokens, revert with error message if transfer fails
-        try underlyingToken.transferFrom(_msgSender(), address(this), amount) {
-            // Mint tokens to the recipient
-            _mint(toUser, amount);
-        } catch Error(string memory errorMessage) {
-            // Revert with custom error message and emit an event
-            emit MintError(errorMessage);
-
-            revert(errorMessage);
-        } catch {
-            // Revert with a generic error message if the transaction fails for any other reason
-            emit MintError("Token transfer failed");
-
-            revert("Token transfer failed");
-        }
-*/
     }
 
 
@@ -134,7 +132,11 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
      *
      * Emits a { Redemption } on success
      */
-    function redeem(address toUser, uint256 amount) external whenNotExpired onlyApprovedMerchant(toUser) {
+//    function redeem(address toUser, uint256 amount) external whenNotExpired onlyApprovedMerchant(toUser) {
+    function redeem(address toUser, uint256 amount, string memory _field1, string memory _field1value, string memory _operator, string memory _field2, string memory _field2value) external whenNotExpired onlyApprovedMerchant(toUser) {
+        // # PBM redeem conditions #
+
+
         underlyingToken.safeTransfer(toUser, amount);
         _burn(_msgSender(), amount);
         emit Redemption(_msgSender(), toUser, amount);

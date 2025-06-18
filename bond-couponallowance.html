@@ -1,0 +1,448 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bond Coupon Allowance</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/Babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Mock ERC20 ABI (simplified for demo)
+        const ERC20_ABI = [
+            {
+                "constant": true,
+                "inputs": [{"name": "_owner", "type": "address"}],
+                "name": "balanceOf",
+                "outputs": [{"name": "balance", "type": "uint256"}],
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [{"name": "_spender", "type": "address"}, {"name": "_value", "type": "uint256"}],
+                "name": "approve",
+                "outputs": [{"name": "success", "type": "bool"}],
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [{"name": "_to", "type": "address"}, {"name": "_value", "type": "uint256"}],
+                "name": "transfer",
+                "outputs": [{"name": "success", "type": "bool"}],
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "symbol",
+                "outputs": [{"name": "", "type": "string"}],
+                "type": "function"
+            }
+        ];
+
+        // Mock Bond ABI (simplified for demo)
+        const BOND_ABI = [
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "bondHolders",
+                "outputs": [
+                    {"name": "holders", "type": "address[]"},
+                    {"name": "balances", "type": "uint256[]"}
+                ],
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "couponRate",
+                "outputs": [{"name": "", "type": "uint256"}],
+                "type": "function"
+            },
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "couponInterval",
+                "outputs": [{"name": "", "type": "uint256"}],
+                "type": "function"
+            }
+        ];
+
+        // Mock bond data
+        const mockBonds = [
+            {
+                id: 1,
+                tokenname: "Bond A",
+                name: "Corporate Bond A",
+                smartcontractaddress: "0x1234567890abcdef1234567890abcdef12345678",
+                CashTokensmartcontractaddress: "0xabcdef1234567890abcdef1234567890abcdef12",
+                campaign: { tokenname: "DSGD", smartcontractaddress: "0xabcdef1234567890abcdef1234567890abcdef12" },
+                recipient: { walletaddress: "0x1111111111111111111111111111111111111111" },
+                blockchain: 80002,
+                totalsupply: 1000000,
+                couponrate: 500, // 5% in basis points
+                couponinterval: 15768000 // Half-yearly
+            },
+            {
+                id: 2,
+                tokenname: "Bond B",
+                name: "Corporate Bond B",
+                smartcontractaddress: "0x9876543210fedcba9876543210fedcba98765432",
+                CashTokensmartcontractaddress: "0xfedcba9876543210fedcba9876543210fedcba98",
+                campaign: { tokenname: "USDT", smartcontractaddress: "0xfedcba9876543210fedcba9876543210fedcba98" },
+                recipient: { walletaddress: "0x2222222222222222222222222222222222222222" },
+                blockchain: 11155111,
+                totalsupply: 2000000,
+                couponrate: 300, // 3% in basis points
+                couponinterval: 7884000 // Quarterly
+            }
+        ];
+
+        const App = () => {
+            const [state, setState] = useState({
+                bondHolders: { holders: [], balances: [] },
+                BondList: mockBonds,
+                couponToPay: 0,
+                TokenBalance: 0,
+                CashTokenBalance: 0,
+                Symbol: "",
+                connectedAccount: "",
+                CashTokenAddr: "",
+                BondTokenAddr: "",
+                BondIssuerWallet: "",
+                connectionStatus: "",
+                walleterror: false,
+                selectedBond: 0,
+                selectedBondObj: null,
+                Bondsmartcontractaddress: "",
+                showm: false,
+                modalmsg: "",
+                button0text: "OK",
+                couponInterval: "",
+                couponRate: 0,
+                couponAdjustment: 0
+            });
+
+            const switchNetwork = async (networkId) => {
+                try {
+                    if (window.ethereum) {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: Web3.utils.toHex(networkId) }],
+                        });
+                        console.log('Network switched successfully!');
+                    } else {
+                        setState({ ...state, walleterror: true, connectionStatus: "Please install MetaMask." });
+                    }
+                } catch (error) {
+                    console.error('Failed to switch network:', error);
+                    setState({ ...state, walleterror: true, connectionStatus: "Failed to switch network." });
+                }
+            };
+
+            const refreshData = async () => {
+                if (!state.selectedBondObj) return;
+                try {
+                    if (!window.ethereum) {
+                        setState({ ...state, walleterror: true, connectionStatus: "Please install MetaMask." });
+                        return;
+                    }
+                    const web3 = new Web3(window.ethereum);
+                    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+                    const account = accounts[0];
+                    await switchNetwork(state.selectedBondObj.blockchain);
+
+                    const cashToken = new web3.eth.Contract(ERC20_ABI, state.selectedBondObj.CashTokensmartcontractaddress);
+                    const bondContract = new web3.eth.Contract(BOND_ABI, state.selectedBondObj.smartcontractaddress);
+
+                    const balance = await cashToken.methods.balanceOf(account).call();
+                    const symbol = await cashToken.methods.symbol().call();
+                    const bondHolders = await bondContract.methods.bondHolders().call();
+                    let couponRate = state.selectedBondObj.couponrate;
+                    try {
+                        couponRate = await bondContract.methods.couponRate().call();
+                    } catch (e) {
+                        console.log("Error getting coupon rate:", e);
+                    }
+                    let couponInterval = state.selectedBondObj.couponinterval;
+                    try {
+                        couponInterval = await bondContract.methods.couponInterval().call();
+                    } catch (e) {
+                        console.log("Error getting coupon interval:", e);
+                    }
+
+                    const couponFreq = {
+                        '31536000': 'Yearly',
+                        '15768000': 'Half-yearly',
+                        '7884000': 'Quarterly',
+                        '2628000': 'Monthly'
+                    }[couponInterval] || '';
+                    const couponAdjustment = {
+                        '31536000': 1,
+                        '15768000': 0.5,
+                        '7884000': 0.25,
+                        '2628000': 1/12
+                    }[couponInterval] || 1;
+
+                    const issuerWallet = state.selectedBondObj.recipient.walletaddress.toLowerCase();
+                    const isIssuer = account.toLowerCase() === issuerWallet;
+                    const connectionStatus = isIssuer
+                        ? `Connected to ${state.selectedBondObj.tokenname} bond Issuer's wallet:`
+                        : `You have connected a wallet which is not the issuer of ${state.selectedBondObj.tokenname} Bond.`;
+
+                    setState({
+                        ...state,
+                        connectedAccount: account,
+                        CashTokenAddr: state.selectedBondObj.CashTokensmartcontractaddress,
+                        BondTokenAddr: state.selectedBondObj.smartcontractaddress,
+                        Symbol: symbol,
+                        CashTokenBalance: Math.floor(balance / 1e18),
+                        TokenBalance: Math.floor(balance / 1e18),
+                        couponToPay: state.selectedBondObj.totalsupply * (couponInterval/31536000) * (couponRate / 10000),
+                        couponInterval: couponFreq,
+                        couponRate: couponRate,
+                        couponAdjustment: couponAdjustment,
+                        bondHolders: bondHolders,
+                        connectionStatus: connectionStatus,
+                        BondIssuerWallet: issuerWallet
+                    });
+                } catch (error) {
+                    console.error(error);
+                    setState({ ...state, connectionStatus: "Error connecting to wallet or contract." });
+                }
+            };
+
+            const transferToSmartContract = async () => {
+                try {
+                    const web3 = new Web3(window.ethereum);
+                    const cashToken = new web3.eth.Contract(ERC20_ABI, state.selectedBondObj.CashTokensmartcontractaddress);
+                    const amountToSend = web3.utils.toWei(state.couponToPay.toString(), 'ether');
+                    const gasEstimate = await cashToken.methods.transfer(state.selectedBondObj.smartcontractaddress, amountToSend)
+                        .estimateGas({ from: state.connectedAccount });
+
+                    await cashToken.methods.transfer(state.selectedBondObj.smartcontractaddress, amountToSend)
+                        .send({ from: state.connectedAccount, gas: gasEstimate * 2 })
+                        .on('receipt', (receipt) => {
+                            if (receipt.status) {
+                                displayModal(`Successfully transferred ${state.couponToPay.toLocaleString()} ${state.selectedBondObj.campaign.tokenname} to the Bond smart contract.`);
+                            } else {
+                                displayModal("Transfer failed. Please check your wallet after 5 minutes.");
+                            }
+                        });
+                } catch (error) {
+                    console.error("Transfer error:", error);
+                    let errMsg = error.message.includes("User denied") ? "You denied the transaction in MetaMask." :
+                                 error.message.includes("Insufficient") ? "Insufficient tokens in your wallet." :
+                                 "Transfer failed. Please try again.";
+                    displayModal(`Error: ${errMsg}`);
+                }
+            };
+
+            const displayModal = (msg) => {
+                setState({ ...state, showm: true, modalmsg: msg });
+            };
+
+            const hideModal = () => {
+                setState({ ...state, showm: false });
+            };
+
+            const onChangeSmartContract = (e) => {
+                const tokenid = e.target.value;
+                const selectedBondObj = state.BondList.find((ee) => ee.id === parseInt(tokenid));
+                setState({
+                    ...state,
+                    selectedBond: tokenid,
+                    Bondsmartcontractaddress: selectedBondObj ? selectedBondObj.smartcontractaddress : "",
+                    selectedBondObj: selectedBondObj,
+                }, () => refreshData());
+            };
+
+            const onChangeTokenAmount = (e) => {
+                setState({ ...state, couponToPay: parseInt(e.target.value) || 0 });
+            };
+
+            const shorten = (s) => s ? s.substring(0,6) + "..." + s.slice(-3) : "";
+
+            useEffect(() => {
+                if (window.ethereum) {
+                    window.ethereum.on('accountsChanged', () => refreshData());
+                    refreshData();
+                }
+                return () => {
+                    if (window.ethereum) {
+                        window.ethereum.removeListener('accountsChanged', refreshData);
+                    }
+                };
+            }, [state.selectedBondObj]);
+
+            const blockchainName = {
+                80002: 'Polygon Testnet Amoy',
+                11155111: 'Ethereum Testnet Sepolia',
+                80001: 'Polygon Testnet Mumbai (Deprecated)',
+            }[state.selectedBondObj?.blockchain] || '';
+
+            return (
+                <div className="flex justify-center items-center min-h-screen bg-gray-100">
+                    <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+                        <h1 className="text-2xl font-bold text-center mb-4">Issuer Funds Cash Tokens for Coupon Payment</h1>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Select Bond Smart Contract</label>
+                                <select
+                                    onChange={onChangeSmartContract}
+                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                                >
+                                    <option value="">Select a bond</option>
+                                    {state.BondList.map(d => (
+                                        <option key={d.id} value={d.id} selected={parseInt(d.id) === parseInt(state.selectedBond)}>
+                                            {d.tokenname} ({d.name} - {shorten(d.smartcontractaddress)})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Coupon Payment {state.couponInterval ? `[${state.couponInterval}]` : ""}
+                                    {state.selectedBondObj ? ` [balance: ${state.CashTokenBalance} ${state.selectedBondObj.campaign.tokenname}]` : ""}
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={state.couponToPay}
+                                    onChange={onChangeTokenAmount}
+                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                                    placeholder="0"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Blockchain: {blockchainName}
+                                </label>
+                            </div>
+                            {state.bondHolders.holders.length > 0 && state.bondHolders.balances.length > 0 && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Bond Investors:</label>
+                                    <table className="w-full border border-gray-300 mt-2">
+                                        <thead>
+                                            <tr className="bg-gray-100">
+                                                <th className="border p-2">S/N</th>
+                                                <th className="border p-2">Investors</th>
+                                                <th className="border p-2">Holdings</th>
+                                                <th className="border p-2">Coupon Due</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {state.bondHolders.holders.map((hh, index) => (
+                                                <tr key={index}>
+                                                    <td className="border p-2">{index + 1}</td>
+                                                    <td className="border p-2">{shorten(hh)}</td>
+                                                    <td className="border p-2">{Math.floor(state.bondHolders.balances[index] / 1e18)}</td>
+                                                    <td className="border p-2">
+                                                        {(state.bondHolders.balances[index] / 1e18) * (state.couponInterval/31536000) * (state.couponRate / 10000)} {state.selectedBondObj.campaign.tokenname}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                            <button
+                                onClick={transferToSmartContract}
+                                disabled={!state.Bondsmartcontractaddress || state.couponToPay <= 0}
+                                className={`w-full py-2 px-4 rounded-md text-white ${!state.Bondsmartcontractaddress || state.couponToPay <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                            >
+                                Transfer
+                            </button>
+                            {state.connectedAccount && (
+                                <div className="text-blue-600 text-sm mt-2">
+                                    <p>{state.connectionStatus}</p>
+                                    <p>{shorten(state.connectedAccount)}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    {state.showm && (
+                        <div className="modal" style={{ display: 'block' }}>
+                            <div className="modal-content">
+                                <p>{state.modalmsg}</p>
+                                <button onClick={hideModal} className="mt-4 py-2 px-4 bg-blue-600 text-white rounded-md">
+                                    {state.button0text}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

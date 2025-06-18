@@ -41,7 +41,10 @@ export default function App() {
 	async function send2wallet(amount2send, ONSaddress) {
 		const web3 = window.web3;
 
-		var amountToSend = amount2send * 1e18;
+		//var amountToSend = amount2send * 1e18;
+    const BN = require('bn.js');
+    const amountToSend = new BN(amount2send).mul(new BN("1000000000000000000")); 
+
 
 		try {  // try 1
 		  // https://stackoverflow.com/questions/67736753/using-local-private-key-with-web3-js
@@ -94,7 +97,7 @@ export default function App() {
 					merchantWalletAddr, amountToSend.toString()
 				  )
 				  .encodeABI(),
-				gas: 210000,
+        gas: 8700000,  // 2100000,
 				//gasPrice: 500,
 				gasPrice: await contractInstance.web3BSC.eth.getGasPrice(),
 			  };
@@ -115,7 +118,7 @@ export default function App() {
                   //req.body.transferAmount * adjustdecimals 
                     amountToSend.toString()
                   ).encodeABI(),
-                gas: 4700000,
+                gas: 8700000,  // 4700000,
               },
               APP_SIGNER_PRIVATE_KEY
             );

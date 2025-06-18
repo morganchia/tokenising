@@ -608,7 +608,7 @@ async approvePBMWrapMint() {
         datachanged: false,
       });
       const defaultmsg = "The Digital SGD has been wrapped successfully and new PBM is minted.";
-      this.displayModal(defaultmsg, "OK", null, null, null);
+      this.displayModal(response.data.message, "OK", null, null, null);
     })
     .catch(e => {
       this.hide_loading();

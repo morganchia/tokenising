@@ -34,6 +34,7 @@ class PBM extends Component {
     this.onChangeCheckerComments = this.onChangeCheckerComments.bind(this);
     this.onChangeApproverComments = this.onChangeApproverComments.bind(this);
     this.getPBM = this.getPBM.bind(this);
+    this.createPBM = this.createPBM.bind(this);
     this.submitPBM = this.submitPBM.bind(this);
     this.acceptPBM = this.acceptPBM.bind(this);
     this.approvePBM = this.approvePBM.bind(this);
@@ -57,12 +58,12 @@ class PBM extends Component {
       },
 
       adddatafield : false,
-      hidedatafield1 : true,
+      hidedatafield1 : false,
       hidedatafield2 : true,  
 
 
       currentPBM: {
-        id: null,
+        id: 0,
         name: "",
         tokenname: "",
         description: "",
@@ -92,6 +93,8 @@ class PBM extends Component {
         enddate_changed: 0,
         sponsor_changed: 0,
         amount_changed: 0,
+        underlyingTokenID:"",      // underlyingTokenID
+        underlyingDSGDsmartcontractaddress: "",
       },
 
       originalPBM: {
@@ -210,10 +213,29 @@ class PBM extends Component {
   componentDidMount() {
     const user = AuthService.getCurrentUser();
 
-    if (!user) this.setState({ redirect: "/home" });
-    this.setState({ currentUser: user, userReady: true })
+    if (!user) this.setState({ redirect: "/login" });
+    this.setState({ currentUser: user, actionby:user.username, userReady: true })
+
+    let ismaker= user.opsrole.find((el) => 
+      el.opsrole.name.toUpperCase() === "MAKER"
+    );
+    console.log("isMaker:", (ismaker === undefined? false: true));
+    this.setState({ isMaker: (ismaker === undefined? false: true),});
+
+    let ischecker= user.opsrole.find((el) => 
+      el.opsrole.name.toUpperCase() === "CHECKER"
+    );
+    console.log("isChecker:", (ischecker === undefined? false: true));
+    this.setState({ isChecker: (ischecker === undefined? false: true),});
+
+    let isapprover= user.opsrole.find((el) => 
+    el.opsrole.name.toUpperCase() === "APPROVER"
+    );
+    console.log("isApprover:", (isapprover === undefined? false: true));
+    this.setState({ isApprover: (isapprover === undefined? false: true),});
 
     this.getPBM(user, this.props.router.params.id);
+    this.getAllPBMTemplates();
     this.getAllUnderlyingAssets();
     this.getAllSponsors();
     this.retrieveAllMakersCheckersApprovers();
@@ -543,7 +565,7 @@ class PBM extends Component {
   getPBM(user, id) {
     console.log("+++ id:", id);
 
-    if (id !== undefined) {
+    if (id !== undefined && id != 0) {
       PBMDataService.getAllDraftsByPBMId(id)
         .then(response => {
           response.data[0].actionby = user.username;
@@ -584,6 +606,28 @@ class PBM extends Component {
     }
   }
 
+  getAllPBMTemplates() {
+    PBMDataService.getAllPBMTemplates()
+      .then(response => {
+        if (response.data.length === 0) {
+          this.setState({
+            PBMTemplatesList: [ { id:-1, name:"Error retrieving templates"}],
+          });
+        } else {          
+          var first_array_record = [  // add 1 empty record to front of array which is the option list
+            { }
+          ];
+          this.setState({
+            PBMTemplatesList: [first_array_record].concat(response.data)
+          });
+        }
+      })
+      .catch(e => {
+        console.log(e);
+        //return(null);
+      });
+  }
+  
   getAllUnderlyingAssets() {
     CampaignDataService.getAll()
       .then(response => {
@@ -607,12 +651,33 @@ class PBM extends Component {
   }
 
   getAllSponsors() {
+    /*
     RecipientDataService.findAllRecipients()
       .then(response => {
 
         this.setState({
             recipient: response.data
         });
+      })
+      .catch(e => {
+        console.log(e);
+        //return(null);
+      });
+      */
+    RecipientDataService.findAllRecipients()
+      .then(response => {
+        if (response.data.length === 0) {
+          this.setState({
+            recipient: [ { id:-1, name:"No recipients available, please create a recipient first."}],
+          });
+        } else {          
+          var first_array_record = [  // add 1 empty record to front of array which is the option list
+            { }
+          ];
+          this.setState({
+            recipient: [first_array_record].concat(response.data)
+          });
+        }
       })
       .catch(e => {
         console.log(e);
@@ -691,9 +756,111 @@ displayModal(msg, b1text, b2text, b3text, b0text) {
     return true;
   }
 
-async submitPBM() {
+  async createPBM() {  // for Maker
+
+    if (this.state.isMaker) {  // only for Makers
+      
+        if (await this.validateForm() === true) { 
+
+        console.log("this.state.currentPBM.underlyingTokenID= ", this.state.currentPBM.underlyingTokenID);
+
+        console.log("Creating PBM draft this.state.underlyingDSGDList= ", this.state.underlyingDSGDList);
+        console.log("Creating PBM draft underlyingDSGDsmartcontractaddress= ", this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentPBM.underlyingTokenID)).smartcontractaddress);
   
-  if (await this.validateForm()) { 
+        var data = {
+          name              : this.state.currentPBM.name,
+          tokenname         : this.state.currentPBM.tokenname,
+          description       : this.state.currentPBM.description,
+
+          datafield1_name   : this.state.currentPBM.datafield1_name,
+          datafield1_value  : this.state.currentPBM.datafield1_value,
+          operator1         : this.state.currentPBM.operator1,
+          datafield2_name   : this.state.currentPBM.datafield2_name,
+          datafield2_value  : this.state.currentPBM.datafield2_value,
+
+          underlyingTokenID : this.state.currentPBM.underlyingTokenID,
+          underlyingDSGDsmartcontractaddress  : this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentPBM.underlyingTokenID)).smartcontractaddress,
+          startdate         : this.state.currentPBM.startdate,
+          enddate           : this.state.currentPBM.enddate,
+          sponsor           : this.state.currentPBM.sponsor,
+          amount            : this.state.currentPBM.amount,
+          txntype           : 0,    // create
+          maker             : this.state.currentUser.id,
+          checker           : this.state.currentPBM.checker,
+          approver          : this.state.currentPBM.approver,
+          actionby          : this.state.currentUser.username,
+          approvedpbmid: -1,
+        };
+    
+        console.log("Form Validation passed! creating pbm...");
+        //alert("Form validation passed! creating pbm...");
+
+        console.log("IsLoad=true");
+        this.show_loading();  // show progress
+
+
+        await PBMDataService.draftCreate(data)
+        .then(response => {
+          console.log("Response: ", response);
+          console.log("IsLoad=false");
+          this.hide_loading();  // hide progress
+    
+          this.setState({
+            id                  : response.data.id,
+            name                : response.data.name,
+            tokenname           : response.data.tokenname,
+            description         : response.data.description,
+
+            datafield1_name     : response.data.datafield1_name,
+            datafield1_value    : response.data.datafield1_value,
+            operator1           : response.data.operator1,
+            datafield2_name     : response.data.datafield2_name,
+            datafield2_value    : response.data.datafield2_value,
+  
+            underlyingTokenID   : response.data.underlyingTokenID,
+            smartcontractaddress: response.data.smartcontractaddress,
+            startdate           : response.data.startdate,
+            enddate             : response.data.enddate,
+            sponsor             : response.data.sponsor,
+            amount              : response.data.amount,
+
+            submitted: true,
+
+          });
+//          this.displayModal("PBM draft submitted for review" + (response.data.smartcontractaddress !==""? " with smart contract deployed at "+response.data.smartcontractaddress + ". You can start minting now.": "." ) ,
+//                              "OK", null, null);
+          this.displayModal("PBM creation request submitted for review.", "OK", null, null, null);
+
+          //console.log("Responseeeee"+response.data);
+        })
+        .catch(e => {
+        
+          this.hide_loading();  // hide progress
+
+          console.log("Error: ",e);
+          console.log("Response error:",e.response.data.message);
+          if (e.response.data.message !== "") 
+            this.displayModal("Error: "+e.response.data.message+".\n\nPlease contact tech support.", null, null, null, "OK");
+          else
+            this.displayModal("Error: "+e.message+".\n\nPlease contact tech support.", null, null, null, "OK");
+        });
+      } else {
+        console.log("Form Validation failed >>>");
+        //alert("Form Validation failed >>>");
+        this.hide_loading();  // hide progress
+      }
+    } else {
+      this.displayModal("Error: this role is only for maker.", null, null, null, "OK");
+    }
+
+    console.log("IsLoad=false");
+    this.hide_loading();  // hide progress
+
+  } // createPBM()
+
+  async submitPBM() {
+    
+    if (await this.validateForm()) { 
         console.log("Form Validation passed");
   
         console.log("IsLoad=true");
@@ -742,9 +909,9 @@ async submitPBM() {
   //    }
       this.hide_loading();
     }
-  }
+  } // submitPBM()
     
-async acceptPBM() {
+  async acceptPBM() {
   
 //    if (await this.validateForm()) { 
 //      console.log("Form Validation passed");
@@ -793,7 +960,7 @@ async acceptPBM() {
       });
 //    }
     this.hide_loading();
-  }
+  } //  acceptPBM()
 
   async approvePBM() {
   
@@ -845,55 +1012,54 @@ async acceptPBM() {
     });
 //    }
     this.hide_loading();
-  }
+  } // approvePBM()
 
-async rejectPBM() {
+  async rejectPBM() {
 
-  console.log("isChecker? ", this.state.isChecker);
-  console.log("this.state.currentPBM.checkerComments: ", this.state.currentPBM.checkerComments);
-  console.log("isApprover? ", this.state.isApprover);
-  console.log("this.state.currentPBM.approverComments: ", this.state.currentPBM.approverComments);
+    console.log("isChecker? ", this.state.isChecker);
+    console.log("this.state.currentPBM.checkerComments: ", this.state.currentPBM.checkerComments);
+    console.log("isApprover? ", this.state.isApprover);
+    console.log("this.state.currentPBM.approverComments: ", this.state.currentPBM.approverComments);
 
-  if ( this.state.isChecker && (typeof this.state.currentPBM.checkerComments==="undefined" || this.state.currentPBM.checkerComments==="" || this.state.currentPBM.checkerComments===null)) { 
-    this.displayModal("Please enter the reason for rejection in the Checker Comments.", null, null, null, "OK");
-  } else 
-  if (this.state.isApprover && (typeof this.state.currentPBM.approverComments==="undefined" || this.state.currentPBM.approverComments==="" || this.state.currentPBM.approverComments===null)) {
-    this.displayModal("Please enter the reason for rejection in the Approver Comments.", null, null, null, "OK");
-  } else {
-    //console.log("Form Validation passed");
-  
-    console.log("IsLoad=true");
-    this.show_loading();
-
-    await PBMDataService.rejectDraftById(
-      this.state.currentPBM.id,
-      this.state.currentPBM,
-    )
-    .then(response => {
-      this.hide_loading();
-
-      console.log("Response: ", response);
-      console.log("IsLoad=false");
-      this.hide_loading();
-
-      this.setState({  
-        datachanged: false,
-      });
-      this.displayModal("This pbm request is rejected. Routing back to maker.", "OK", null, null, null);
-    })
-    .catch(e => {
-      this.hide_loading();
-
-      console.log(e);
-      console.log(e.message);
-      this.displayModal("PBM rejection failed.", null, null, null, "OK");
-    });
-  }
-  this.hide_loading();
-}
+    if ( this.state.isChecker && (typeof this.state.currentPBM.checkerComments==="undefined" || this.state.currentPBM.checkerComments==="" || this.state.currentPBM.checkerComments===null)) { 
+      this.displayModal("Please enter the reason for rejection in the Checker Comments.", null, null, null, "OK");
+    } else 
+    if (this.state.isApprover && (typeof this.state.currentPBM.approverComments==="undefined" || this.state.currentPBM.approverComments==="" || this.state.currentPBM.approverComments===null)) {
+      this.displayModal("Please enter the reason for rejection in the Approver Comments.", null, null, null, "OK");
+    } else {
+      //console.log("Form Validation passed");
     
+      console.log("IsLoad=true");
+      this.show_loading();
 
-async deletePBM() {    
+      await PBMDataService.rejectDraftById(
+        this.state.currentPBM.id,
+        this.state.currentPBM,
+      )
+      .then(response => {
+        this.hide_loading();
+
+        console.log("Response: ", response);
+        console.log("IsLoad=false");
+        this.hide_loading();
+
+        this.setState({  
+          datachanged: false,
+        });
+        this.displayModal("This pbm request is rejected. Routing back to maker.", "OK", null, null, null);
+      })
+      .catch(e => {
+        this.hide_loading();
+
+        console.log(e);
+        console.log(e.message);
+        this.displayModal("PBM rejection failed.", null, null, null, "OK");
+      });
+    }
+    this.hide_loading();
+  }
+    
+  async deletePBM() {    
     console.log("IsLoad=true");
     this.show_loading();        // show progress
 
@@ -916,7 +1082,7 @@ async deletePBM() {
 
       console.log(e);
     });
-  }
+  } // deletePBM()
 
   async dropRequest() {    
     console.log("IsLoad=true");
@@ -941,7 +1107,7 @@ async deletePBM() {
 
       console.log(e);
     });
-  }
+  } // dropRequest()
 
   show_loading() {
     this.setState({isLoading: true});
@@ -950,11 +1116,6 @@ async deletePBM() {
     this.setState({isLoading: false});
   }
 
-  /*
-  showModal_nochange = () => {
-    this.displayModal("No change is updated as you have not made any change.", null, null, null, "OK");
-  };
-*/
   showModal_Leave = () => {
     this.displayModal("You have made changes. Are you sure you want to leave this page without submitting?", "Yes, leave", null, null, "Cancel");
   };
@@ -981,33 +1142,36 @@ async deletePBM() {
     try {
       return (
         <div className="container">
-          {(this.state.userReady) ?
-          <div>
-          <header className="jumbotron col-md-8">
-            <h3>
-              <strong>{this.state.currentPBM.txntype===0?"Create ":(this.state.currentPBM.txntype===1?"Update ":(this.state.currentPBM.txntype===2?"Delete ":null))}PBM { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
-            </h3>
-          </header>
+          { 
+            (this.state.userReady) ?
+            <div>
+            <header className="jumbotron col-md-8">
+              <h3>
+                <strong>{this.state.currentPBM.txntype===0?"Create ":(this.state.currentPBM.txntype===1?"Update ":(this.state.currentPBM.txntype===2?"Delete ":null))}PBM { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
+              </h3>
+            </header>
 
-        </div>: null}
+            </div>
+          : null
+          }
 
-                <div className="edit-form list-row">
-                  <h4></h4>
-                  <div className="col-md-8">
+          <div className="edit-form list-row">
+            <h4></h4>
+            <div className="col-md-8">
 
-                  <form autoComplete="off">
-                    <div className="form-group">
-                      <label htmlFor="name">Name</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="name"
-                        maxLength="45"
-                        value={currentPBM.name}
-                        onChange={this.onChangeName}
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                        />
-                    </div>
+              <form autoComplete="off">
+                <div className="form-group">
+                  <label htmlFor="name">Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="name"
+                    maxLength="45"
+                    value={currentPBM.name}
+                    onChange={this.onChangeName}
+                    disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
+                    />
+                </div>
                 <div className="form-group">
                   <label htmlFor="description">Description</label>
                   <input
@@ -1048,21 +1212,21 @@ async deletePBM() {
                   <td style={{fontSize:"100px", border:"0"}}>(</td>
                 */}
                   <td style={{border : '0'}}>
-                    <div className="form-group" id="datafield1_name_div" style={{ display: (this.state.hidedatafield1 || !this.state.isMaker || this.state.currentPBM.txntype===2) ? "none" : "block" }}>
-                      <label htmlFor="datafield1_name">{this.state.currentPBM.datafield1_name === ""? "Please choose a field" : ""}</label>
+                    <div className="form-group" id="datafield1_name_div" style={{ display: (this.state.hidedatafield1 || !this.state.isMaker || currentPBM.txntype===2) ? "none" : "block" }}>
+                      <label htmlFor="datafield1_name">{currentPBM.datafield1_name === ""? "Please choose a field" : ""}</label>
                       <select
                         onChange={this.onChangeDatafield1_name}                         
                         className="form-control"
                         id="datafield1_name"
                         name="datafield1_name"
 
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
+                        disabled={!this.state.isMaker || currentPBM.txntype===2}
                         >
                         <option value=""></option>
                         <option value="UEN"           selected={typeof(this.state.currentPBM.datafield1_name) === 'string' && this.state.currentPBM.datafield1_name.toUpperCase() === "UEN"}>UEN</option>
-                        <option value="Industry code" selected={typeof(this.state.currentPBM.datafield1_name) === 'string' && this.state.currentPBM.datafield1_name.toUpperCase() === "INDUSTRY CODE"}>Industry code</option>
+                        <option value="IndustryCode" selected={typeof(this.state.currentPBM.datafield1_name) === 'string' && this.state.currentPBM.datafield1_name.toUpperCase() === "INDUSTRYCODE"}>Industry code</option>
                         <option value="Location"      selected={typeof(this.state.currentPBM.datafield1_name) === 'string' && this.state.currentPBM.datafield1_name.toUpperCase() === "LOCATION"}>Location</option>
-                        <option value="Postal code"   selected={typeof(this.state.currentPBM.datafield1_name) === 'string' && this.state.currentPBM.datafield1_name.toUpperCase() === "POSTAL CODE"}>Postal code</option>
+                        <option value="PostalCode"   selected={typeof(this.state.currentPBM.datafield1_name) === 'string' && this.state.currentPBM.datafield1_name.toUpperCase() === "POSTALCODE"}>Postal code</option>
                       </select>
                     </div>
                     { this.state.currentPBM.datafield1_name !=="" && (
@@ -1083,7 +1247,7 @@ async deletePBM() {
                     )
                   }
                   </td>
-                  { this.state.currentPBM.datafield1_name !=="" && this.state.currentPBM.datafield1_value !=="" && (!this.state.adddatafield && this.state.currentPBM.operator1 ==="") && (
+                  { this.state.isMaker && this.state.currentPBM.datafield1_name !=="" && this.state.currentPBM.datafield1_value !=="" && (!this.state.adddatafield && this.state.currentPBM.operator1 ==="") && (
                   <td style={{border : '0'}}>
                     <label htmlFor="operator1">&nbsp;</label>
                     <div className="form-group">
@@ -1123,9 +1287,9 @@ async deletePBM() {
                     >
                       <option value=""></option>
                       <option value="UEN"           selected={typeof(this.state.currentPBM.datafield2_name) === 'string' && this.state.currentPBM.datafield2_name.toUpperCase() === "UEN"}>UEN</option>
-                      <option value="Industry code" selected={typeof(this.state.currentPBM.datafield2_name) === 'string' && this.state.currentPBM.datafield2_name.toUpperCase() === "INDUSTRY CODE"}>Industry code</option>
+                      <option value="IndustryCode" selected={typeof(this.state.currentPBM.datafield2_name) === 'string' && this.state.currentPBM.datafield2_name.toUpperCase() === "INDUSTRYCODE"}>Industry code</option>
                       <option value="Location"      selected={typeof(this.state.currentPBM.datafield2_name) === 'string' && this.state.currentPBM.datafield2_name.toUpperCase() === "LOCATION"}>Location</option>
-                      <option value="Postal code"   selected={typeof(this.state.currentPBM.datafield2_name) === 'string' && this.state.currentPBM.datafield2_name.toUpperCase() === "POSTAL CODE"}>Postal code</option>
+                      <option value="PostalCode"   selected={typeof(this.state.currentPBM.datafield2_name) === 'string' && this.state.currentPBM.datafield2_name.toUpperCase() === "POSTALCODE"}>Postal code</option>
                     </select>
                   </div>
                   )}
@@ -1153,22 +1317,8 @@ async deletePBM() {
                 </table>
                 <br/>
 
-
                 <div className="form-group">
                   <label htmlFor="name">Underlying DSGD Smart Contract *</label>
-                  {
-                  /*
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="underlyingDSGDsmartcontractaddress"
-                    required
-                    value={currentPBM.underlyingDSGDsmartcontractaddress}
-                    name="underlyingDSGDsmartcontractaddress"
-                    disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                  />
-                  */
-                  }
                   <select
                         onChange={this.onChangeUnderlying}                         
                         className="form-control"
@@ -1176,17 +1326,19 @@ async deletePBM() {
                         required
                         disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
                   >
+                        <option value=""> </option>
                         {
                           Array.isArray(underlyingDSGDList) ?
                           underlyingDSGDList.map( (d) => {
+                            if (typeof d.id === "number")
                             // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                              return <option value={d.id} selected={d.id === currentPBM.campaign.id}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                              return <option value={d.id} selected={d.id === (currentPBM.campaign? currentPBM.campaign.id : this.state.underlyingTokenID)}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                             })
                           : null
                         }
                   </select>
-
                 </div>
+
                 <div className="form-group">
                   <label htmlFor="blockchain">Blockchain *</label>
                   <select
@@ -1196,9 +1348,9 @@ async deletePBM() {
                         disabled="true"
                         >
                         <option >   </option>
-                        <option value="80002"  selected={currentPBM.campaign.blockchain === 80002}>Polygon   Testnet Amoy</option>
-                        <option value="11155111" selected={currentPBM.campaign.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
-                        <option value="80001"  selected={currentPBM.campaign.blockchain === 80001} disabled>Polygon   Testnet Mumbai (Deprecated)</option>
+                        <option value="80002"  selected={currentPBM.campaign ? currentPBM.campaign.blockchain === 80002 : this.state.blockchain === 80002}>Polygon   Testnet Amoy</option>
+                        <option value="11155111" selected={currentPBM.campaign ? currentPBM.campaign.blockchain === 11155111 : this.state.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
+                        <option value="80001"  selected={currentPBM.campaign ? currentPBM.campaign.blockchain === 80001 : this.state.blockchain === 80001} disabled>Polygon   Testnet Mumbai (Deprecated)</option>
                         <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
                         <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
                         <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
@@ -1206,231 +1358,252 @@ async deletePBM() {
                       </select>
                 </div>
 
+                <div className="form-group">
+                  <label htmlFor="startdate">Start Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    id="startdate"
+                    value={currentPBM.startdate}
+                    onChange={this.onChangeStartDate}
+                    disabled={!this.state.isMaker || currentPBM.txntype===2}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="enddate">End Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    id="enddate"
+                    value={currentPBM.enddate}
+                    onChange={this.onChangeEndDate}
+                    disabled={!this.state.isMaker || currentPBM.txntype===2}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="sponsor">Sponsor</label>
+                  <select
+                    value={currentPBM.sponsor}
+                    onChange={this.onChangeSponsor}                         
+                    className="form-control"
+                    id="sponsor"
+                    disabled={!this.state.isMaker || currentPBM.txntype===2}
+                    >
+                  {
+                    Array.isArray(recipient) ?
+                      recipient.map( (d) => {
+                        //return <option value={d.id}>{d.name}</option>
+                        // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                        return <option value={d.id} selected={d.id === currentPBM.sponsor}>{d.name}</option>
 
-                    <div className="form-group">
-                      <label htmlFor="startdate">Start Date</label>
-                      <input
-                        type="date"
+                      })
+                    : null
+                  }
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="amount">Amount</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    id="amount"
+                    min="1"
+                    step="1"
+                    value={currentPBM.amount}
+                    onChange={this.onChangeAmount}
+                    disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
+                    />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="checker">Checker *</label>
+                  <select
+                        value={currentPBM.checker}
+                        onChange={this.onChangeChecker}                         
                         className="form-control"
-                        id="startdate"
-                        value={currentPBM.startdate}
-                        onChange={this.onChangeStartDate}
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="enddate">End Date</label>
-                      <input
-                        type="date"
-                        className="form-control"
-                        id="enddate"
-                        value={currentPBM.enddate}
-                        onChange={this.onChangeEndDate}
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="sponsor">Sponsor</label>
-                      <select
-                        value={currentPBM.sponsor}
-                        onChange={this.onChangeSponsor}                         
-                        className="form-control"
-                        id="sponsor"
+                        id="checker"
                         disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
                         >
-                      {
-                        Array.isArray(recipient) ?
-                          recipient.map( (d) => {
-                            return <option value={d.id}>{d.name}</option>
-                          })
-                        : null
-                      }
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="amount">Amount</label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        id="amount"
-                        min="1"
-                        step="1"
-                        value={currentPBM.amount}
-                        onChange={this.onChangeAmount}
-                        disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                        />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="checker">Checker *</label>
-                      <select
-                            value={currentPBM.checker}
-                            onChange={this.onChangeChecker}                         
-                            className="form-control"
-                            id="checker"
-                            disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                            >
-                            {
-                              Array.isArray(checkerList) ?
-                                checkerList.map( (d) => {
-                                  return <option value={d.id}>{d.username}</option>
-                                })
-                              : null
-                            }
-                          </select>
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="checkerComments">Checker Comments</label>
-                      <input
-                        type="text"
-                        maxLength="255"
-                        className="form-control"
-                        id="checkerComments"
-                        required
-                        value={currentPBM.checkerComments}
-                        onChange={this.onChangeCheckerComments}
-                        name="checkerComments"
-                        autoComplete="off"
-                        disabled={!this.state.isChecker}
-                        />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="approver">Approver *</label>
-                      <select
-                          value={currentPBM.approver}
-                          onChange={this.onChangeApprover}                         
-                          className="form-control"
-                          id="approver"
-                          disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
-                          >
                         {
-                          Array.isArray(approverList) ?
-                          approverList.map( (d) => {
+                          Array.isArray(checkerList) ?
+                            checkerList.map( (d) => {
                               return <option value={d.id}>{d.username}</option>
                             })
                           : null
                         }
                       </select>
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="approverComments">Approver Comments</label>
-                      <input
-                        type="text"
-                        maxLength="255"
-                        className="form-control"
-                        id="approverComments"
-                        required
-                        value={currentPBM.approverComments}
-                        onChange={this.onChangeApproverComments}
-                        name="approverComments"
-                        autoComplete="off"
-                        disabled={!this.state.isApprover}
-                        />
-                    </div>
-
-
-                  </form>
-                  {
-                  this.state.isMaker?
-                  <>
-                    <button
-                    type="submit"
-                    className="m-3 btn btn-sm btn-primary"
-                    onClick={this.submitPBM}
-                    >
-                      Submit 
-                      {
-                        (this.state.currentPBM.txntype===0? " Create ":
-                        (this.state.currentPBM.txntype===1? " Update ":
-                        (this.state.currentPBM.txntype===2? " Delete ":null)))
-                      }
-                      Request
-
-                    </button> 
-
-                    <button
-                      className="m-3 btn btn-sm btn-danger"
-                      onClick={this.showModal_dropRequest}
-                    >
-                      Drop Request
-                    </button>
-                </>
-
-                  : (this.state.isChecker? 
-                  <button
-                  type="submit"
-                  className="m-3 btn btn-sm btn-primary"
-                  onClick={this.acceptPBM}
-                  >
-                    Endorse
-                    {
-                      (this.state.currentPBM.txntype===0? " Create ":
-                      (this.state.currentPBM.txntype===1? " Update ":
-                      (this.state.currentPBM.txntype===2? " Delete ":null)))
-                    }
-                    Request
-
-                  </button> 
-                  :
-                  (
-                    this.state.isApprover?
-                    <button
-                    type="submit"
-                    className="m-3 btn btn-sm btn-primary"
-                    onClick={this.state.currentPBM.txntype===2? this.deleteDraft: this.approvePBM}
-                    >
-                      Approve
-                      {
-                        (this.state.currentPBM.txntype===0? " Create ":
-                        (this.state.currentPBM.txntype===1? " Update ":
-                        (this.state.currentPBM.txntype===2? " Delete ":null)))
-                      }
-                      Request
-
-                    </button> 
-                    : null
-                  ))
-                  }
-   &nbsp;
-                  {
-                    this.state.isChecker || this.state.isApprover ?
-
-                  <button
-                  type="submit"
-                  className="m-3 btn btn-sm btn-danger"
-                  onClick={this.rejectPBM}
-                  >
-                    Reject
-                  </button> 
-                  : null
-                  }
-  &nbsp;
-                  { 
-
-                   ((this.state.datachanged) ? 
-                    <button className="m-3 btn btn-sm btn-secondary" onClick={this.showModal_Leave}>
-                      Back
-                    </button>
-                    : 
-                    <Link to="/inbox">
-                    <button className="m-3 btn btn-sm btn-secondary">
-                      Back
-                    </button>
-                    </Link>
-                   )
-                   }
-
-
-                  {this.state.isLoading ? <LoadingSpinner /> : null}
-
-                  <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/inbox'} handleProceed2={this.deletePBM} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
-                    {this.state.modalmsg}
-                  </Modal>
-
-
-                  <p>{this.state.message}</p>
                 </div>
+                {
+                (currentPBM.id !== 0 ? // add new pbm
+                <div className="form-group">
+                  <label htmlFor="checkerComments">Checker Comments</label>
+                  <input
+                    type="text"
+                    maxLength="255"
+                    className="form-control"
+                    id="checkerComments"
+                    required
+                    value={currentPBM.checkerComments}
+                    onChange={this.onChangeCheckerComments}
+                    name="checkerComments"
+                    autoComplete="off"
+                    disabled={!this.state.isChecker || currentPBM.id === 0}
+                    />
+                </div>
+                :
+                null
+                )
+                }
+                <div className="form-group">
+                  <label htmlFor="approver">Approver *</label>
+                  <select
+                      value={currentPBM.approver}
+                      onChange={this.onChangeApprover}                         
+                      className="form-control"
+                      id="approver"
+                      disabled={!this.state.isMaker || this.state.currentPBM.txntype===2}
+                      >
+                    {
+                      Array.isArray(approverList) ?
+                      approverList.map( (d) => {
+                          return <option value={d.id}>{d.username}</option>
+                        })
+                      : null
+                    }
+                  </select>
+                </div>
+                { 
+                (currentPBM.id !== 0 ? // add new pbm
+                <div className="form-group">
+                  <label htmlFor="approverComments">Approver Comments</label>
+                  <input
+                    type="text"
+                    maxLength="255"
+                    className="form-control"
+                    id="approverComments"
+                    required
+                    value={currentPBM.approverComments}
+                    onChange={this.onChangeApproverComments}
+                    name="approverComments"
+                    autoComplete="off"
+                    disabled={!this.state.isApprover || currentPBM.id === 0}
+                    />
+                </div>
+                : null
+              )
+                }
+
+
+              </form>
+              {
+              this.state.isMaker? ( currentPBM.id === 0?
+                <button onClick={this.createPBM} className="btn btn-primary">
+                  Submit for Review
+                </button>
+                :
+              <>
+                <button
+                type="submit"
+                className="m-3 btn btn-sm btn-primary"
+                onClick={this.submitPBM}
+                >
+                  Submit 
+                  {
+                    (currentPBM.txntype===0? " Create ":
+                    (currentPBM.txntype===1? " Update ":
+                    (currentPBM.txntype===2? " Delete ":null)))
+                  }
+                  Request
+
+                </button> 
+
+                <button
+                  className="m-3 btn btn-sm btn-danger"
+                  onClick={this.showModal_dropRequest}
+                >
+                  Drop Request
+                </button>
+              </>
+              )
+              : (this.state.isChecker? 
+              <button
+              type="submit"
+              className="m-3 btn btn-sm btn-primary"
+              onClick={this.acceptPBM}
+              >
+                Endorse
+                {
+                  (this.state.currentPBM.txntype===0? " Create ":
+                  (this.state.currentPBM.txntype===1? " Update ":
+                  (this.state.currentPBM.txntype===2? " Delete ":null)))
+                }
+                Request
+
+              </button> 
+              :
+              (
+                this.state.isApprover?
+                <button
+                type="submit"
+                className="m-3 btn btn-sm btn-primary"
+                onClick={currentPBM.txntype===2? this.deleteDraft: this.approvePBM}
+                >
+                  Approve
+                  {
+                    (currentPBM.txntype===0? " Create ":
+                    (currentPBM.txntype===1? " Update ":
+                    (currentPBM.txntype===2? " Delete ":null)))
+                  }
+                  Request
+
+                </button> 
+                : null
+              ))
+              }
+&nbsp;
+              {
+                currentPBM.id !== 0 && (this.state.isChecker || this.state.isApprover) ?
+
+              <button
+              type="submit"
+              className="m-3 btn btn-sm btn-danger"
+              onClick={this.rejectPBM}
+              >
+                Reject
+              </button> 
+              : null
+              }
+&nbsp;
+              { 
+                this.state.isMaker?
+                (this.state.datachanged ? 
+                  <button className="m-3 btn btn-sm btn-secondary" onClick={this.showModal_Leave}>
+                    Cancel
+                  </button>
+                  : 
+                  <Link to="/pbm">
+                  <button className="m-3 btn btn-sm btn-secondary">
+                    Cancel
+                  </button>
+                  </Link>
+                )
+              : 
+                <Link to="/pbm">
+                <button className="m-3 btn btn-sm btn-secondary">
+                  Cancel
+                </button>
+                </Link>
+              }  
+
+              {this.state.isLoading ? <LoadingSpinner /> : null}
+
+              <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/pbm'} handleProceed2={this.deletePBM} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
+                {this.state.modalmsg}
+              </Modal>
+
+              <p>{this.state.message}</p>
             </div>
-            </div>
+          </div>
+        </div>
       );
     } // try
     catch (e) {

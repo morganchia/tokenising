@@ -1,5 +1,7 @@
 import React, { Component } from "react";
+import BondDataService from "../services/bond.service";
 import DvPDataService from "../services/dvp.service";
+import RepoDataService from "../services/repo.service";
 import PBMDataService from "../services/pbm.service";
 import CampaignDataService from "../services/campaign.service";
 import MintDataService from "../services/mint.service";
@@ -15,7 +17,9 @@ export default class CampaignList extends Component {
     super(props);
 //    this.onChangeSearchName = this.onChangeSearchName.bind(this);
 //    this.searchName = this.searchName.bind(this);
+    this.retrieveBond = this.retrieveBond.bind(this);
     this.retrieveDvP = this.retrieveDvP.bind(this);
+    this.retrieveRepo = this.retrieveRepo.bind(this);
     this.retrievePBM = this.retrievePBM.bind(this);
     this.retrieveWrapMint = this.retrieveWrapMint.bind(this);
     this.retrieveCampaigns = this.retrieveCampaigns.bind(this);
@@ -26,7 +30,9 @@ export default class CampaignList extends Component {
 //    this.removeAllCampaigns = this.removeAllCampaigns.bind(this);
 
     this.state = {
+      bond: [],
       dvp: [],
+      repo: [],
       pbm: [],
       wrapmint: [],
       campaigns: [],
@@ -59,6 +65,22 @@ export default class CampaignList extends Component {
     });
   }
 */
+
+  retrieveBond(userid) {
+    if (userid !== undefined) {
+      BondDataService.getAllDraftsByUserId(userid)
+      .then(response => {
+        this.setState({
+          bond: response.data
+        });
+        console.log("Response data from retrievBond() BondDataService.getAllDraftsByUserId:", response.data);
+      })
+      .catch(e => {
+        console.log(e);
+      });
+    }
+  }
+
   retrieveDvP(userid) {
     if (userid !== undefined) {
       DvPDataService.getAllDraftsByUserId(userid)
@@ -67,6 +89,21 @@ export default class CampaignList extends Component {
           dvp: response.data
         });
         console.log("Response data from retrievDvP() DvPDataService.getAllDraftsByUserId:", response.data);
+      })
+      .catch(e => {
+        console.log(e);
+      });
+    }
+  }
+
+  retrieveRepo(userid) {
+    if (userid !== undefined) {
+      RepoDataService.getAllRepoDraftsByUserId(userid)
+      .then(response => {
+        this.setState({
+          repo: response.data
+        });
+        console.log("Response data from retrieveRepo() RepoDataService.getAllDraftsByUserId:", response.data);
       })
       .catch(e => {
         console.log(e);
@@ -165,7 +202,9 @@ export default class CampaignList extends Component {
   }
 
   refreshList() {
+    this.retrieveBond();
     this.retrieveDvP();
+    this.retrieveRepo();
     this.retrievePBM();
     this.retrieveCampaigns();
     this.setState({
@@ -225,7 +264,9 @@ export default class CampaignList extends Component {
     console.log("isApprover:", (isapprover === undefined? false: true));
     this.setState({ isApprover: (isapprover === undefined? false: true),});
 
+    this.retrieveBond(user.id);
     this.retrieveDvP(user.id);
+    this.retrieveRepo(user.id);
     this.retrievePBM(user.id);
     this.retrieveWrapMint(user.id);
     this.retrieveCampaigns(user.id);
@@ -250,13 +291,12 @@ export default class CampaignList extends Component {
     return(s.substring(0,6) + "..." + s.slice(-3));
   }
 
-
   render() {
     if (this.state.redirect) {
       return <Navigate to={this.state.redirect} />
     }
 
-    const { searchName, dvp, pbm, wrapmint, campaigns, mints, transfers, recipients, CurrentUser } = this.state;
+    const { searchName, bond, dvp, repo, pbm, wrapmint, campaigns, mints, transfers, recipients, CurrentUser } = this.state;
 
     return (
       <div className="container">
@@ -272,32 +312,116 @@ export default class CampaignList extends Component {
 
           <div className="list row">
             <div className="col-md-8">
-            {
-              /*
-              // (campaigns.length > 0) ?
-              <div className="input-group mb-3">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search by name"
-                  value={searchName}
-                  onChange={this.onChangeSearchName}
-                />
-                <div className="input-group-append">
-                  <button
-                    className="btn btn-outline-secondary"
-                    type="button"
-                    onClick={this.searchName}
-                  >
-                    Search
-                  </button>
-                </div>
-              </div>
-              */
-              // : null
-            }
             </div>
             <div className="col-md-12">
+            <h5>
+              <strong>Bonds</strong>
+            </h5>
+              <table style={{ border:"1px solid"}}>
+                {(bond.length > 0)?
+                <tr>
+                  <th>Action</th>
+                  <th>Name</th>
+                  <th>Token</th>
+                  <th>Blockchain</th>
+                  <th>Issue Date</th>
+                  <th>Maturity Date</th>
+                  <th>Issuer</th>
+                  <th>Amt</th>
+                  {
+                  /*
+                  <th>Smart Contract</th>
+                  */
+                  }
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+                : null}
+                {bond && bond.length > 0 &&
+                  bond.map((bond1, index) => (
+                    <tr>
+                      <td>{bond1.txntype===0?"Create":bond1.txntype===1?"Update":"Delete"}</td>
+                      <td>{bond1.name}</td>
+                      <td>{bond1.tokenname}</td>
+                      <td>{(() => {
+                          switch (bond1.campaign.blockchain) {
+                            case 80001:
+                              return 'Polygon Testnet Mumbai (Deprecated)'
+                            case 80002:
+                              return 'Polygon Testnet Amoy'
+                            case 11155111:
+                              return 'Ethereum Testnet Sepolia'
+                            case 43113:
+                              return 'Avalanche Testnet Fuji'
+                            case 137:
+                              return 'Polygon Mainnet'
+                            case 1:
+                              return 'Ethereum  Mainnet'
+                            case 43114:
+                              return 'Avalanche Mainnet'
+                            default:
+                              return null
+                          }
+                        }
+                      )()}
+                      </td>
+                      <td>{bond1.issuedate}</td>
+                      <td>{bond1.maturitydate}</td>
+                      <td>
+                        {
+                            (
+                              bond1.recipient &&
+                              bond1.recipient.name !== undefined)
+                              ? bond1.recipient.name  :null
+                          }
+                      </td>
+                      <td>{bond1.totalsupply}</td>
+                      {
+                        /*
+                      <td>
+                            (pbm1.smartcontractaddress !== undefined && typeof pbm1.smartcontractaddress === "string")? this.shorten(pbm1.smartcontractaddress): null
+                          
+                      </td>
+                      */
+                      }
+                      <td>
+                      {
+                          bond1.status === -1? "Rejected pending correction" : 
+                            (bond1.status === 0? "Created pending submission":
+                              (bond1.status === 1? "Submitted pending checker endorsement":
+                                (bond1.status === 2? "Checked pending approval":
+                                  (bond1.status === 3? "Approved": null)
+                                )
+                              )
+                            )
+                      }
+                      </td>
+                      <td>
+                        <Link
+                          to={"/bondcheckapprove/" + bond1.id}
+                          className="badge badge-warning"
+                        >
+                          {
+                            bond1.status === -1? "View/Correct Task" : (
+                              bond1.status === 0? "View/Submit Task": (
+                                bond1.status === 1? "View/Endorse Task": (
+                                  bond1.status === 2? "View/Approve Task": null
+                                )
+                              )
+                            )
+                          }
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+              </table>
+              {!(bond.length > 0)? "You have no pending actions."
+              : null}
+
+              <br/>
+              <br/>
+              
+
             <h5>
               <strong>DvP smart contracts</strong>
             </h5>
@@ -309,8 +433,8 @@ export default class CampaignList extends Component {
                   <th>Blockchain</th>
                   <th>Counter Party 1</th>
                   <th>Counter Party 2</th>
-                  <th>Amount 1</th>
-                  <th>Amount 2</th>
+                  <th>Amt 1</th>
+                  <th>Amt 2</th>
                   <th>Start Date</th>
                   <th>End Date</th>
                   {
@@ -427,7 +551,7 @@ export default class CampaignList extends Component {
                   <th>Start Date</th>
                   <th>End Date</th>
                   <th>Sponsor</th>
-                  <th>Amount</th>
+                  <th>Amt</th>
                   {
                   /*
                   <th>Smart Contract</th>
@@ -531,15 +655,15 @@ export default class CampaignList extends Component {
                   <th>Name</th>
                   <th>Token</th>
                   <th>Blockchain</th>
+{/*
                   <th>Start Date</th>
                   <th>End Date</th>
                   <th>Sponsor</th>
-                  <th>Amount</th>
-                  {
-                  /*
+ */}
+                  <th>Amt</th>
+{/*
                   <th>Smart Contract</th>
-                  */
-                  }
+*/}
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -548,8 +672,8 @@ export default class CampaignList extends Component {
                   wrapmint.map((wrapmint1, index) => (
                     <tr>
                       <td>{wrapmint1.txntype===0?"Create":wrapmint1.txntype===1?"Update":"Delete"}</td>
-                      <td>{wrapmint1.name}</td>
-                      <td>{wrapmint1.tokenname}</td>
+                      <td>{wrapmint1.campaign.name}</td>
+                      <td>{wrapmint1.campaign.tokenname}</td>
                       <td>{(() => {
                           switch (wrapmint1.campaign.blockchain) {
                             case 80001:
@@ -572,6 +696,7 @@ export default class CampaignList extends Component {
                         }
                       )()}
                       </td>
+{/* 
                       <td>{wrapmint1.startdate}</td>
                       <td>{wrapmint1.enddate}</td>
                       <td>
@@ -582,6 +707,7 @@ export default class CampaignList extends Component {
                               ? wrapmint1.recipient.name  :null
                           }
                       </td>
+*/}
                       <td>{wrapmint1.amount}</td>
                       {
                         /*
@@ -641,7 +767,7 @@ export default class CampaignList extends Component {
                   <th>Start Date</th>
                   <th>End Date</th>
                   <th>Sponsor</th>
-                  <th>Amount</th>
+                  <th>Amt</th>
                   {
                   /*
                   <th>Smart Contract</th>
@@ -735,6 +861,122 @@ export default class CampaignList extends Component {
 
               <br/>
               <br/>
+
+            <h5>
+              <strong>Repo smart contracts</strong>
+            </h5>
+              <table style={{ border:"1px solid"}}>
+                {(repo.length > 0)?
+                <tr>
+                  <th>Action</th>
+                  <th>Name</th>
+                  <th>Blockchain</th>
+                  <th>Counter Party 1</th>
+                  <th>Counter Party 2</th>
+                  <th>Amt 1</th>
+                  <th>Amt 2</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  {
+                  /*
+                  <th>Smart Contract</th>
+                  */
+                  }
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+                : null}
+                {repo && repo.length > 0 &&
+                  repo.map((repo1, index) => (
+                    <tr>
+                      <td>{repo1.txntype===0?"Create":repo1.txntype===1?"Update":"Delete"}</td>
+                      <td>{repo1.name}</td>
+                      <td>{(() => {
+                          switch (repo1.blockchain) {
+                            case 80001:
+                              return 'Polygon Testnet Mumbai (Deprecated)'
+                            case 80002:
+                              return 'Polygon Testnet Amoy'
+                            case 11155111:
+                              return 'Ethereum Testnet Sepolia'
+                            case 43113:
+                              return 'Avalanche Testnet Fuji'
+                            case 137:
+                              return 'Polygon Mainnet'
+                            case 1:
+                              return 'Ethereum  Mainnet'
+                            case 43114:
+                              return 'Avalanche Mainnet'
+                            default:
+                              return null
+                          }
+                        }
+                      )()}
+                      </td>
+                      <td>
+                        {
+                            (
+                              repo1.counterparty1 &&
+                               repo1.counterparty1 !== undefined)
+                              ? this.shorten(repo1.counterparty1)  :null
+                          }
+                      </td>
+                      <td>
+                        {
+                            (
+                              repo1.counterparty2 &&
+                               repo1.counterparty2 !== undefined)
+                              ? this.shorten(repo1.counterparty2)  :null
+                          }
+                      </td>
+                      <td>{repo1.amount1}</td>
+                      <td>{repo1.amount2}</td>
+                      <td>{repo1.startdatetime.split("T")[0]}</td>
+                      <td>{repo1.enddatetime.split("T")[0]}</td>
+                      {
+                        /*
+                      <td>
+                            (dvp1.smartcontractaddress !== undefined && typeof dvp1.smartcontractaddress === "string")? this.shorten(dvp1.smartcontractaddress): null
+                          
+                      </td>
+                      */
+                      }
+                      <td>
+                      {
+                          repo1.status === -1? "Rejected pending correction" : 
+                            (repo1.status === 0? "Created pending submission":
+                              (repo1.status === 1? "Submitted pending checker endorsement":
+                                (repo1.status === 2? "Checked pending approval":
+                                  (repo1.status === 3? "Approved": null)
+                                )
+                              )
+                            )
+                      }
+                      </td>
+                      <td>
+                        <Link
+                          to={"/repoCheckApprove/" + repo1.id}
+                          className="badge badge-warning"
+                        >
+                          {
+                            repo1.status === -1? "View/Correct Task" : (
+                              repo1.status === 0? "View/Submit Task": (
+                                repo1.status === 1? "View/Endorse Task": (
+                                  repo1.status === 2? "View/Approve Task": null
+                                )
+                              )
+                            )
+                          }
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+              </table>
+              {!(repo.length > 0)? "You have no pending actions."
+              : null}
+
+              <br/>
+              <br/>
               
               <h5>
               <strong>Mints</strong>
@@ -746,7 +988,7 @@ export default class CampaignList extends Component {
                   <th>Campaign</th>
                   <th>Token</th>
                   <th>Blockchain</th>
-                  <th>Mint Amount</th>
+                  <th>Mint Amt</th>
                   {
                   /*
                   <th>Smart Contract</th>
@@ -784,7 +1026,7 @@ export default class CampaignList extends Component {
                         }
                       )()}
                       </td>
-                      <td>{mint1.mintAmount}</td>
+                      <td>{mint1.mintAmt}</td>
                       {
                         /*
                       <td>
@@ -838,10 +1080,11 @@ export default class CampaignList extends Component {
                 {(transfers.length > 0)?
                 <tr>
                   <th>Action</th>
-                  <th>Campaign</th>
+                  <th>Asset</th>
                   <th>Token</th>
+                  <th>Token Name</th>
                   <th>Blockchain</th>
-                  <th>Transfer Amount</th>
+                  <th>Transfer Amt</th>
                   {
                   /*
                   <th>Smart Contract</th>
@@ -855,10 +1098,11 @@ export default class CampaignList extends Component {
                   transfers.map((transfer1, index) => (
                     <tr>
                       <td>{transfer1.txntype===0?"Create":transfer1.txntype===1?"Update":"Delete"}</td>
-                      <td>{transfer1.campaign.name}</td>
-                      <td>{transfer1.campaign.tokenname}</td>
+                      <td>{transfer1.campaign ? "Cash" : (transfer1.bond? "Bond": (transfer1.pbm? "PBM": ""))}</td>
+                      <td>{transfer1.campaign ? transfer1.campaign.name : (transfer1.bond? transfer1.bond.name : (transfer1.pbm? transfer1.pbm.name : ""))}</td>
+                      <td>{transfer1.campaign ? transfer1.campaign.tokenname : (transfer1.bond? transfer1.bond.tokenname : (transfer1.pbm? transfer1.pbm.tokenname : ""))}</td>
                       <td>{(() => {
-                          switch (transfer1.campaign.blockchain) {
+                          switch (transfer1.campaign ? transfer1.campaign.blockchain: (transfer1.bond? transfer1.bond.blockchain : (transfer1.pbm? transfer1.pbm.blockchain : ""))) {
                             case 80001:
                               return 'Polygon Testnet Mumbai (Deprecated)'
                             case 80002:
@@ -881,7 +1125,7 @@ export default class CampaignList extends Component {
                       </td>
                       <td>{transfer1.transferAmount}</td>
                       {
-                        /*
+                      /*
                       <td>
                             (transfer1.smartcontractaddress !== undefined && typeof transfer1.smartcontractaddress === "string")? this.shorten(transfer1.smartcontractaddress): null
                           

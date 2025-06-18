@@ -9,7 +9,7 @@ module.exports = (sequelize, Sequelize) => {
     },
     name: {
       type: Sequelize.STRING,  // varchar(45)
-      unique: true,
+      unique: false,
       allowNull: false
     },
     description: {

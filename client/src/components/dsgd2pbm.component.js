@@ -95,7 +95,7 @@ export default class dsgd2pbm extends Component {
         window.web3 = new Web3(window.web3.currentProvider)
       }
       else {
-        window.alert('Non-Ethereum browser detected. You should consider trying MetaMask!')
+        window.alert('Non-Ethereum browser detected. Please connect using MetaMask or EIP-1193 compatible wallet.')
         //setWalleterror( true );
         this.setState({ ...this.state, walleterror:true });
       }
@@ -215,7 +215,9 @@ export default class dsgd2pbm extends Component {
     const PBMContract_abi =  JSON.parse(JSON.stringify(PBMContract_jsonData));
     const PBMContractAddr1 = this.state.PBMContractAddr;
     const PBMContractOwner1 = this.state.PBMContractOwner;
-    var amountToSend = this.state.dsgd_amount * 1e18;
+    //var amountToSend = this.state.dsgd_amount * 1e18;
+    const BN = require('bn.js');
+    const amountToSend = new BN(this.state.dsgd_amount).mul(new BN("1000000000000000000")); 
 
 
     try { // try 0

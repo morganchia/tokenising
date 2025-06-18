@@ -1,12 +1,12 @@
 import React, { Component } from "react";
 import { Link } from "react-router-dom";
-import TransferDataService from "../services/transfer.service";
-import CampaignDataService from "../services/campaign.service";
-import RecipientDataService from "../services/recipient.service";
-import UserOpsRoleDataService from "../services/user_opsrole.service";
-import AuthService from "../services/auth.service";
+import TransferDataService from "../services/transfer.service.js";
+import CampaignDataService from "../services/campaign.service.js";
+import RecipientDataService from "../services/recipient.service.js";
+import UserOpsRoleDataService from "../services/user_opsrole.service.js";
+import AuthService from "../services/auth.service.js";
 import Modal from '../Modal.js';
-import LoadingSpinner from "../LoadingSpinner";
+import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
 
 export default class Transfer extends Component {
@@ -161,7 +161,6 @@ export default class Transfer extends Component {
   }
 
   onChangeRecipient(e) {
-
     const selectedRecipient = this.state.recipientList.find((element) => { 
         var el_id = element.id;             console.log("typeof(el_id)", typeof(el_id));
         var recipient_id = e.target.value;   console.log("typeof(recipient_id)", typeof(recipient_id));

@@ -15,17 +15,30 @@ import "@openzeppelin/contracts/interfaces/IPBM.sol";
 /// @author Open Government Products
 /// @notice Implementation of the IPBM interface
 
+interface IONSManager {
+    function getCustomEntry(string memory key) external view returns (address);
+}
+
+
 contract PBMToken is ERC20Pausable, AccessControl, IPBM {
     using SafeERC20 for IERC20Metadata;
 
     IERC20Metadata public immutable underlyingToken;
     address public immutable owner;
 
+    string public field1;
+    string public field1value;
+    string public field2;
+    string public field2value;
+    string public operator;
+
     uint256 public contractExpiry;
 
     // RBAC related constants
     bytes32 public constant MERCHANT_ROLE = keccak256("MERCHANT_ROLE");
     bytes32 public constant MERCHANT_ADMIN_ROLE = keccak256("MERCHANT_ADMIN_ROLE");
+
+    IONSManager public onsManager;
 
     modifier onlyOwner() {
         require(_msgSender() == owner, "not owner");
@@ -46,7 +59,12 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
         address _underlyingAddress,
         string memory _name,
         string memory _symbol,
-        uint256 _contractExpiry
+        uint256 _contractExpiry,
+        string memory _field1,
+        string memory _field1value,
+        string memory _operator,
+        string memory _field2,
+        string memory _field2value
     ) ERC20(_name, _symbol) {
         owner = _msgSender();
         // Initialises the base DSGD token
@@ -56,10 +74,25 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
         _grantRole(MERCHANT_ADMIN_ROLE, owner);
         _setRoleAdmin(MERCHANT_ROLE, MERCHANT_ADMIN_ROLE);
 
+        field1 = _field1;
+        field1value = _field1value;
+        operator = _operator;
+        field2 = _field2;
+        field2value = _field2value;
+        
         // Sets the contract expiry
         contractExpiry = _contractExpiry;
     }
 
+    function setONSaddress(address _onsManagerAddress) public onlyOwner {
+        // Initialize the IONSManager interface with the deployed ONSManager address
+        onsManager = IONSManager(_onsManagerAddress);
+    }
+
+    // Function to call getCustomEntry from ONSManager
+    function queryCustomEntry(string memory key) public view returns (address) {
+        return onsManager.getCustomEntry(key);
+    }
 
     event wMint(address msgsender, address toUser, address currentAddress, uint256 amount);
     event MintError(string errorMessage);
@@ -79,31 +112,12 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
      *
      *  Emits a { Transfer } on success, inherited from {ERC20}
      */
-    function wrapMint(address toUser, uint256 amount) external onlyOwner whenNotExpired {
+    function wrapMint(address toUser, uint256 amount) external  whenNotExpired {
         //require(underlyingToken.allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
 
-//        underlyingToken.transferFrom(_msgSender(), address(this), amount);  // <-- transfer from toUser!!
         underlyingToken.transferFrom(toUser, address(this), amount);  // <-- transfer from toUser!!
         _mint(toUser, amount);
         emit wMint(owner, toUser, address(this), amount);
-
-/*
-        // Attempt to transfer tokens, revert with error message if transfer fails
-        try underlyingToken.transferFrom(_msgSender(), address(this), amount) {
-            // Mint tokens to the recipient
-            _mint(toUser, amount);
-        } catch Error(string memory errorMessage) {
-            // Revert with custom error message and emit an event
-            emit MintError(errorMessage);
-
-            revert(errorMessage);
-        } catch {
-            // Revert with a generic error message if the transaction fails for any other reason
-            emit MintError("Token transfer failed");
-
-            revert("Token transfer failed");
-        }
-*/
     }
 
 
@@ -118,7 +132,10 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
      *
      * Emits a { Redemption } on success
      */
-    function redeem(address toUser, uint256 amount) external whenNotExpired onlyApprovedMerchant(toUser) {
+    function redeem(address toUser, uint256 amount, string memory _field1, string memory _field1value, string memory _operator, string memory _field2, string memory _field2value) external whenNotExpired onlyApprovedMerchant(toUser) {
+        require(               (                 (                  (keccak256(bytes(field1))      == keccak256(bytes(_field1))     )                   &&                   (keccak256(bytes(field1value)) == keccak256(bytes(_field1value)) )                 )             &&  (              (keccak256(bytes(field2))      == keccak256(bytes(_field2))     )               &&               (keccak256(bytes(field2value)) == keccak256(bytes(_field2value)) )             ))             , "PBM redeem condition failed");
+
+
         underlyingToken.safeTransfer(toUser, amount);
         _burn(_msgSender(), amount);
         emit Redemption(_msgSender(), toUser, amount);

@@ -353,7 +353,7 @@ export default class PBMList extends Component {
               {
               this.state.isMaker? 
                 <Link
-                  to={"/pbmadd/"}
+                  to={"/pbmcheckapprove/0/"}
                 >
                   <button
                     className="m-3 btn btn-sm btn-primary"

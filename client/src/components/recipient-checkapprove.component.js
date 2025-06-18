@@ -641,7 +641,7 @@ async deleteRecipient() {
                         />
                     </div>
                     <div className="form-group">
-                      <label htmlFor="bank">Bank</label>
+                      <label htmlFor="bank">Bank *</label>
                       <input
                         type="text"
                         className="form-control"
@@ -667,7 +667,7 @@ async deleteRecipient() {
                         />
                     </div>
                     <div className="form-group">
-                      <label htmlFor="walletaddress">Wallet Address</label>
+                      <label htmlFor="walletaddress">Wallet Address *</label>
                       <input
                         type="text"
                         className="form-control"

@@ -151,7 +151,7 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.STRING 
     },
     approveddvpid: {
-      type: Sequelize.INTEGER  // reference the id in Pbm table
+      type: Sequelize.INTEGER  // reference the id in DvP table
     },
     createdAt: {
       type: Sequelize.DATE,

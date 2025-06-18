@@ -1,6 +1,10 @@
 import React, { Component } from "react";
 import TransferDataService from "../services/transfer.service";
+import CampaignDataService from "../services/campaign.service";
 import RecipientDataService from "../services/recipient.service";
+import PBMDataService from "../services/pbm.service";
+import BondDataService from "../services/bond.service";
+
 import UserOpsRoleDataService from "../services/user_opsrole.service";
 import { withRouter } from '../common/with-router';
 import AuthService from "../services/auth.service";
@@ -21,18 +25,24 @@ class Transfer extends Component {
     this.onChangeEndDate = this.onChangeEndDate.bind(this);
     this.onChangeSponsor = this.onChangeSponsor.bind(this);
     */
+    this.onChangeCampaign = this.onChangeCampaign.bind(this);
+    this.onChangeRecipient = this.onChangeRecipient.bind(this);
     this.onChangeAmount = this.onChangeAmount.bind(this);
     this.onChangeChecker = this.onChangeChecker.bind(this);
     this.onChangeApprover = this.onChangeApprover.bind(this);
     this.onChangeCheckerComments = this.onChangeCheckerComments.bind(this);
     this.onChangeApproverComments = this.onChangeApproverComments.bind(this);
     this.getTransfer = this.getTransfer.bind(this);
-    this.submitTransfer = this.submitTransfer.bind(this);
+    this.saveTransfer = this.saveTransfer.bind(this);     // create new draft
+    this.submitTransfer = this.submitTransfer.bind(this);  // amend draft
     this.acceptTransfer = this.acceptTransfer.bind(this);
     this.approveTransfer = this.approveTransfer.bind(this);
     this.rejectTransfer = this.rejectTransfer.bind(this);
     this.deleteTransfer = this.deleteTransfer.bind(this);
     this.showModal_Leave = this.showModal_Leave.bind(this);
+    this.dropRequest = this.dropRequest.bind(this);
+    this.showModal_dropRequest = this.showModal_dropRequest.bind(this);
+
   //  this.showModal_nochange = this.showModal_nochange.bind(this);
   //  this.showModalDelete = this.showModalDelete.bind(this);
     this.hideModal = this.hideModal.bind(this);
@@ -47,8 +57,19 @@ class Transfer extends Component {
         type: ""
       },
 
-      currentTransfer: {
+      recipientList: {
         id: null,
+        name: "",
+        walletaddress: "",
+      },
+
+      campaignList: {
+        id: null,
+        name: "",
+      },
+
+      currentTransfer: {
+        id: 0,    // 0 for new transfer draft
         campaign: null,
         recipientwallet: "",
         transferAmount: "",
@@ -59,6 +80,7 @@ class Transfer extends Component {
         approverComments: "",
         approvedtransferid: null,
         actionby: "",
+        status: 0,
       },
 
       checkerList: {
@@ -105,11 +127,130 @@ class Transfer extends Component {
     if (!user) this.setState({ redirect: "/home" });
     this.setState({ currentUser: user, userReady: true })
 
-    this.getTransfer(user, this.props.router.params.id);
+    let ismaker= user.opsrole.find((el) => 
+      el.opsrole.name.toUpperCase() === "MAKER"
+    );
+    console.log("isMaker:", (ismaker === undefined? false: true));
+    this.setState({ isMaker: (ismaker === undefined? false: true),});
+
+    let ischecker= user.opsrole.find((el) => 
+      el.opsrole.name.toUpperCase() === "CHECKER"
+    );
+    console.log("isChecker:", (ischecker === undefined? false: true));
+    this.setState({ isChecker: (ischecker === undefined? false: true),});
+
+
+    let isapprover= user.opsrole.find((el) => 
+    el.opsrole.name.toUpperCase() === "APPROVER"
+    );
+    console.log("isApprover:", (isapprover === undefined? false: true));
+    this.setState({ isApprover: (isapprover === undefined? false: true),});
     
-    //this.getAllSponsors();
+    this.getAllRecipients();
+
+    Promise.all([this.getAllCampaigns(), this.getAllPBMs(), this.getAllBonds()])
+    .then(() => {
+      // Now call getTransfer after all data is populated
+      this.getTransfer(user, this.props.router.params.id);
+    })
+    .catch(error => {
+      console.error("Error fetching data:", error);
+      // Handle error appropriately
+    });
 
     this.retrieveAllMakersCheckersApprovers();
+  }
+
+  async getAllBonds() {
+      await BondDataService.getAll()
+      .then(response => {
+        if (response.data.length === 0) {
+          this.setState({
+            bondList: [ { id:-1, name:""}],
+          });
+        } else {          
+  //        var first_array_record = [  // add 1 empty record to front of array which is the option list
+  //          { }
+  //        ];
+          this.setState({
+  //          bondList: [first_array_record].concat(response.data)
+            bondList: response.data
+          });
+        }
+      });
+  }
+
+  async getAllPBMs() {
+    await PBMDataService.getAll()
+    .then(response => {
+      if (response.data.length === 0) {
+        this.setState({
+          PBMList: [ { id:-1, name:""}],
+        });
+      } else {          
+//        var first_array_record = [  // add 1 empty record to front of array which is the option list
+//          { }
+//        ];
+        this.setState({
+//          PBMList: [first_array_record].concat(response.data)
+          PBMList: response.data
+        });
+      }
+      console.log("Response data from retrievePBM() PBMDataService.getAll:", response.data);
+    })
+    .catch(e => {
+      console.log(e);
+    });
+  }
+
+  getAllRecipients() {
+    RecipientDataService.findAllRecipients()
+      .then(response => {
+        console.log("recipientList from server:", response.data);
+        console.log("Response.data length:", response.data.length);
+        if (response.data.length === 0) {
+          this.setState({
+            recipientList: [ { id:-1, name:"No recipients available, please create a recipient first."}],
+          });
+        } else {          
+//          var first_array_record = [  // add 1 empty record to front of array which is the option list
+//            { }
+//          ];
+          this.setState({
+//            recipientList: [first_array_record].concat(response.data)
+            recipientList: response.data
+          });
+        }
+      })
+      .catch(e => {
+        console.log(e);
+        //return(null);
+      });
+  }
+  
+  async getAllCampaigns() {
+    await CampaignDataService.getAll()
+      .then(response => {
+        console.log("campaignList from server:", response.data);
+        console.log("Response.data length:", response.data.length);
+        if (response.data.length === 0) {
+          this.setState({
+            campaignList: [ { id:-1, name:"No campaign available, please create a campaign first."}],
+          });
+        } else {          
+//          var first_array_record = [  // add 1 empty record to front of array which is the option list
+//            { }
+//          ];
+          this.setState({
+//            campaignList: [first_array_record].concat(response.data)
+            campaignList: response.data
+          });
+        }
+      })
+      .catch(e => {
+        console.log(e);
+        //return(null);
+      });
   }
   
   retrieveAllMakersCheckersApprovers() {
@@ -244,9 +385,120 @@ class Transfer extends Component {
         ...prevState.currentTransfer,
         sponsor: sponsor
       }
-    }));
+    }));  
   }
 */
+
+  updateToken(tokenid) {
+    var newBlockchain = "";
+    var selectedCampaign = "";
+    var newCashTokensmartcontractaddress = "";
+    var service = "";
+    console.log("Updating token id:", tokenid);
+
+    if (tokenid === "") 
+      newBlockchain = "";
+    else {
+      if (tokenid < 1000000000) { // cash token
+        selectedCampaign = this.state.campaignList.find((ee) => ee.id === parseInt(tokenid));
+        newBlockchain = selectedCampaign.blockchain;
+        service = CampaignDataService;
+        console.log("Updating cash token!");
+      } else if (tokenid < 2000000000) { // PBM token
+        selectedCampaign = this.state.PBMList.find((ee) => ee.id === parseInt(tokenid));
+        newBlockchain = selectedCampaign.campaign.blockchain;
+        service = PBMDataService;
+        console.log("Updating PBM token!");
+      } else if (tokenid < 3000000000) { // Bond token
+        selectedCampaign = this.state.bondList.find((ee) => ee.id === parseInt(tokenid));
+        newBlockchain = selectedCampaign.campaign.blockchain;
+        service = BondDataService;
+        console.log("Updating Bond token!");
+      }
+      newCashTokensmartcontractaddress = selectedCampaign.smartcontractaddress
+    }
+    console.log("SelectedCampaign=", selectedCampaign);
+    console.log("New blockchain=", newBlockchain);
+
+    service.getInWalletMintedTotalSupply(tokenid)
+    .then(response => {
+      console.log("getInWalletMintedTotalSupply from server:", response.data);
+      console.log("Response.data length:", response.data.length);
+      if (! response.data) {
+        this.setState({
+          inwallet      : 0,
+          minted_tokens : 0,
+          totalSupply   : 0,
+        });
+      } else {          
+        this.setState({
+          inwallet      : response.data.inWallet,
+          minted_tokens : response.data.totalMinted,
+          totalSupply   : response.data.totalSupply,
+        });
+      }
+    })
+    .catch(e => {
+      console.log(e);
+      //return(null);
+    });
+
+    this.setState({
+      datachanged: true
+    });
+
+    this.setState({
+      campaignid: tokenid,
+      // this.state.campaignList.find((ee) => ee.id === parseInt(cashTokenID)).blockchain;
+      tokenname: (selectedCampaign ? selectedCampaign.tokenname : ""),
+      blockchain: newBlockchain,
+      smartcontractaddress: (selectedCampaign ? selectedCampaign.smartcontractaddress : ""),
+      startdate: (selectedCampaign ? selectedCampaign.startdate : ""), 
+      enddate: (selectedCampaign ? selectedCampaign.enddate : ""), 
+      totalsupply: (selectedCampaign ? selectedCampaign.amount : ""),  // total supply
+    });
+  
+    this.setState(function(prevState) {
+      return {
+        currentTransfer: {
+          ...prevState.currentTransfer,
+          cashTokenID: tokenid,
+          blockchain: newBlockchain,
+          CashTokensmartcontractaddress: newCashTokensmartcontractaddress,
+          campaign: selectedCampaign,
+        }
+      };
+    });
+  }
+
+  onChangeCampaign(e) {
+    const tokenid = e.target.value;
+    this.updateToken(tokenid);
+  }
+
+  onChangeRecipient(e) {
+    const recipient_id = e.target.value;
+    const selectedRecipient = this.state.recipientList.find((ee) => ee.id === parseInt(recipient_id));
+
+    console.log("selectedRecipient: ", selectedRecipient);
+    console.log("New Recipient=", e.target.value);
+    
+    this.setState({
+      recipient: e.target.value,
+      recipientwallet: (selectedRecipient ? selectedRecipient.walletaddress : ""),
+      datachanged: true
+    });
+    this.setState(function(prevState) {
+      return {
+        currentTransfer: {
+          ...prevState.currentTransfer,
+          recipient: e.target.value,
+          recipientwallet: (selectedRecipient ? selectedRecipient.walletaddress : ""),
+        }
+      };
+    });
+  }
+
   onChangeAmount(e) {
     e.target.value = e.target.value.replace(/[^0-9]/g, "");  // remove . and other chars
     const amount = e.target.value;
@@ -328,36 +580,16 @@ class Transfer extends Component {
   getTransfer(user, id) {
     console.log("+++ id:", id);
 
-    if (id !== undefined) {
+    if (id !== undefined && id != 0) {
       TransferDataService.getAllDraftsByTransferId(id)
         .then(response => {
+          const campaignId1 = response.data[0].campaignId;
+          console.log("Response data from getAllDraftsByTransferId(id):", response.data);
           response.data[0].actionby= user.username;
           this.setState({
             currentTransfer: response.data[0],
           });
-          console.log("Response from getAllDraftsByTransferId(id):",response.data[0]);
-
-          let ismaker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "MAKER" && user.id === response.data[0].maker);
-          console.log("isMaker:", (ismaker === undefined? false: true));
-          this.setState({ isMaker: (ismaker === undefined? false: true),});
-      
-          let ischecker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "CHECKER" && user.id === response.data[0].checker);
-          console.log("isChecker:", (ischecker === undefined? false: true));
-          this.setState({ isChecker: (ischecker === undefined? false: true),});
-          /*
-          if (ischecker !== undefined) {
-            this.setState({ isChecker: true, currentTransfer: {checkerComments: ""}, });
-          }
-          */
-
-          let isapprover= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "APPROVER" && user.id === response.data[0].approver);
-          console.log("isApprover:", (isapprover === undefined? false: true));
-          this.setState({ isApprover: (isapprover === undefined? false: true),});
-          /*
-          if (isapprover !== undefined) {
-            this.setState({ isApprover: true, currentTransfer: {approverComments: ""}, });
-          }
-          */
+          this.updateToken(campaignId1 !=="" && typeof(campaignId1) === "string"? parseInt(response.data[0].campaignId): campaignId1);
 
           this.setState({ 
             isNewTransfer : (response.data[0].smartcontractaddress === "" || response.data[0].smartcontractaddress === null) 
@@ -431,9 +663,13 @@ async validateForm() {
 //  if (this.state.currentTransfer.sponsor === "") err += "- Sponsor cannot be empty\n";
   if (this.state.currentTransfer.transferAmount === "") {
     err += "- Amount cannot be empty\n";
-  } else if (parseInt(this.state.currentTransfer.transferAmount) <=  0) 
+  } else if (parseInt(this.state.currentTransfer.transferAmount) <=  0) {
     err += "- Amount must be more than zero\n";
-
+  } else if (parseInt(this.state.currentTransfer.transferAmount) > parseInt(this.state.inwallet)) {
+    err += "- Amount must be less than or equal to the amount in wallet\n";
+  } else if (parseInt(this.state.currentTransfer.transferAmount) > parseInt(this.state.totalsupply)) {
+    err += "- Amount must be less than or equal to the total supply\n";
+  }
 
 //    if (this.state.currentTransfer.startdate.trim() !== "" && this.state.currentTransfer.enddate.trim() !== "" && this.state.currentTransfer.startdate > this.state.currentTransfer.enddate) err += "- Start date cannot be later than End date\n";    
 
@@ -463,7 +699,78 @@ async validateForm() {
   return true;
 }
 
-async submitTransfer() {
+async saveTransfer() {   // create new draft
+  var data = {
+//      name: this.state.name,
+//      description: this.state.description,
+    campaignId            : this.state.currentTransfer.campaign.id,
+    tokenname             : this.state.currentTransfer.campaign.tokenname,
+    smartcontractaddress  : this.state.currentTransfer.campaign.smartcontractaddress,
+    blockchain            : this.state.currentTransfer.blockchain,
+    recipient             : this.state.currentTransfer.recipient,
+    recipientwallet       : this.state.currentTransfer.recipientwallet,
+    transferAmount        : this.state.currentTransfer.transferAmount,
+    txntype               : 0,    // create
+    actionby              : this.state.currentUser.username,
+    maker                 : this.state.currentUser.id,
+    checker               : this.state.currentTransfer.checker,
+    approver              : this.state.currentTransfer.approver,
+  };
+
+  if (await this.validateForm() === true) { 
+    console.log("Form Validation passed! creating transfer...");
+    //alert("Form validation passed! creating transfer...");
+
+    console.log("IsLoad=true");
+    this.setState({isLoading: true}); // show progress
+
+    await TransferDataService.draftCreate(data)
+    .then(response => {
+      console.log("Response from Transfer create: ", response);
+
+      console.log("IsLoad=false");
+      this.setState({isLoading: false}); // hide progress
+
+      this.setState({
+        id: response.data.id,
+/*
+//      name: response.data.name,
+        tokenname: response.data.tokenname,
+        smartcontractaddress: response.data.smartcontractaddress,
+        blockchain: response.data.blockchain,
+
+//      description: response.data.description,
+        recipient: response.data.recipient,
+        recipientwallet: response.data.recipientwallet,
+        campaignid: response.data.campaign,
+        transferAmount: response.data.transferAmount,
+*/
+        submitted: true,
+      });
+      this.displayModal("Transfer request submitted for review", "OK", null, null, null);
+    })
+    .catch(e => {
+      console.log("IsLoad=false");
+      this.setState({isLoading: false}); // hide progress
+
+      console.log("Error: ",e);
+      console.log("Response error:",e.response.data.message);
+      if (e.response.data.message !== "") 
+        this.displayModal("Error: "+e.response.data.message+". Please contact tech support.", null, null, null, "OK");
+      else
+        this.displayModal("Error: "+e.message+". Please contact tech support.", null, null, null, "OK");
+
+    });
+  } else {
+    console.log("Form Validation failed >>>");
+  }
+  console.log("IsLoad=false");
+  this.setState({isLoading: false}); // hide progress
+
+} // saveTransfer
+
+
+async submitTransfer() {  // amend draft
   
   if (await this.validateForm()) { 
         console.log("Form Validation passed");
@@ -514,7 +821,7 @@ async submitTransfer() {
   //    }
       this.hide_loading();
     }
-  }
+  }  // submitTransfer amend draft
     
 async acceptTransfer() {
   
@@ -615,57 +922,55 @@ async acceptTransfer() {
           this.displayModal("Error: "+e.message+". Please contact tech support.", null, null, null, "OK");
       } 
     });
-//    }
     this.hide_loading();
   }
 
-async rejectTransfer() {
+  async rejectTransfer() {
 
-  console.log("isChecker? ", this.state.isChecker);
-  console.log("this.state.currentTransfer.checkerComments: ", this.state.currentTransfer.checkerComments);
-  console.log("isApprover? ", this.state.isApprover);
-  console.log("this.state.currentTransfer.approverComments: ", this.state.currentTransfer.approverComments);
+    console.log("isChecker? ", this.state.isChecker);
+    console.log("this.state.currentTransfer.checkerComments: ", this.state.currentTransfer.checkerComments);
+    console.log("isApprover? ", this.state.isApprover);
+    console.log("this.state.currentTransfer.approverComments: ", this.state.currentTransfer.approverComments);
 
-  if ( this.state.isChecker && (typeof this.state.currentTransfer.checkerComments==="undefined" || this.state.currentTransfer.checkerComments==="" || this.state.currentTransfer.checkerComments===null)) { 
-    this.displayModal("Please enter the reason for rejection in the Checker Comments.", null, null, null, "OK");
-  } else 
-  if (this.state.isApprover && (typeof this.state.currentTransfer.approverComments==="undefined" || this.state.currentTransfer.approverComments==="" || this.state.currentTransfer.approverComments===null)) {
-    this.displayModal("Please enter the reason for rejection in the Approver Comments.", null, null, null, "OK");
-  } else {
-    //console.log("Form Validation passed");
-  
-    console.log("IsLoad=true");
-    this.show_loading();
-
-    await TransferDataService.rejectDraftById(
-      this.state.currentTransfer.id,
-      this.state.currentTransfer,
-    )
-    .then(response => {
-      this.hide_loading();
-
-      console.log("Response: ", response);
-      console.log("IsLoad=false");
-      this.hide_loading();
-
-      this.setState({  
-        datachanged: false,
-      });
-      this.displayModal("This transfer request is rejected. Routing back to maker.", "OK", null, null, null);
-    })
-    .catch(e => {
-      this.hide_loading();
-
-      console.log(e);
-      console.log(e.message);
-      this.displayModal("Transfer rejection failed.", null, null, null, "OK");
-    });
-  }
-  this.hide_loading();
-}
+    if ( this.state.isChecker && (typeof this.state.currentTransfer.checkerComments==="undefined" || this.state.currentTransfer.checkerComments==="" || this.state.currentTransfer.checkerComments===null)) { 
+      this.displayModal("Please enter the reason for rejection in the Checker Comments.", null, null, null, "OK");
+    } else 
+    if (this.state.isApprover && (typeof this.state.currentTransfer.approverComments==="undefined" || this.state.currentTransfer.approverComments==="" || this.state.currentTransfer.approverComments===null)) {
+      this.displayModal("Please enter the reason for rejection in the Approver Comments.", null, null, null, "OK");
+    } else {
+      //console.log("Form Validation passed");
     
+      console.log("IsLoad=true");
+      this.show_loading();
 
-async deleteTransfer() {    
+      await TransferDataService.rejectDraftById(
+        this.state.currentTransfer.id,
+        this.state.currentTransfer,
+      )
+      .then(response => {
+        this.hide_loading();
+
+        console.log("Response: ", response);
+        console.log("IsLoad=false");
+        this.hide_loading();
+
+        this.setState({  
+          datachanged: false,
+        });
+        this.displayModal("This transfer request is rejected. Routing back to maker.", "OK", null, null, null);
+      })
+      .catch(e => {
+        this.hide_loading();
+
+        console.log(e);
+        console.log(e.message);
+        this.displayModal("Transfer rejection failed.", null, null, null, "OK");
+      });
+    }
+    this.hide_loading();
+  }
+
+  async deleteTransfer() {    
     console.log("IsLoad=true");
     this.show_loading();        // show progress
 
@@ -690,6 +995,30 @@ async deleteTransfer() {
       });
   }
 
+  async dropRequest() {    
+    console.log("IsLoad=true");
+    this.show_loading();        // show progress
+
+    await TransferDataService.dropRequestById(
+      this.state.currentTransfer.id,
+      this.state.currentTransfer,
+    )
+    .then(response => {
+      console.log("IsLoad=false");
+      this.hide_loading();     // hide progress
+
+      this.displayModal("Request is dropped (deleted).", "OK", null, null, null);
+      console.log(response.data);
+      //this.props.router.navigate('/inbox');
+    })
+    .catch(e => {
+      console.log("IsLoad=false");
+      this.hide_loading();     // hide progress
+      this.displayModal(e.message+". "+(typeof(e.response.data.message)!=='undefined' && e.response.data.message!==null ? e.response.data.message:""), null, null, null, "OK");
+      console.log(e);
+    });
+  }
+  
   show_loading() {
     this.setState({isLoading: true});
   }
@@ -702,6 +1031,11 @@ async deleteTransfer() {
     this.displayModal("No change is updated as you have not made any change.", null, null, null, "OK");
   };
 */
+
+  showModal_dropRequest = () => {
+    this.displayModal("Are you sure you want to Drop this Request?", null, null, "Yes, drop", "Cancel");
+  };
+
   showModal_Leave = () => {
     this.displayModal("You have made changes. Are you sure you want to leave this page without submitting?", "Yes, leave", null, null, "Cancel");
   };
@@ -717,9 +1051,11 @@ async deleteTransfer() {
 
 
   render() {
-    const { recipient, currentTransfer, checkerList, approverList } = this.state;
+    const { recipient, bondList, PBMList, recipientList, campaignList, currentTransfer, checkerList, approverList } = this.state;
     console.log("Render recipient:", recipient);
+    console.log("Render recipientList:", recipientList);
     console.log("Render currentTransfer:", currentTransfer);
+    console.log("Render bondList:", bondList);
 
     try {
       return (
@@ -728,7 +1064,7 @@ async deleteTransfer() {
           <div>
           <header className="jumbotron col-md-8">
             <h3>
-              <strong>{this.state.currentTransfer.txntype===0?"Create ":(this.state.currentTransfer.txntype===1?"Update ":(this.state.currentTransfer.txntype===2?"Delete ":null))}Transfer { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
+              <strong>{this.state.currentTransfer.txntype===0?"Create ":(this.state.currentTransfer.txntype===1?"Update ":(this.state.currentTransfer.txntype===2?"Delete ":null))}Transfer Request { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
             </h3>
           </header>
 
@@ -740,210 +1076,274 @@ async deleteTransfer() {
 
                   <form autoComplete="off">
                     <div className="form-group">
-                      <label htmlFor="name">Campaign Name</label>
+                      <label htmlFor="name">Token *</label>
+                      <select
+                        onChange={this.onChangeCampaign}                         
+                        className="form-control"
+                        id="campaignid"
+                        name="campaignid"
+                        disabled={!this.state.isMaker || currentTransfer.txntype===2 || currentTransfer.status >0}
+                      >
+                        <option value=""> </option>
+                        <option value="" disabled>--- Cash Token ---</option>
+
+                        {
+                          Array.isArray(campaignList) ?
+                            campaignList.map( (d) => {
+                              // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                              return <option value={d.id} selected={d.id === currentTransfer.campaignId}>{d.name} - {d.smartcontractaddress}</option>
+                            })
+                          : 
+                          <option value="" disabled> Nil </option>
+                        }
+                        <option value="" disabled>--- Bond ---</option>
+                        {Array.isArray(bondList) ?
+                          bondList.map( (d) => {
+                            // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                              if (typeof d.id === "number")
+                                return <option value={d.id} selected={d.id === currentTransfer.campaignId}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                            })
+                          :                         
+                          <option value="" disabled> Nil </option>
+                        }
+
+                        <option value="" disabled>--- PBM ---</option>
+                        {Array.isArray(PBMList) ?
+                          PBMList.map( (d) => {
+                            // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                              if (typeof d.id === "number")
+                                return <option value={d.id} selected={d.id === this.state.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                            })
+                          : 
+                          <option value="" disabled> Nil </option>
+                        }
+
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="name">Token Name</label>
                       <input
                         type="text"
                         className="form-control"
-                        id="name"
-                        maxLength="45"
-                        value={currentTransfer.campaign.name}
-                        disabled={true}
+                        id="tokenname"
+                        maxLength="5"
+                        required
+                        value={currentTransfer.campaign ? currentTransfer.campaign.tokenname: ""}
+                        name="tokenname"
+                        style={{textTransform : "uppercase"}}
+                        disabled="true"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="blockchain">Blockchain</label>
+                      <select
+                            onChange={this.onChangeBlockchain}                         
+                            className="form-control"
+                            id="blockchain"
+                            disabled="true"
+                      >
+                        <option >   </option>
+                        <option value="80002"  selected={currentTransfer.blockchain ? currentTransfer.blockchain === 80002 : this.state.blockchain === 80002}>Polygon   Testnet Amoy</option>
+                        <option value="11155111" selected={currentTransfer.blockchain ? currentTransfer.blockchain === 11155111 : this.state.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
+                        <option value="80001"  selected={currentTransfer.blockchain ? currentTransfer.blockchain === 80001 : this.state.blockchain === 80001} disabled>Polygon   Testnet Mumbai (Deprecated)</option>
+                        <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
+                        <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
+                        <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
+                        <option value="43114"      disabled>Avalanche Mainnet (not in use at the moment)</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="recipient">Recipient *</label>
+                      <select
+                          onChange={this.onChangeRecipient}                         
+                          className="form-control"
+                          id="recipient"
+                          disabled={!this.state.isMaker || currentTransfer.txntype===2 || currentTransfer.status >0}
+                        >
+                          <option> </option>
+                          {
+                            Array.isArray(recipientList) ?
+                            recipientList.map( (d) => {
+                                return <option value={d.id} selected={currentTransfer.recipientId ? currentTransfer.recipientId === d.id : null}>{d.name}</option>
+                              })
+                            : null
+                          }
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="recipientwallet">Recipient Wallet</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        id="recipientwallet"
+                        required
+                        value={currentTransfer.recipientwallet}
+                        name="recipientwallet"
+                        autoComplete="off"
+                        disabled="true"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                    <label htmlFor="transferAmount">Transfer Amount * { ( (this.state.inwallet !== undefined && this.state.inwallet != null && this.state.inwallet !=="" ) ? `(${ (parseFloat(this.state.inwallet)).toLocaleString() } currently in Campaign Wallet)` : null)}
+                    {(this.state.inwallet !== undefined && this.state.inwallet != null && this.state.inwallet !=="" && this.state.inwallet <= 0) ?
+                          <><br /><font color="red">There is zero balance of this token in the wallet, please choose another token for transferring</font></>
+                          :
+                          ""
+                        }
+                      </label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        id="transferAmount"
+                        min="1"
+                        max={ (this.state.inwallet !== undefined && this.state.inwallet != null && this.state.inwallet !=="") ? (parseFloat(this.state.inwallet)).toLocaleString():"0"}
+                        step="1"
+                        required
+                        value={currentTransfer.transferAmount}
+                        onChange={this.onChangeAmount}
+                        disabled={!this.state.isMaker || currentTransfer.txntype===2 || currentTransfer.status >0 || (this.state.inwallet !== undefined && this.state.inwallet != null && this.state.inwallet !=="" && this.state.inwallet <= 0)}
                         />
                     </div>
+                    <div className="form-group">
+                      <label htmlFor="checker">Checker *</label>
+                      <select
+                            value={currentTransfer.checker}
+                            onChange={this.onChangeChecker}                         
+                            className="form-control"
+                            id="checker"
+                            disabled={!this.state.isMaker || currentTransfer.txntype===2 || currentTransfer.status >0}
+                            >
+                            {
+                              Array.isArray(checkerList) ?
+                                checkerList.map( (d) => {
+                                  return <option value={d.id}>{d.username}</option>
+                                })
+                              : null
+                            }
+                          </select>
+                    </div>
                     {
-  /*
-                <div className="form-group">
-                  <label htmlFor="description">Description</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="description"
-                    maxLength="255"
-                    required
-                    value={currentTransfer.description}
-                    onChange={this.onChangeDescription}
-                    name="description"
-                    autoComplete="off"
-                    disabled={!this.state.isMaker || this.state.currentTransfer.txntype===2}
-                    />
-                </div>
- */
-                    }
-                <div className="form-group">
-                  <label htmlFor="name">Token Name</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="tokenname"
-                    maxLength="5"
-                    required
-                    value={currentTransfer.campaign.tokenname}
-                    name="tokenname"
-                    style={{textTransform : "uppercase"}}
-                    disabled={true}
-                    />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="blockchain">Blockchain</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="blockchain"
-                    required
-                    value={
-                      (() => {
-                        switch (currentTransfer.campaign.blockchain) {
-                          case 80001:
-                            return 'Polygon Testnet Mumbai (Deprecated)'
-                          case 80002:
-                            return 'Polygon Testnet Amoy'
-                          case 11155111:
-                            return 'Ethereum Testnet Sepolia'
-                          case 43113:
-                            return 'Avalanche Testnet Fuji'
-                          case 137:
-                            return 'Polygon Mainnet'
-                          case 1:
-                            return 'Ethereum  Mainnet'
-                          case 43114:
-                            return 'Avalanche Mainnet'
-                          default:
-                            return null
-                        }
-                      }
-                      )()
-                    }
-                    onChange={this.onChangeBlockchain}
-                    autoComplete="off"
-                    disabled={true}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="transferAmount">Amount</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    id="transferAmount"
-                    min="1"
-                    step="1"
-                    value={currentTransfer.transferAmount}
-                    onChange={this.onChangeAmount}
-                    disabled={!this.state.isMaker || this.state.currentTransfer.txntype===2}
-                    />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="checker">Checker *</label>
-                  <select
-                        value={currentTransfer.checker}
-                        onChange={this.onChangeChecker}                         
+                    (currentTransfer.id !== 0 ?  // add new transfer
+                    <div className="form-group">
+                      <label htmlFor="checkerComments">Checker Comments</label>
+                      <input
+                        type="text"
+                        maxLength="255"
                         className="form-control"
-                        id="checker"
-                        disabled={!this.state.isMaker || this.state.currentTransfer.txntype===2}
-                        >
+                        id="checkerComments"
+                        required
+                        value={currentTransfer.checkerComments}
+                        onChange={this.onChangeCheckerComments}
+                        name="checkerComments"
+                        autoComplete="off"
+                        disabled={!this.state.isChecker || currentTransfer.id === 0 || currentTransfer.status !=1}
+                        />
+                    </div>
+                    :
+                    null
+                    )
+                    }
+                    <div className="form-group">
+                      <label htmlFor="approver">Approver *</label>
+                      <select
+                          value={currentTransfer.approver}
+                          onChange={this.onChangeApprover}                         
+                          className="form-control"
+                          id="approver"
+                          disabled={!this.state.isMaker || this.state.currentTransfer.txntype===2 || currentTransfer.status >0}
+                          >
                         {
-                          Array.isArray(checkerList) ?
-                            checkerList.map( (d) => {
+                          Array.isArray(approverList) ?
+                          approverList.map( (d) => {
                               return <option value={d.id}>{d.username}</option>
                             })
                           : null
                         }
                       </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="checkerComments">Checker Comments</label>
-                  <input
-                    type="text"
-                    maxLength="255"
-                    className="form-control"
-                    id="checkerComments"
-                    required
-                    value={currentTransfer.checkerComments}
-                    onChange={this.onChangeCheckerComments}
-                    name="checkerComments"
-                    autoComplete="off"
-                    disabled={!this.state.isChecker}
-                    />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="approver">Approver *</label>
-                  <select
-                      value={currentTransfer.approver}
-                      onChange={this.onChangeApprover}                         
-                      className="form-control"
-                      id="approver"
-                      disabled={!this.state.isMaker || this.state.currentTransfer.txntype===2}
-                      >
-                    {
-                      Array.isArray(approverList) ?
-                      approverList.map( (d) => {
-                          return <option value={d.id}>{d.username}</option>
-                        })
+                    </div>
+                    { 
+                      (currentTransfer.id !== 0 ? // add new transfer
+                      <div className="form-group">
+                        <label htmlFor="approverComments">Approver Comments</label>
+                        <input
+                          type="text"
+                          maxLength="255"
+                          className="form-control"
+                          id="approverComments"
+                          required
+                          value={currentTransfer.approverComments}
+                          onChange={this.onChangeApproverComments}
+                          name="approverComments"
+                          autoComplete="off"
+                          disabled={!this.state.isApprover || currentTransfer.id === 0 || currentTransfer.status != 2}
+                          />
+                      </div>
                       : null
+                      )
                     }
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="approverComments">Approver Comments</label>
-                  <input
-                    type="text"
-                    maxLength="255"
-                    className="form-control"
-                    id="approverComments"
-                    required
-                    value={currentTransfer.approverComments}
-                    onChange={this.onChangeApproverComments}
-                    name="approverComments"
-                    autoComplete="off"
-                    disabled={!this.state.isApprover}
-                    />
-                </div>
+                  </form>
+                  {
+                  this.state.isMaker && currentTransfer.status <= 0 ? ( currentTransfer.id === 0?
+                  <button onClick={this.saveTransfer} className="btn btn-primary">
+                    Submit Request
+                  </button>
+                  :
+                  <>
+                  <button
+                  type="submit"
+                  className="m-3 btn btn-sm btn-primary"
+                  onClick={this.submitTransfer}
+                  >
+                    Submit 
+                    {
+                      (currentTransfer.txntype===0? " Create ":
+                      (currentTransfer.txntype===1? " Update ":
+                      (currentTransfer.txntype===2? " Delete ":null)))
+                    }
+                    Request
+                  </button> 
 
-
-              </form>
-              {
-              this.state.isMaker?
-              <button
-              type="submit"
-              className="m-3 btn btn-sm btn-primary"
-              onClick={this.submitTransfer}
-              >
-                Submit&nbsp;
-                {
-                  (this.state.currentTransfer.txntype===0? " Create ":
-                  (this.state.currentTransfer.txntype===1? " Update ":
-                  (this.state.currentTransfer.txntype===2? " Delete ":null)))
-                }
-                Request
-
-              </button> 
-              : (this.state.isChecker? 
+                  <button
+                    className="m-3 btn btn-sm btn-danger"
+                    onClick={this.showModal_dropRequest}
+                  >
+                    Drop Request
+                  </button>
+                </>
+                )
+              : (this.state.isChecker && currentTransfer.status == 1 ? 
               <button
               type="submit"
               className="m-3 btn btn-sm btn-primary"
               onClick={this.acceptTransfer}
               >
-                Endorse&nbsp;
+                Endorse
                 {
-                  (this.state.currentTransfer.txntype===0? " Create ":
-                  (this.state.currentTransfer.txntype===1? " Update ":
-                  (this.state.currentTransfer.txntype===2? " Delete ":null)))
+                  (currentTransfer.txntype===0? " Create ":
+                  (currentTransfer.txntype===1? " Update ":
+                  (currentTransfer.txntype===2? " Delete ":null)))
                 }
                 Request
 
               </button> 
               :
               (
-                this.state.isApprover?
+                this.state.isApprover && currentTransfer.status == 2?
                 <button
                 type="submit"
                 className="m-3 btn btn-sm btn-primary"
-                onClick={this.state.currentTransfer.txntype===2? this.deleteTransfer: this.approveTransfer}
+                onClick={currentTransfer.txntype===2? this.deleteDraft: this.approveTransfer}
                 >
-                  Approve&nbsp;
+                  Approve
                   {
-                    (this.state.currentTransfer.txntype===0? " Create ":
-                    (this.state.currentTransfer.txntype===1? " Update ":
-                    (this.state.currentTransfer.txntype===2? " Delete ":null)))
+                    (currentTransfer.txntype===0? " Create ":
+                    (currentTransfer.txntype===1? " Update ":
+                    (currentTransfer.txntype===2? " Delete ":null)))
                   }
                   Request
 
@@ -953,7 +1353,7 @@ async deleteTransfer() {
               }
 &nbsp;
               {
-                this.state.isChecker || this.state.isApprover ?
+                currentTransfer.id !== 0 && (this.state.isChecker || this.state.isApprover)  && currentTransfer.status > 0 ?
 
               <button
               type="submit"
@@ -966,32 +1366,38 @@ async deleteTransfer() {
               }
 &nbsp;
               { 
-
-                ((this.state.datachanged) ? 
-                <button className="m-3 btn btn-sm btn-secondary" onClick={this.showModal_Leave}>
-                  Back
-                </button>
-                : 
-                <Link to="/inbox">
+                this.state.isMaker?
+                (this.state.datachanged ? 
+                  <button className="m-3 btn btn-sm btn-secondary" onClick={this.showModal_Leave}>
+                    Cancel
+                  </button>
+                  : 
+                  <Link to="/transfer">
+                  <button className="m-3 btn btn-sm btn-secondary">
+                    Cancel
+                  </button>
+                  </Link>
+                )
+              : 
+                <Link to="/transfer">
                 <button className="m-3 btn btn-sm btn-secondary">
-                  Back
+                  Cancel
                 </button>
                 </Link>
-                )
-                }
-
+              }  
 
               {this.state.isLoading ? <LoadingSpinner /> : null}
 
-              <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/inbox'} handleProceed2={this.deleteTransfer} handleProceed3={null} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
+              <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/transfer'} handleProceed2={this.deleteTransfer} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
                 {this.state.modalmsg}
               </Modal>
-
 
               <p>{this.state.message}</p>
             </div>
           </div>
         </div>
+
+
       );
     } // try
     catch (e) {

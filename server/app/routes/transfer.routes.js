@@ -38,7 +38,9 @@ module.exports = app => {
   router.put("/acceptdraftbyid/:id", transfers.acceptDraftById);
   router.put("/approvedraftbyid/:id", transfers.approveDraftById);
   router.put("/rejectdraftbyid/:id", transfers.rejectDraftById);
-  
+  router.put("/transferToWallet/:id", transfers.transferToWallet);
+  router.put("/droprequestbyid/:id", transfers.dropRequestById);
+
   // Update a Transfer with id
   //router.put("/:id", transfers.update);
 

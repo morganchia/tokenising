@@ -233,7 +233,7 @@ exports.approveDraftById = async (req, res) => {
                       tokensToMint
                     )
                   ).encodeABI(),
-                gas: 4700000,
+                gas: 8700000,  // 4700000,
               },
               SIGNER_PRIVATE_KEY
             );

@@ -46,7 +46,8 @@ interface IPBM is IERC20 {
     /// Emits a { Redemption } on success
     /// @param toUser The address of a merchant to receive the unwrapped PBM
     /// @param amount The amount, in PBM tokens, to be redeemed
-    function redeem(address toUser, uint256 amount) external;
+//    function redeem(address toUser, uint256 amount) external;
+    function redeem(address toUser, uint256 amount, string memory _field1, string memory _field1value, string memory _operator, string memory _field2, string memory _field2value) external;
 
     /// @notice Allows for unused DSGD to be returned back to original owner
     /// @dev This function should only suceed when the contract's expiry date has been reached

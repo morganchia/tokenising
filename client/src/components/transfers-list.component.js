@@ -15,7 +15,7 @@ export default class TransferList extends Component {
     this.searchName = this.searchName.bind(this);
 
     this.state = {
-      transfers: [],
+      transferList: [],
       currentTransfer: null,
       isMaker: false,
       isChecker: false,
@@ -45,10 +45,10 @@ export default class TransferList extends Component {
     TransferDataService.findAllTransfers()
       .then(response => {
         this.setState({
-          transfers: response.data
+          transferList: response.data
         });
         console.log("retrieveTransfers:",response.data);
-        console.log("Transfers.campaign.name:",(typeof(transfers)!=="undefined"?response.data[0].campaign.name:null));
+//        console.log("Transfers.campaign.name:",(typeof(response.data)!=="undefined"?response.data[0].campaign.name:null));
         console.log("Transfers.length:",response.data.length);
       })
       .catch(e => {
@@ -91,7 +91,7 @@ export default class TransferList extends Component {
     TransferDataService.findByName(this.state.searchName)
       .then(response => {
         this.setState({
-          transfers: response.data
+          transferList: response.data
         });
         console.log(response.data);
       })
@@ -150,7 +150,7 @@ export default class TransferList extends Component {
       return <Navigate to={this.state.redirect} />
     }
 
-    const { searchName, transfers, currentUser } = this.state;
+    const { searchName, transferList, currentUser } = this.state;
     var url ="";
     var blockchainname ="";
     return (
@@ -167,7 +167,7 @@ export default class TransferList extends Component {
 
           <div className="list row">
             <div className="col-md-8">
-            {(transfers.length > 0)?
+            {(transferList.length > 0)?
               <div className="input-group mb-3">
                 <input
                   type="text"
@@ -191,13 +191,12 @@ export default class TransferList extends Component {
             <div className="col-md-8">
 
               <table style={{ border:"1px solid"}}>
-                {(typeof(this.state.transfers)!=="undefined" && this.state.transfers!==null && this.state.transfers.length > 0)?
+                {(typeof(transferList)!=="undefined" && transferList!==null && transferList.length > 0)?
                 <tr>
                   <th>Campaign</th>
                   <th>Token Name</th>
                   <th>Blockchain</th>
                   <th>Transfered</th>
-                  <th>Total Supply</th>
                   <th>Recipient Wallet</th>
                   <th>Smart Contract</th>
                   <th>View Txn on Blockchain</th>
@@ -205,15 +204,26 @@ export default class TransferList extends Component {
                 </tr>
                 : null}
                 {
-                this.state.transfers && this.state.transfers.length>0 &&
-                  this.state.transfers.map((mmm, index) => (
-                    (mmm.campaign!==null && mmm.campaign.name!==null)?
+                transferList && transferList.length>0 &&
+                  transferList.map((mmm, index) => (
                     <tr>
-                      <td>{mmm.campaign.name}</td>
-                      <td>{mmm.campaign.tokenname}</td>
+                      <td>
+                              {mmm.campaign && mmm.campaign.name ? mmm.campaign.name :
+                              mmm.bond && mmm.bond.name ? mmm.bond.name :
+                              mmm.pbm && mmm.pbm.name ? mmm.pbm.name : null}
+                      </td>
+                      <td>
+                              {mmm.campaign && mmm.campaign.tokenname ? mmm.campaign.tokenname :
+                              mmm.bond && mmm.bond.tokenname ? mmm.bond.tokenname :
+                              mmm.pbm && mmm.pbm.tokenname ? mmm.pbm.tokenname : null}
+                      </td>
                       <td>
                         { (() => {
-                          switch (mmm.campaign.blockchain) {
+                          switch (
+                              (mmm.campaign && mmm.campaign.blockchain) ? mmm.campaign.blockchain :
+                              (mmm.bond && mmm.bond.blockchain) ? mmm.bond.blockchain :
+                              (mmm.pbm && mmm.pbm.blockchain) ? mmm.pbm.blockchain : null
+                            ) {
                             case 80001:
                               blockchainname = 'Polygon Testnet Mumbai (Deprecated)';
                               url =  'mumbai.polygonscan.com/address/'; 
@@ -251,35 +261,52 @@ export default class TransferList extends Component {
                         {blockchainname}
                       </td>
                       <td>{mmm.totalTransfered}</td>
-                      <td>{mmm.campaign.amount}</td>
                       <td>{this.shorten(mmm.recipientwallet)}</td>
-                      <td>{this.shorten(mmm.campaign.smartcontractaddress)}</td>
                       <td>
-                        <a href={"https://" + url + mmm.campaign.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
+                          {this.shorten(mmm.campaign && mmm.campaign.smartcontractaddress ? mmm.campaign.smartcontractaddress : 
+                          mmm.bond && mmm.bond.smartcontractaddress ? mmm.bond.smartcontractaddress : 
+                          mmm.pbm && mmm.pbm.smartcontractaddress ? mmm.pbm.smartcontractaddress : 
+                          null)}                      
                       </td>
                       <td>
-                        <a href={"https://" + url + mmm.campaign.smartcontractaddress+"#balances"} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
+                        <a href={"https://" + url + 
+                        (
+                          mmm.campaign && mmm.campaign.smartcontractaddress ? mmm.campaign.smartcontractaddress : 
+                          mmm.bond && mmm.bond.smartcontractaddress ? mmm.bond.smartcontractaddress : 
+                          mmm.pbm && mmm.pbm.smartcontractaddress ? mmm.pbm.smartcontractaddress : 
+                          null
+                        )
+                        } target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
+                      </td>
+                      <td>
+                        <a href={"https://" + url + 
+                        (
+                          mmm.campaign && mmm.campaign.smartcontractaddress ? mmm.campaign.smartcontractaddress : 
+                          mmm.bond && mmm.bond.smartcontractaddress ? mmm.bond.smartcontractaddress : 
+                          mmm.pbm && mmm.pbm.smartcontractaddress ? mmm.pbm.smartcontractaddress : 
+                          null
+                        )
+                        +"#balances"} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
                       </td>                    
                     </tr>
-                    :null
                   ))}
               </table>
 
               {
               this.state.isMaker? 
               <Link
-                to={"/transferadd/"}
+                to={"/transfercheckapprove/0"}
               >
                 <button
                   className="m-3 btn btn-sm btn-primary"
                 >
-                  Transfer DSGD Tokens
+                  Transfer Tokens
                 </button>
               </Link>
               :null}
               { 
               /*
-              (transfers.length > 0) ? 
+              (transferList.length > 0) ? 
                 <button className="m-3 btn btn-sm btn-danger" onClick={this.showModal}>
                   Remove All
                 </button>

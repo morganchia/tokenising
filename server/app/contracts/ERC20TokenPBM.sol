@@ -15,11 +15,6 @@ import "@openzeppelin/contracts/interfaces/IPBM.sol";
 /// @author Open Government Products
 /// @notice Implementation of the IPBM interface
 
-interface IONSManager {
-    function getCustomEntry(string memory key) external view returns (address);
-}
-
-
 contract PBMToken is ERC20Pausable, AccessControl, IPBM {
     using SafeERC20 for IERC20Metadata;
 
@@ -31,8 +26,6 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
     // RBAC related constants
     bytes32 public constant MERCHANT_ROLE = keccak256("MERCHANT_ROLE");
     bytes32 public constant MERCHANT_ADMIN_ROLE = keccak256("MERCHANT_ADMIN_ROLE");
-
-    IONSManager public onsManager;
 
     modifier onlyOwner() {
         require(_msgSender() == owner, "not owner");
@@ -67,15 +60,6 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
         contractExpiry = _contractExpiry;
     }
 
-    function setONSaddress(address _onsManagerAddress) public onlyOwner {
-        // Initialize the IONSManager interface with the deployed ONSManager address
-        onsManager = IONSManager(_onsManagerAddress);
-    }
-
-    // Function to call getCustomEntry from ONSManager
-    function queryCustomEntry(string memory key) public view returns (address) {
-        return onsManager.getCustomEntry(key);
-    }
 
     event wMint(address msgsender, address toUser, address currentAddress, uint256 amount);
     event MintError(string errorMessage);
@@ -95,12 +79,10 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
      *
      *  Emits a { Transfer } on success, inherited from {ERC20}
      */
-    function wrapMint(address toUser, uint256 amount) external  whenNotExpired {
+    function wrapMint(address toUser, uint256 amount) external onlyOwner whenNotExpired {
         //require(underlyingToken.allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
-        // # PBM conditions
 
-        // underlyingToken.transferFrom(_msgSender(), address(this), amount);  // <-- transfer from toUser!!
-
+//        underlyingToken.transferFrom(_msgSender(), address(this), amount);  // <-- transfer from toUser!!
         underlyingToken.transferFrom(toUser, address(this), amount);  // <-- transfer from toUser!!
         _mint(toUser, amount);
         emit wMint(owner, toUser, address(this), amount);

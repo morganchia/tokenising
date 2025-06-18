@@ -359,7 +359,7 @@ export default class RecipientAdd extends Component {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="name">Wallet Address</label>
+                  <label htmlFor="name">Wallet Address *</label>
                   <input
                     type="text"
                     className="form-control"
@@ -372,7 +372,7 @@ export default class RecipientAdd extends Component {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="name">Bank</label>
+                  <label htmlFor="name">Bank *</label>
                   <input
                     type="text"
                     className="form-control"
@@ -385,7 +385,7 @@ export default class RecipientAdd extends Component {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="name">Bank Account Number</label>
+                  <label htmlFor="name">Bank Account Number *</label>
                   <input
                     type="text"
                     className="form-control"

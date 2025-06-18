@@ -1,4 +1,4 @@
-const { authJwt } = require("../middleware");
+const { authJwt } = require("../middleware/index.js");
 
 module.exports = app => {
   app.use(function(req, res, next) {
@@ -18,8 +18,7 @@ module.exports = app => {
   router.post("/draftcreate/", dvp.draftCreate);
 
 
-  /*
-
+/*
   // Retrieve all DvP with LIKE condition
   router.get("/findByName", dvp.findByName);
 */
