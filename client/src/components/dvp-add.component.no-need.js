@@ -697,7 +697,7 @@ export default class DvPEdit extends Component {
                         disabled={!this.state.isMaker}
                       >
                         <option value=""> </option>
-                        <option value="" disabled>--- DSGD ---</option>
+                        <option value="" disabled>--- Digital Cash ---</option>
                         {
                           Array.isArray(underlyingDSGDList) ?
                           underlyingDSGDList.map( (d) => {
@@ -728,7 +728,7 @@ export default class DvPEdit extends Component {
                         disabled={!this.state.isMaker || this.state.underlyingTokenID1 === ""}
                       >
                         <option value=""> </option>
-                        <option value="" disabled>--- DSGD ---</option>
+                        <option value="" disabled>--- Digital Cash ---</option>
                         {
                           Array.isArray(underlyingDSGDList) ?
                           underlyingDSGDList.map( (d) => {

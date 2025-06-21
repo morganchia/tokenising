@@ -533,7 +533,6 @@ class Bond extends Component {
     }));
   }
 
-  
   onChangeProspectusUrl(e) {
     const prospectusurl = e.target.value;
     
@@ -550,9 +549,6 @@ class Bond extends Component {
       }
     }));
   }
-
-
-
 
   onChangeChecker(e) {
     const checker = e.target.value;
@@ -682,18 +678,18 @@ class Bond extends Component {
         console.log(e);
         //return(null);
       });
-}
+  }
 
-displayModal(msg, b1text, b2text, b3text, b0text) {
-  this.setState({
-    showm: true, 
-    modalmsg: msg, 
-    button1text: b1text,
-    button2text: b2text,
-    button3text: b3text,
-    button0text: b0text,
-  });
-}
+  displayModal(msg, b1text, b2text, b3text, b0text) {
+    this.setState({
+      showm: true, 
+      modalmsg: msg, 
+      button1text: b1text,
+      button2text: b2text,
+      button3text: b3text,
+      button0text: b0text,
+    });
+  }
 
 
   async validateForm() {    
@@ -1124,6 +1120,7 @@ displayModal(msg, b1text, b2text, b3text, b0text) {
   show_loading() {
     this.setState({isLoading: true});
   }
+
   hide_loading(){
     this.setState({isLoading: false});
   }
@@ -1185,19 +1182,21 @@ displayModal(msg, b1text, b2text, b3text, b0text) {
                     disabled={!this.state.isMaker || currentBond.txntype===2 || currentBond.status > 0 }
                     />
                 </div>
-                <div className="form-group">
-                  <label htmlFor="name">Security Name (e.g, SIA 3.75 27/1/2026) *</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="securityname"
-                    maxLength="45"
-                    value={currentBond.securityname}
-                    onChange={this.onChangeSecurityName}
-                    required
-                    disabled={!this.state.isMaker || currentBond.txntype===2 || currentBond.status > 0 }
-                    />
-                </div>
+                { currentBond.smartcontractaddress !== "" && currentBond.smartcontractaddress !== null ?
+                  <div className="form-group">
+                    <label htmlFor="name">Smart Contract Address</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      id="smartcontractaddress"
+                      maxLength="45"
+                      value={currentBond.smartcontractaddress}
+                      required
+                      disabled={true}
+                      />
+                  </div> 
+                : null 
+                }
                 <div className="form-group">
                   <label htmlFor="ISIN">ISIN (e.g. XS2405871570) *</label>
                   <input

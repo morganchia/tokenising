@@ -180,6 +180,32 @@ refreshList() {
     return(s.substring(0,6) + "..." + s.slice(-3));
   }
 
+  SGTConverter = (datetime1, formatType = 'datetime') => {
+    const formatter = new Intl.DateTimeFormat('en-SG', {
+      timeZone: 'Asia/Singapore',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+
+    const parts = formatter.formatToParts(new Date(datetime1));
+    const getPart = (type) => parts.find(p => p.type === type)?.value;
+
+    const year = getPart('year');
+    const month = getPart('month');
+    const day = getPart('day');
+    const hour = getPart('hour');
+    const minute = getPart('minute');
+
+    if (formatType === 'date') return `${year}-${month}-${day}`;
+    if (formatType === 'time') return `${hour}:${minute}`;
+    return `${year}-${month}-${day} ${hour}:${minute}`; // default: datetime
+  };
+
+
 
   render() {
     if (this.state.redirect) {
@@ -187,6 +213,14 @@ refreshList() {
     }
 
     const { searchName, repo, currentUser } = this.state;
+    if (repo && repo.length > 0) {
+      repo.forEach((repo1, index) => {
+        console.log("Repo UTC startdatetime:", repo1.startdatetime);
+        console.log("Repo UTC enddatetime:", repo1.enddatetime);
+        console.log("Repo SGT startdatetime:", this.SGTConverter(repo1.startdatetime));
+        console.log("Repo SGT enddatetime:", this.SGTConverter(repo1.enddatetime));
+      });
+    }
 
     return (
       <div className="container">
@@ -230,7 +264,7 @@ refreshList() {
               <table style={{ border:"1px solid"}}>
                 {(repo.length > 0)?
                 <tr>
-                  <th>Repo Name</th>
+                  <th style={{whiteSpace: "nowrap"}}>Repo Name</th>
                   <th>Counter Party 1</th>
                   <th>Counter Party 2</th>
 {/*
@@ -241,9 +275,10 @@ refreshList() {
                   <th>Amount 2</th>
                   <th>Smart Contract Address</th>
                   <th>Blockchain</th>
-                  <th>Start Date</th>
-                  <th>End Date</th>
-                  <th>View Blockchain</th>
+                  <th style={{whiteSpace: "nowrap"}}>Start Date</th>
+                  <th style={{whiteSpace: "nowrap"}}>Maturity Date</th>
+                  <th>View Details</th>
+                  <th>View on Block Explorer</th>
                   <th>Counterparties Set Allowance</th>
                   <th>Action</th>
                 </tr>
@@ -260,8 +295,8 @@ refreshList() {
                       <td>{repo1.Token1name}</td>
                       <td>{repo1.Token2name}</td>
 */}
-                      <td>{repo1.amount1}</td>
-                      <td>{repo1.amount2}</td>
+                      <td>{repo1.amount1.toLocaleString("en-US")}</td>
+                      <td>{repo1.amount2.toLocaleString("en-US")}</td>
                       <td>{this.shorten(repo1.smartcontractaddress)}</td>
                       <td>{(() => {
                           switch (repo1.blockchain) {
@@ -285,8 +320,19 @@ refreshList() {
                         }
                       )()}
                       </td>
-                      <td>{repo1.startdate}</td>
-                      <td>{repo1.enddate}</td>
+                      <td style={{whiteSpace: "nowrap"}}>{(repo1.startdatetime.split("T")[0] !== repo1.enddatetime.split("T")[0] ? this.SGTConverter(repo1.startdatetime, "date") : this.SGTConverter(repo1.startdatetime))}</td>
+                      <td style={{whiteSpace: "nowrap"}}>{(repo1.startdatetime.split("T")[0] !== repo1.enddatetime.split("T")[0] ? this.SGTConverter(repo1.enddatetime, "date") : this.SGTConverter(repo1.enddatetime))}</td>
+                      <td>
+                            <Link
+                              to={"/repocheckapprove/" + repo1.draftrepoid}
+                            >
+                              <button
+                                className="m-3 btn btn-sm btn-primary"
+                              >
+                                View
+                              </button>
+                            </Link>
+                      </td>
                       <td>
                         <a href={"https://"+
                         (() => {
@@ -313,11 +359,11 @@ refreshList() {
                         +repo1.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
                       </td>
                       <td>
-                        <a href={window.location.origin + "/repoaddallowance/"} target="_blank" rel="noreferrer">Set Allowance <i className='bx bx-link-external'></i></a>
+                        <a href={window.location.origin + "/repocouponallowance/" + repo1.id} target="_blank" rel="noreferrer">Set Allowance <i className='bx bx-link-external'></i></a>
                       </td>
                       <td>
                         <Link
-                          to={"/repotransact/" + repo1.id}
+                          to={"/repotransact/" + repo1.draftrepoid}
                           className="badge badge-warning"
                         >
                            {
@@ -343,6 +389,20 @@ refreshList() {
                 </Link>
               : null
               }
+              {
+              this.state.isMaker? 
+                <Link
+                  to={"/repotrademanager/0"}
+                >
+                  <button
+                    className="m-3 btn btn-sm btn-primary"
+                  >
+                    Interact with Repo
+                  </button>
+                </Link>
+              : null
+              }
+
               { 
               /*
               this.state.isMaker && (repo.length > 0) ? 

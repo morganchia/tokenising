@@ -7,9 +7,6 @@ import "./sidebar.css";
 
 import AuthService from "./services/auth.service";
 
-import DSGD2PBM from "./components/dsgd2pbm.component";
-import BondCouponAllowance from "./components/bond-couponallowance.component";
-import BondCouponTrigger from "./components/bond-coupontrigger.component";
 import Login from "./components/login.component";
 import Register from "./components/register.component";
 import Home from "./components/home.component";
@@ -47,6 +44,8 @@ import CampaignsList from "./components/campaigns-list.component";
 
 import BridgeList from "./components/bridge.component";
 
+import BondCouponAllowance from "./components/bond-couponallowance.component";
+import BondCouponTrigger from "./components/bond-coupontrigger.component";
 import BondCheckApprove from "./components/bond-checkapprove.component";
 import BondList from "./components/bond-list.component";
 
@@ -63,10 +62,15 @@ import DvPTransact from "./components/dvp-transact.component";
 
 import RepoList from "./components/repo-list.component";
 import RepoCheckApprove from "./components/repo-checkapprove.component";
+import RepoCouponAllowance from "./components/repo-couponallowance.component";
+import RepoTradeManager from "./components/RepoTradeManager.component";
+import RepoTransact from "./components/repo-transact.component";
+
 
 import PBMWrapCheckApprove from "./components/pbmwrap-checkapprove.component";
 import PBMWrapAdd from "./components/pbmwrap-add.component";
 import PBMWrapList from "./components/pbmwrap-list.component";
+import DSGD2PBM from "./components/dsgd2pbm.component";
 
 import PBMTemplateAdd from "./components/pbm-template-add.component";
 import PBMTemplateList from "./components/pbm-template-list.component";
@@ -441,6 +445,9 @@ class App extends Component {
 
             <Route path="/repo" element={<RepoList/>} />
             <Route path="/repocheckapprove/:id" element={<RepoCheckApprove/>} />
+            <Route path="/repocouponallowance/:id" element={<RepoCouponAllowance />} />
+            <Route path="/repotrademanager/:id" element={<RepoTradeManager />} />
+            <Route path="/repotransact/:id" element={<RepoTransact/>} />
 
             <Route path="/pbm" element={<PBMList/>} />
             <Route path="/pbmadd" element={<PBMAdd/>} />

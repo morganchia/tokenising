@@ -62,8 +62,8 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.FLOAT,
       allowNull: false
     },
-    interestamount: {  // float
-      type: Sequelize.FLOAT,
+    interestamount: {  // double
+      type: Sequelize.DOUBLE,
       allowNull: false
     },
     counterpartyname: {  
@@ -135,6 +135,9 @@ module.exports = (sequelize, Sequelize) => {
     },
     status: {
       type: Sequelize.INTEGER  // 0=created pending checker, 1=checker ack, 2=approver ack
+    },
+    draftrepoid: {
+      type: Sequelize.INTEGER   // reference the id in Repos_draft table
     },
     actionby: {
       type: Sequelize.STRING  // username

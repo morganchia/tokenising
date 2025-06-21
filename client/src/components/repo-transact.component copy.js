@@ -1,20 +1,21 @@
 import React, { Component } from "react";
-import DvPDataService from "../services/dvp.service";
-import CampaignDataService from "../services/campaign.service";
-import PBMDataService from "../services/pbm.service";
-import RecipientDataService from "../services/recipient.service";
-import UserOpsRoleDataService from "../services/user_opsrole.service";
-import { withRouter } from '../common/with-router';
-import AuthService from "../services/auth.service";
+import RepoDataService from "../services/repo.service.js";
+import CampaignDataService from "../services/campaign.service.js";
+import PBMDataService from "../services/pbm.service.js";
+import RecipientDataService from "../services/recipient.service.js";
+import UserOpsRoleDataService from "../services/user_opsrole.service.js";
+import { withRouter } from '../common/with-router.js';
+import AuthService from "../services/auth.service.js";
 import { Link } from "react-router-dom";
 import validator from 'validator';
 import Modal from '../Modal.js';
-import LoadingSpinner from "../LoadingSpinner";
+import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
 
-class DvP extends Component {
+class Repo extends Component {
   constructor(props) {
     super(props);
+    /*
     this.onChangeName = this.onChangeName.bind(this);
     this.onChangeDescription = this.onChangeDescription.bind(this);
     this.onChangeUnderlying1 = this.onChangeUnderlying1.bind(this);
@@ -30,16 +31,19 @@ class DvP extends Component {
     this.onChangeApprover = this.onChangeApprover.bind(this);
     this.onChangeCheckerComments = this.onChangeCheckerComments.bind(this);
     this.onChangeApproverComments = this.onChangeApproverComments.bind(this);
-    this.getDvP = this.getDvP.bind(this);
-    this.createDvPDraft = this.createDvPDraft.bind(this);
-    this.submitDvP = this.submitDvP.bind(this);
-    this.acceptDvP = this.acceptDvP.bind(this);
-    this.approveDvP = this.approveDvP.bind(this);
-    this.rejectDvP = this.rejectDvP.bind(this);
-    this.deleteDvP = this.deleteDvP.bind(this);
+*/
+
+    this.getRepo = this.getRepo.bind(this);
+    this.executeRepo = this.executeRepo.bind(this);
+    /*
+    this.acceptRepo = this.acceptRepo.bind(this);
+    this.approveRepo = this.approveRepo.bind(this);
+    this.rejectRepo = this.rejectRepo.bind(this);
+    this.deleteRepo = this.deleteRepo.bind(this);
     this.dropRequest = this.dropRequest.bind(this);
+    */
     this.showModal_Leave = this.showModal_Leave.bind(this);
-//  this.showModal_nochange = this.showModal_nochange.bind(this);
+  //  this.showModal_nochange = this.showModal_nochange.bind(this);
 //  this.showModalDelete = this.showModalDelete.bind(this);
     this.showModal_dropRequest = this.showModal_dropRequest.bind(this);
     this.hideModal = this.hideModal.bind(this);
@@ -59,8 +63,8 @@ class DvP extends Component {
       hidedatafield2 : true,  
 
 
-      currentDvP: {
-        id: 0,    // 0 for new dvp draft
+      currentRepo: {
+        id: null,
         name: "",
         description: "",
         underlyingTokenID1: "",
@@ -81,7 +85,7 @@ class DvP extends Component {
         approver: "",
         checkerComments: "",
         approverComments: "",
-        approveddvpid: null,
+        approvedrepoid: null,
         actionby: "",
         name_changed: 0,
         description_changed: 0,
@@ -93,7 +97,7 @@ class DvP extends Component {
         amount2_changed: 0,
       },
 
-      originalDvP: {
+      originalRepo: {
         id: null,
         name: "",
         description: "",
@@ -115,7 +119,7 @@ class DvP extends Component {
         approver: "",
         checkerComments: "",
         approverComments: "",
-        approveddvpid: null,
+        approvedrepoid: null,
         actionby: "",
         name_original: "",
         description_original: "",
@@ -141,7 +145,7 @@ class DvP extends Component {
       isMaker: false,
       isChecker: false,
       isApprover: false,
-      isNewDvP: null,
+      isNewRepo: null,
       
       err: "",
       datachanged: false,
@@ -163,7 +167,7 @@ class DvP extends Component {
   }
 
   retrieveAllMakersCheckersApprovers() {
-    UserOpsRoleDataService.getAllMakersCheckersApprovers("dvp")
+    UserOpsRoleDataService.getAllMakersCheckersApprovers("repo")
       .then(response => {
         console.log("Data received by getAllCheckerApprovers:", response.data);
         let chkList = response.data.find((element) => {
@@ -173,7 +177,7 @@ class DvP extends Component {
             if (element.name.toUpperCase() === "CHECKER") 
               return element;
           } catch(e) {
-            // do nothing, sometime when dvpList not loaded yet, element/el_id will be undefined, so need make sure it doesnt bomb
+            // do nothing, sometime when repoList not loaded yet, element/el_id will be undefined, so need make sure it doesnt bomb
           }
           return null;
         });
@@ -184,7 +188,7 @@ class DvP extends Component {
             if (element.name.toUpperCase() === "APPROVER") 
               return element;
           } catch(e) {
-            // do nothing, sometime when dvpList not loaded yet, element/el_id will be undefined, so need make sure it doesnt bomb
+            // do nothing, sometime when repoList not loaded yet, element/el_id will be undefined, so need make sure it doesnt bomb
           }
           return null;
         });
@@ -211,30 +215,12 @@ class DvP extends Component {
     if (!user) this.setState({ redirect: "/home" });
     this.setState({ currentUser: user, userReady: true })
 
-    let ismaker= user.opsrole.find((el) => 
-      el.opsrole.name.toUpperCase() === "MAKER"
-    );
-    console.log("isMaker:", (ismaker === undefined? false: true));
-    this.setState({ isMaker: (ismaker === undefined? false: true),});
-
-    let ischecker= user.opsrole.find((el) => 
-      el.opsrole.name.toUpperCase() === "CHECKER"
-    );
-    console.log("isChecker:", (ischecker === undefined? false: true));
-    this.setState({ isChecker: (ischecker === undefined? false: true),});
-
-    let isapprover= user.opsrole.find((el) => 
-    el.opsrole.name.toUpperCase() === "APPROVER"
-    );
-    console.log("isApprover:", (isapprover === undefined? false: true));
-    this.setState({ isApprover: (isapprover === undefined? false: true),});
-
-    this.getDvP(user, this.props.router.params.id);
+    this.getRepo(user, this.props.router.params.id);
     this.getAllUnderlyingAssets();
     this.getAllCounterpartys();
-    this.retrieveAllMakersCheckersApprovers();
+//    this.retrieveAllMakersCheckersApprovers();
   }
-
+/*
   onChangeName(e) {
     const name = e.target.value;
     this.setState({
@@ -243,8 +229,8 @@ class DvP extends Component {
 
     this.setState(function(prevState) {
       return {
-        currentDvP: {
-          ...prevState.currentDvP,
+        currentRepo: {
+          ...prevState.currentRepo,
           name: name
         }
       };
@@ -259,8 +245,8 @@ class DvP extends Component {
     });
     this.setState(function(prevState) {
       return {
-        currentDvP: {
-          ...prevState.currentDvP,
+        currentRepo: {
+          ...prevState.currentRepo,
           description: description
         }
       };
@@ -281,8 +267,8 @@ class DvP extends Component {
     });
     this.setState(function(prevState) {
       return {
-        currentDvP: {
-          ...prevState.currentDvP,
+        currentRepo: {
+          ...prevState.currentRepo,
           underlyingTokenID1: underlyingTokenID,
           blockchain: newBlockchain,
           smartcontractaddress1: newUnderlyingDSGDsmartcontractaddress,
@@ -290,7 +276,7 @@ class DvP extends Component {
         }
       };
     });
-    console.log("New currentDvP=", this.state.currentDvP);
+    console.log("New currentRepo=", this.state.currentRepo);
   }
 
   onChangeUnderlying2(e) {
@@ -307,8 +293,8 @@ class DvP extends Component {
     });
     this.setState(function(prevState) {
       return {
-        currentDvP: {
-          ...prevState.currentDvP,
+        currentRepo: {
+          ...prevState.currentRepo,
           underlyingTokenID2: underlyingTokenID,
           blockchain: newBlockchain,
           smartcontractaddress2: newUnderlyingDSGDsmartcontractaddress,
@@ -316,7 +302,7 @@ class DvP extends Component {
         }
       };
     });
-    console.log("New currentDvP=", this.state.currentDvP);
+    console.log("New currentRepo=", this.state.currentRepo);
   }
 
   onChangeCounterParty1(e) {
@@ -327,8 +313,8 @@ class DvP extends Component {
     });
 
     this.setState(prevState => ({
-      currentDvP: {
-        ...prevState.currentDvP,
+      currentRepo: {
+        ...prevState.currentRepo,
         counterparty1: counterpartyx
       }
     }));
@@ -342,8 +328,8 @@ class DvP extends Component {
     });
 
     this.setState(prevState => ({
-      currentDvP: {
-        ...prevState.currentDvP,
+      currentRepo: {
+        ...prevState.currentRepo,
         counterparty2: counterpartyx
       }
     }));
@@ -358,8 +344,8 @@ class DvP extends Component {
     });
 
     this.setState(prevState => ({
-      currentDvP: {
-        ...prevState.currentDvP,
+      currentRepo: {
+        ...prevState.currentRepo,
         amount1: amount
       }
     }));
@@ -374,8 +360,8 @@ class DvP extends Component {
     });
 
     this.setState(prevState => ({
-      currentDvP: {
-        ...prevState.currentDvP,
+      currentRepo: {
+        ...prevState.currentRepo,
         amount2: amount
       }
     }));
@@ -388,8 +374,8 @@ class DvP extends Component {
     });
 
     this.setState(prevState => ({
-      currentDvP: {
-        ...prevState.currentDvP,
+      currentRepo: {
+        ...prevState.currentRepo,
         startdate: startdate
       }
     }));
@@ -402,8 +388,8 @@ class DvP extends Component {
     });
 
     this.setState(prevState => ({
-      currentDvP: {
-        ...prevState.currentDvP,
+      currentRepo: {
+        ...prevState.currentRepo,
         enddate: enddate
       }
     }));
@@ -411,14 +397,10 @@ class DvP extends Component {
 
   onChangeChecker(e) {
     const checker = e.target.value;
-    /*
-    this.setState({
-      datachanged: true
-    });
-    */
+
     this.setState(prevState => ({
-      currentDvP: {
-        ...prevState.currentDvP,
+      currentRepo: {
+        ...prevState.currentRepo,
         checker: checker
       }
     }));
@@ -432,8 +414,8 @@ class DvP extends Component {
     });
     this.setState(function(prevState) {
       return {
-        currentDvP: {
-          ...prevState.currentDvP,
+        currentRepo: {
+          ...prevState.currentRepo,
           checkerComments: checkerComments
         }
       };
@@ -442,14 +424,10 @@ class DvP extends Component {
 
   onChangeApprover(e) {
     const approver = e.target.value;
-    /*
-    this.setState({
-      datachanged: true
-    });
-  */
+
     this.setState(prevState => ({
-      currentDvP: {
-        ...prevState.currentDvP,
+      currentRepo: {
+        ...prevState.currentRepo,
         approver: approver
       }
     }));
@@ -463,143 +441,61 @@ class DvP extends Component {
     });
     this.setState(function(prevState) {
       return {
-        currentDvP: {
-          ...prevState.currentDvP,
+        currentRepo: {
+          ...prevState.currentRepo,
           approverComments: approverComments
         }
       };
     });
   }
+*/
 
-  getDvP(user, id) {
-    console.log("+++ id:", id);
+  getRepo(user, id) {
+    console.log("+++ findOne(id):", id);
 
-    if (id !== undefined && id != 0) {
-      DvPDataService.getAllDraftsByDvPId(id)
+    if (id !== undefined) {
+      RepoDataService.findOne(id)
         .then(response => {
           response.data[0].actionby = user.username;
           this.setState({
-            currentDvP: response.data[0],
-            originalDvP: response.data[0],
+            currentRepo: response.data[0],
+            originalRepo: response.data[0],
           });
-          console.log("Response from getAllDraftsByDvPId(id):",response.data[0]);
+          console.log("Response from findOne(id):",response.data[0]);
 
-          this.setState({ isNewDvP : (response.data[0].smartcontractaddress === "" || response.data[0].smartcontractaddress === null) });
-        })
-        .catch(e => {
-          console.log("Error from getAllDraftsByDvPId(id):", e);
-          alert("Error: " + e.response.data.message);
-        }
-      );
-    }
-  }
-
-  async createDvPDraft() {  // for Maker
-
-    if (this.state.isMaker) {  // only for Makers
+          let ismaker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "MAKER" && user.id === response.data[0].maker);
+          console.log("isMaker:", (ismaker === undefined? false: true));
+          this.setState({ isMaker: (ismaker === undefined? false: true),});
       
-        if (await this.validateForm() === true) { 
+          let ischecker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "CHECKER" && user.id === response.data[0].checker);
+          console.log("isChecker:", (ischecker === undefined? false: true));
+          this.setState({ isChecker: (ischecker === undefined? false: true),});
+          //if (ischecker !== undefined) {  // clears the checkers comments
+          //  this.setState({ isChecker: true, currentRepo: {checkerComments: ""}, });
+          //}
+          
 
-        console.log("Creating DvP draft this.state.underlyingDSGDList= ", this.state.underlyingDSGDList);
-        if (this.state.currentDvP.underlyingTokenID1 < 1000000000) { // DSGD 1 ~ 1000000000,   PBM > 1000000000
-          console.log("Creating DvP draft underlyingDSGDsmartcontractaddress1= ", this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID1)).smartcontractaddress);
-        } else {
-          console.log("Creating DvP draft underlyingPBMsmartcontractaddress1= ", this.state.PBMList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID1)).smartcontractaddress);
-        }
+          let isapprover= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "APPROVER" && user.id === response.data[0].approver);
+          console.log("isApprover:", (isapprover === undefined? false: true));
+          this.setState({ isApprover: (isapprover === undefined? false: true),});
+          /*
+          if (isapprover !== undefined) {
+            this.setState({ isApprover: true, currentRepo: {approverComments: ""}, });
+          }
+          */
 
-        if (this.state.currentDvP.underlyingTokenID2 < 1000000000) { // DSGD 1 ~ 1000000000,   PBM > 1000000000
-          console.log("Creating DvP draft underlyingDSGDsmartcontractaddress2= ", this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID2)).smartcontractaddress);
-        } else {
-          console.log("Creating DvP draft underlyingPBMsmartcontractaddress2= ", this.state.PBMList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID2)).smartcontractaddress);
-        }
-
-        var data = {
-          name               : this.state.currentDvP.name,
-          description        : this.state.currentDvP.description,
-
-          counterparty1      : this.state.currentDvP.counterparty1,
-          counterparty2      : this.state.currentDvP.counterparty2,
-          underlyingTokenID1 : this.state.currentDvP.underlyingTokenID1,
-          underlyingTokenID2 : this.state.currentDvP.underlyingTokenID2,
-          smartcontractaddress1  : (this.state.currentDvP.underlyingTokenID1 < 1000000000 ? this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID1)).smartcontractaddress : this.state.PBMList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID1)).smartcontractaddress),
-          smartcontractaddress2  : (this.state.currentDvP.underlyingTokenID2 < 1000000000 ? this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID2)).smartcontractaddress : this.state.PBMList.find((e) => e.id === parseInt(this.state.currentDvP.underlyingTokenID2)).smartcontractaddress),
-          blockchain         : this.state.currentDvP.blockchain,
-          amount1            : this.state.currentDvP.amount1,
-          amount2            : this.state.currentDvP.amount2,
-          startdate          : this.state.currentDvP.startdate,
-          enddate            : this.state.currentDvP.enddate,
-          txntype            : 0,    // create
-          maker              : this.state.currentUser.id,
-          checker            : this.state.checker,
-          approver           : this.state.approver,
-          actionby           : this.state.currentUser.username,
-          approveddvpid      : -1,
-        };
-    
-        console.log("Form Validation passed! creating dvp smart contract...");
-        //alert("Form validation passed! creating dvp...");
-
-        console.log("IsLoad=true");
-        this.show_loading();  // show progress
-
-
-        await DvPDataService.draftCreate(data)
-        .then(response => {
-          console.log("Response: ", response);
-          console.log("IsLoad=false");
-          this.hide_loading();  // hide progress
-    
-          this.setState({
-            id                  : response.data.id,
-            name                : response.data.name,
-            description         : response.data.description,
-  
-            underlyingTokenID1  : response.data.underlyingTokenID1,
-            underlyingTokenID2  : response.data.underlyingTokenID2,
-            smartcontractaddress1: response.data.smartcontractaddress1,
-            smartcontractaddress2: response.data.smartcontractaddress2,
-            startdate           : response.data.startdate,
-            enddate             : response.data.enddate,
-            counterparty1       : response.data.counterparty1,
-            counterparty2       : response.data.counterparty2,
-            amount1             : response.data.amount1,
-            amount2             : response.data.amount2,
-
-            submitted: true,
-
-          });
-//          this.displayModal("DvP draft submitted for review" + (response.data.smartcontractaddress !==""? " with smart contract deployed at "+response.data.smartcontractaddress + ". You can start minting now.": "." ) ,
-//                              "OK", null, null);
-          this.displayModal("DvP smart contract creation request submitted for review.", "OK", null, null, null);
-
-          //console.log("Responseeeee"+response.data);
+          this.setState({ isNewRepo : (response.data[0].smartcontractaddress === "" || response.data[0].smartcontractaddress === null) });
         })
         .catch(e => {
-        
-          this.hide_loading();  // hide progress
+          console.log("Error from findOne(id):", e);
+          alert("Error: " + e.response.data[0].message);
 
-          console.log("Error: ",e);
-          console.log("Response error:",e.response.data.message);
-          if (e.response.data.message !== "") 
-            this.displayModal("Error: "+e.response.data.message+".\n\nPlease contact tech support.", null, null, null, "OK");
-          else
-            this.displayModal("Error: "+e.message+".\n\nPlease contact tech support.", null, null, null, "OK");
         });
-      } else {
-        console.log("Form Validation failed >>>");
-        //alert("Form Validation failed >>>");
-        this.hide_loading();  // hide progress
-      }
-    } else {
-      this.displayModal("Error: this role is only for maker.", null, null, null, "OK");
+
+
     }
-
-    console.log("IsLoad=false");
-    this.hide_loading();  // hide progress
-
   }
 
-  
   getAllUnderlyingAssets() {
     CampaignDataService.getAll()
       .then(response => {
@@ -667,57 +563,32 @@ displayModal(msg, b1text, b2text, b3text, b0text) {
   });
 }
 
-
 async validateForm() {    
     var err = "";
-
-    if (!(typeof this.state.currentDvP.name ==='string' || this.state.currentDvP.name instanceof String)) {
-      err += "- Name cannot be empty\n";
-    } else if ((this.state.currentDvP.name.trim() === "")) {
-      err += "- Name cannot be empty\n"; 
-    } else if (this.state.isNewDvP) { // only check if new dvp, dont need to check if it is existing dvp because surely will have name alrdy
-      await DvPDataService.findByNameExact(this.state.currentDvP.name.trim())
-      .then(response => {
-        console.log("Find duplicate name:",response.data);
-
-        if (response.data.length > 0) {
-          err += "- Name of dvp is already present (duplicate name)\n";
-          console.log("Found dvp name (duplicate!):"+this.state.currentDvP.name);
-        } else {
-          console.log("Didnt find dvp name1 (ok no duplicate):"+this.state.currentDvP.name);
-        }
-      })
-      .catch(e => {
-        console.log("Didnt find dvp name2 (ok no duplicate):"+this.state.currentDvP.name);
-        // ok to proceed
-      });
-    }
         
       // dont need t check description, it can be empty
-    if (this.state.currentDvP.amount1 === "") err += "- Amount 1 cannot be empty\n";
-    if (this.state.currentDvP.amount2 === "") err += "- Amount 2 cannot be empty\n";
-    if (parseInt(this.state.currentDvP.amount1) <=  0) err += "- Amount 1 must be more than zero\n";
-    if (parseInt(this.state.currentDvP.amount2) <=  0) err += "- Amount 2 must be more than zero\n";
-    if (! validator.isDate(this.state.currentDvP.startdate)) err += "- Start Date is invalid\n";
-    if (! validator.isDate(this.state.currentDvP.enddate)) err += "- End Date is invalid\n";
-    if (this.state.currentDvP.startdate.trim() !== "" && this.state.currentDvP.enddate.trim() !== "" && this.state.currentDvP.startdate > this.state.currentDvP.enddate) err += "- Start date cannot be later than End date\n";    
+    if (this.state.currentRepo.amount1 === "") err += "- Amount 1 cannot be empty\n";
+    if (parseInt(this.state.currentRepo.amount1) <=  0) err += "- Amount 1 must be more than zero\n";
+    if (! validator.isDate(this.state.currentRepo.startdate)) err += "- Start Date is invalid\n";
+    if (! validator.isDate(this.state.currentRepo.enddate)) err += "- End Date is invalid\n";
+    if (this.state.currentRepo.startdate.trim() !== "" && this.state.currentRepo.enddate.trim() !== "" && this.state.currentRepo.startdate > this.state.currentRepo.enddate) err += "- Start date cannot be later than End date\n";    
 
-    console.log("start date:'"+this.state.currentDvP.startdate+"'");
-    console.log("end date:'"+this.state.currentDvP.enddate+"'");
-    console.log("Start > End? "+ (this.state.currentDvP.startdate > this.state.currentDvP.enddate));
-
-    if (this.state.currentDvP.checker === "" || this.state.currentDvP.checker === null) err += "- Checker cannot be empty\n";
-    if (this.state.currentDvP.approver === "" || this.state.currentDvP.approver === null) err += "- Approver cannot be empty\n";
-    if (this.state.currentDvP.checker === this.state.currentUser.id.toString() 
-        && this.state.currentDvP.approver === this.state.currentUser.id.toString()) {
+    console.log("start date:'"+this.state.currentRepo.startdate+"'");
+    console.log("end date:'"+this.state.currentRepo.enddate+"'");
+    console.log("Start > End? "+ (this.state.currentRepo.startdate > this.state.currentRepo.enddate));
+/*
+    if (this.state.currentRepo.checker === "" || this.state.currentRepo.checker === null) err += "- Checker cannot be empty\n";
+    if (this.state.currentRepo.approver === "" || this.state.currentRepo.approver === null) err += "- Approver cannot be empty\n";
+    if (this.state.currentRepo.checker === this.state.currentUser.id.toString() 
+        && this.state.currentRepo.approver === this.state.currentUser.id.toString()) {
       err += "- Maker, Checker and Approver cannot be the same person\n";
     } else {
-      if (this.state.currentDvP.checker === this.state.currentUser.id.toString()) err += "- Maker and Checker cannot be the same person (yourself)\n";
-      if (this.state.currentDvP.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
-      if (this.state.currentDvP.checker!==null && this.state.currentDvP.checker!=="" 
-            && this.state.currentDvP.checker === this.state.currentDvP.approver) err += "- Checker and Approver cannot be the same person\n";
+      if (this.state.currentRepo.checker === this.state.currentUser.id.toString()) err += "- Maker and Checker cannot be the same person (yourself)\n";
+      if (this.state.currentRepo.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
+      if (this.state.currentRepo.checker!==null && this.state.currentRepo.checker!=="" 
+            && this.state.currentRepo.checker === this.state.currentRepo.approver) err += "- Checker and Approver cannot be the same person\n";
     }
-
+*/
     if (err !=="" ) {
       err = "Form validation issues found:\n"+err;
       //alert(err);
@@ -728,7 +599,7 @@ async validateForm() {
     return true;
   }
 
-async submitDvP() {
+async executeRepo() {
   
   if (await this.validateForm()) { 
         console.log("Form Validation passed");
@@ -736,9 +607,9 @@ async submitDvP() {
         console.log("IsLoad=true");
         this.show_loading();
   
-        await DvPDataService.submitDraftById(
-          this.state.currentDvP.id,
-          this.state.currentDvP,
+        await RepoDataService.executeRepoById(
+          this.state.currentRepo.id,
+          this.state.currentRepo,
         )
         .then(response => {
           this.hide_loading();
@@ -750,26 +621,24 @@ async submitDvP() {
           this.setState({  
             datachanged: false,
           });
-          this.displayModal("DvP submitted. Routing to checker.", "OK", null, null, null);
+          this.displayModal("Repo executed successfully.", "OK", null, null, null);
         })
         .catch(e => {
           this.hide_loading();
   
-          console.log(e);
-          console.log(e.message);
-          this.displayModal("DvP submit failed.", null, null, null, "OK");
-  
           try {
-            console.log(e.response.data.message);
-            // Need to check draft and approved dvp names
-            if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-              this.displayModal("The DvP submit failed. The new dvp name is already used, please use another name.", null, null, null, "OK");
-            }
+            console.log("e->response->data->msg:  ", e.response.data.message);
+            console.log(e.message);
+            this.displayModal("Repo submit failed. "+e.response.data.message, null, null, null, "OK");
+                // Need to check draft and approved repo names
+//            if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
+//              this.displayModal("The Repo submit failed. The new repo name is already used, please use another name.", null, null, null, "OK");
+//            }
           } catch(e) {
             this.hide_loading();
   
             console.log("Error: ",e);
-            console.log("Response error:",e.response.data.message);
+            console.log("Response error:", e.response.data.message);
             if (e.response.data.message !== "") 
               this.displayModal("Error: "+e.response.data.message+". Please contact tech support.", null, null, null, "OK");
             else
@@ -781,7 +650,8 @@ async submitDvP() {
     }
   }
     
-async acceptDvP() {  // checker endorse
+/*
+async acceptRepo() {  // checker endorse
   
 //    if (await this.validateForm()) { 
 //      console.log("Form Validation passed");
@@ -789,9 +659,9 @@ async acceptDvP() {  // checker endorse
       console.log("IsLoad=true");
       this.show_loading();
 
-      await DvPDataService.acceptDraftById(
-        this.state.currentDvP.id,
-        this.state.currentDvP,
+      await RepoDataService.acceptDraftById(
+        this.state.currentRepo.id,
+        this.state.currentRepo,
       )
       .then(response => {
         this.hide_loading();
@@ -803,19 +673,19 @@ async acceptDvP() {  // checker endorse
         this.setState({  
           datachanged: false,
         });
-        this.displayModal("DvP request checked, sending for approval.", "OK", null, null, null);
+        this.displayModal("Repo request checked, sending for approval.", "OK", null, null, null);
       })
       .catch(e => {
         this.hide_loading();
 
         console.log(e);
         console.log(e.message);
-        this.displayModal("DvP accept failed.", null, null, null, "OK");
+        this.displayModal("Repo accept failed.", null, null, null, "OK");
 
         try {
           console.log(e.response.data.message);
           if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-            this.displayModal("The dvp accept failed. The new dvp name is already used, please use another name.", null, null, null, "OK");
+            this.displayModal("The repo accept failed. The new repo name is already used, please use another name.", null, null, null, "OK");
           }
         } catch(e) {
           this.hide_loading();
@@ -832,7 +702,7 @@ async acceptDvP() {  // checker endorse
     this.hide_loading();
   }
 
-async approveDvP() {
+async approveRepo() {
   
     //    if (await this.validateForm()) { 
     //      console.log("Form Validation passed");
@@ -840,9 +710,9 @@ async approveDvP() {
     console.log("IsLoad=true");
     this.show_loading();
 
-    await DvPDataService.approveDraftById(
-      this.state.currentDvP.id,
-      this.state.currentDvP,
+    await RepoDataService.approveDraftById(
+      this.state.currentRepo.id,
+      this.state.currentRepo,
     )
     .then(response => {
       this.hide_loading();
@@ -854,20 +724,20 @@ async approveDvP() {
       this.setState({  
         datachanged: false,
       });
-      this.displayModal("The DvP smart contract is approved, executed successfully"+ (typeof(response.data.smartcontractaddress)!=="undefined" && response.data.smartcontractaddress!==null && response.data.smartcontractaddress!==""? " and deployed at "+response.data.smartcontractaddress+". \n\nYou can start using it to transacting using the DvP smart contract now.": "."), "OK", null, null, null);
+      this.displayModal("The Repo smart contract is approved, executed successfully"+ (typeof(response.data.smartcontractaddress)!=="undefined" && response.data.smartcontractaddress!==null && response.data.smartcontractaddress!==""? " and deployed at "+response.data.smartcontractaddress+". \n\nYou can start using it to transacting using the Repo smart contract now.": "."), "OK", null, null, null);
     })
     .catch(e => {
       this.hide_loading();
 
       console.log("-->response:",e);
       console.log(e.message);
-      //this.displayModal("DvP approval failed. "+e.message+".", null, null, "OK");
+      //this.displayModal("Repo approval failed. "+e.message+".", null, null, "OK");
       this.displayModal(e.message+". "+(typeof(e.response.data.message)!=='undefined' && e.response.data.message!==null ? e.response.data.message:""), null, null, null, "OK");
 
       try {
         console.log(e.response.data.message);
         if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-          this.displayModal("The DvP smart contract update failed. The DvP smart contract name is already used, please use another name.", null, null, null, "OK");
+          this.displayModal("The Repo smart contract update failed. The Repo smart contract name is already used, please use another name.", null, null, null, "OK");
         }
       } catch(e) {
         this.hide_loading();
@@ -884,17 +754,17 @@ async approveDvP() {
     this.hide_loading();
   }
 
-async rejectDvP() {
+async rejectRepo() {
 
   console.log("isChecker? ", this.state.isChecker);
-  console.log("this.state.currentDvP.checkerComments: ", this.state.currentDvP.checkerComments);
+  console.log("this.state.currentRepo.checkerComments: ", this.state.currentRepo.checkerComments);
   console.log("isApprover? ", this.state.isApprover);
-  console.log("this.state.currentDvP.approverComments: ", this.state.currentDvP.approverComments);
+  console.log("this.state.currentRepo.approverComments: ", this.state.currentRepo.approverComments);
 
-  if ( this.state.isChecker && (typeof this.state.currentDvP.checkerComments==="undefined" || this.state.currentDvP.checkerComments==="" || this.state.currentDvP.checkerComments===null)) { 
+  if ( this.state.isChecker && (typeof this.state.currentRepo.checkerComments==="undefined" || this.state.currentRepo.checkerComments==="" || this.state.currentRepo.checkerComments===null)) { 
     this.displayModal("Please enter the reason for rejection in the Checker Comments.", null, null, null, "OK");
   } else 
-  if (this.state.isApprover && (typeof this.state.currentDvP.approverComments==="undefined" || this.state.currentDvP.approverComments==="" || this.state.currentDvP.approverComments===null)) {
+  if (this.state.isApprover && (typeof this.state.currentRepo.approverComments==="undefined" || this.state.currentRepo.approverComments==="" || this.state.currentRepo.approverComments===null)) {
     this.displayModal("Please enter the reason for rejection in the Approver Comments.", null, null, null, "OK");
   } else {
     //console.log("Form Validation passed");
@@ -902,9 +772,9 @@ async rejectDvP() {
     console.log("IsLoad=true");
     this.show_loading();
 
-    await DvPDataService.rejectDraftById(
-      this.state.currentDvP.id,
-      this.state.currentDvP,
+    await RepoDataService.rejectDraftById(
+      this.state.currentRepo.id,
+      this.state.currentRepo,
     )
     .then(response => {
       this.hide_loading();
@@ -916,33 +786,32 @@ async rejectDvP() {
       this.setState({  
         datachanged: false,
       });
-      this.displayModal("This dvp request is rejected. Routing back to maker.", "OK", null, null, null);
+      this.displayModal("This repo request is rejected. Routing back to maker.", "OK", null, null, null);
     })
     .catch(e => {
       this.hide_loading();
 
       console.log(e);
       console.log(e.message);
-      this.displayModal("DvP rejection failed.", null, null, null, "OK");
+      this.displayModal("Repo rejection failed.", null, null, null, "OK");
     });
   }
   this.hide_loading();
 }
-    
 
-async deleteDvP() {    
+async deleteRepo() {    
     console.log("IsLoad=true");
     this.show_loading();        // show progress
 
-    await DvPDataService.approveDeleteDraftById(
-      this.state.currentDvP.id,
-      this.state.currentDvP,
+    await RepoDataService.approveDeleteDraftById(
+      this.state.currentRepo.id,
+      this.state.currentRepo,
     )
     .then(response => {
       console.log("IsLoad=false");
       this.hide_loading();     // hide progress
 
-      this.displayModal("DvP is deleted.", "OK", null, null, null);
+      this.displayModal("Repo is deleted.", "OK", null, null, null);
       console.log(response.data);
       //this.props.router.navigate('/inbox');
     })
@@ -959,9 +828,9 @@ async deleteDvP() {
     console.log("IsLoad=true");
     this.show_loading();        // show progress
 
-    await DvPDataService.dropRequestById(
-      this.state.currentDvP.id,
-      this.state.currentDvP,
+    await RepoDataService.dropRequestById(
+      this.state.currentRepo.id,
+      this.state.currentRepo,
     )
     .then(response => {
       console.log("IsLoad=false");
@@ -979,7 +848,7 @@ async deleteDvP() {
       console.log(e);
     });
   }
-
+*/
   show_loading() {
     this.setState({isLoading: true});
   }
@@ -988,11 +857,6 @@ async deleteDvP() {
     this.setState({isLoading: false});
   }
 
-  /*
-  showModal_nochange = () => {
-    this.displayModal("No change is updated as you have not made any change.", null, null, null, "OK");
-  };
-*/
   showModal_Leave = () => {
     this.displayModal("You have made changes. Are you sure you want to leave this page without submitting?", "Yes, leave", null, null, "Cancel");
   };
@@ -1002,7 +866,7 @@ async deleteDvP() {
   };
   
   showModalDelete = () => {
-    this.displayModal("Are you sure you want to Delete this DvP?", null, "Yes, delete", null, "Cancel");
+    this.displayModal("Are you sure you want to Delete this Repo?", null, "Yes, delete", null, "Cancel");
   };
 
   hideModal = () => {
@@ -1010,10 +874,10 @@ async deleteDvP() {
   };
 
   render() {
-    const { underlyingDSGDList, PBMList, recipientList, currentDvP, checkerList, approverList } = this.state;
+    const { underlyingDSGDList, PBMList, recipientList, currentRepo, checkerList, approverList } = this.state;
     console.log("Render underlyingDSGDList:", underlyingDSGDList);
     console.log("Render recipientList:", recipientList);
-    console.log("Render currentDvP:", currentDvP);
+    console.log("Render currentRepo:", currentRepo);
 
     try {
       return (
@@ -1022,7 +886,7 @@ async deleteDvP() {
           <div>
           <header className="jumbotron col-md-8">
             <h3>
-              <strong>{currentDvP.txntype===0?"Create ":(currentDvP.txntype===1?"Update ":(currentDvP.txntype===2?"Delete ":null))}DvP { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
+              <strong>{this.state.currentRepo.txntype===0?"Execute ":""} Repo Transaction { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
             </h3>
           </header>
 
@@ -1034,15 +898,15 @@ async deleteDvP() {
 
                   <form autoComplete="off">
                     <div className="form-group">
-                      <label htmlFor="name">DvP Smart Contract Name</label>
+                      <label htmlFor="name">Repo Smart Contract Name</label>
                       <input
                         type="text"
                         className="form-control"
                         id="name"
                         maxLength="45"
-                        value={currentDvP.name}
+                        value={currentRepo.name}
                         onChange={this.onChangeName}
-                        disabled={!this.state.isMaker || currentDvP.txntype===2}
+                        disabled="true"
                         />
                     </div>
                   <div className="form-group">
@@ -1053,29 +917,28 @@ async deleteDvP() {
                       id="description"
                       maxLength="255"
                       required
-                      value={currentDvP.description}
+                      value={currentRepo.description}
                       onChange={this.onChangeDescription}
                       name="description"
                       autoComplete="off"
-                      disabled={!this.state.isMaker || currentDvP.txntype===2}
+                      disabled="true"
                       />
                   </div>
-
                   <div className="form-group">
                     <label htmlFor="counterparty1">Counterparty 1 Wallet Addr *</label>
                     <select
                           onChange={this.onChangeCounterParty1}                         
                           className="form-control"
                           id="counterparty1"
-                          disabled={!this.state.isMaker}
-                        >
+                          disabled="true"
+                          >
                           <option value=""> </option>
                           {
                             Array.isArray(recipientList) ?
                             recipientList.map( (d) => {
                                 // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
                                 if (typeof d.id === "number")
-                                  return <option value={d.id} selected={d.walletaddress === currentDvP.counterparty1}>{d.name} ({d.walletaddress})</option>
+                                  return <option value={d.id} selected={d.walletaddress === this.state.currentRepo.counterparty1}>{d.name} ({d.walletaddress})</option>
                               })
                             : null
                           }
@@ -1087,15 +950,15 @@ async deleteDvP() {
                           onChange={this.onChangeCounterParty2}                         
                           className="form-control"
                           id="counterparty2"
-                          disabled={!this.state.isMaker}
-                        >
+                          disabled="true"
+                          >
                           <option value=""> </option>
                           {
                             Array.isArray(recipientList) ?
                             recipientList.map( (d) => {
                                 // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
                                 if (typeof d.id === "number")
-                                  return <option value={d.walletaddress} selected={d.walletaddress === currentDvP.counterparty2}>{d.name} ({d.walletaddress})</option>
+                                  return <option value={d.walletaddress} selected={d.walletaddress === this.state.currentRepo.counterparty2}>{d.name} ({d.walletaddress})</option>
                               })
                             : null
                           }
@@ -1107,8 +970,8 @@ async deleteDvP() {
                           onChange={this.onChangeUnderlying1}                         
                           className="form-control"
                           id="underlyingTokenID1"
-                          disabled={!this.state.isMaker}
-                        >
+                          disabled="true"
+                          >
                           <option value=""> </option>
                           <option value="" disabled>--- Digital Cash ---</option>
                           {
@@ -1116,7 +979,7 @@ async deleteDvP() {
                             underlyingDSGDList.map( (d) => {
                               // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
                                 if (typeof d.id === "number")
-                                  return <option value={d.id} selected={d.id === currentDvP.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                                  return <option value={d.id} selected={d.id === this.state.currentRepo.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                               })
                             : null
                           }
@@ -1126,7 +989,7 @@ async deleteDvP() {
                             PBMList.map( (d) => {
                               // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
                                 if (typeof d.id === "number")
-                                  return <option value={d.id} selected={d.id === currentDvP.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                                  return <option value={d.id} selected={d.id === this.state.currentRepo.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                               })
                             : null
                           }
@@ -1138,16 +1001,16 @@ async deleteDvP() {
                           onChange={this.onChangeUnderlying2}                         
                           className="form-control"
                           id="underlyingTokenID2"
-                          disabled={!this.state.isMaker || currentDvP.underlyingTokenID1 === ""}
-                        >
+                          disabled="true"
+                          >
                           <option value=""> </option>
                           <option value="" disabled>--- Digital Cash ---</option>
                           {
                             Array.isArray(underlyingDSGDList) ?
                             underlyingDSGDList.map( (d) => {
                               // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                              if (typeof d.id === "number" && d.blockchain === currentDvP.blockchain)
-                                return <option value={d.id} selected={d.id === currentDvP.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                              if (typeof d.id === "number" && d.blockchain === this.state.currentRepo.blockchain)
+                                return <option value={d.id} selected={d.id === this.state.currentRepo.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                             })
                             : null
                           }
@@ -1156,15 +1019,15 @@ async deleteDvP() {
                             Array.isArray(PBMList) ?
                             PBMList.map( (d) => {
                               // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                              if (typeof d.id === "number" && d.blockchain === currentDvP.blockchain)
-                                return <option value={d.id} selected={d.id === currentDvP.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                              if (typeof d.id === "number" && d.blockchain === this.state.currentRepo.blockchain)
+                                return <option value={d.id} selected={d.id === this.state.currentRepo.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                             })
                             : null
                           }
                     </select>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="blockchain">Blockchain to Deploy at</label>
+                    <label htmlFor="blockchain">Blockchain to deploy at</label>
                     {// use the blockchain where the underlying was deployed
                     }
                     <select
@@ -1174,9 +1037,9 @@ async deleteDvP() {
                           disabled="true"
                         >
                           <option >   </option>
-                          <option value="80002"  selected={currentDvP.blockchain === 80002}>Polygon   Testnet Amoy</option>
-                          <option value="11155111" selected={currentDvP.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
-                          <option value="80001"  selected={currentDvP.blockchain === 80001} disabled>Polygon   Testnet Mumbai (Deprecated)</option>
+                          <option value="80002"  selected={this.state.currentRepo.blockchain === 80002}>Polygon   Testnet Amoy</option>
+                          <option value="11155111" selected={this.state.currentRepo.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
+                          <option value="80001"  selected={this.state.currentRepo.blockchain === 80001} disabled>Polygon   Testnet Mumbai (Deprecated)</option>
                           <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
                           <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
                           <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
@@ -1199,12 +1062,12 @@ async deleteDvP() {
                           min="0"
                           step="1"
                           required
-                          value={currentDvP.amount1}
+                          value={this.state.currentRepo.amount1}
                           onChange={this.onChangeAmount1}
                           name="amount1"
                           autoComplete="off"
-                          disabled={!this.state.isMaker}
-                        />
+                          disabled="true"
+                          />
                       </div>
                     </td>
                     <td style={{border : '0'}}>
@@ -1220,26 +1083,26 @@ async deleteDvP() {
                           min="0"
                           step="1"
                           required
-                          value={currentDvP.amount2}
+                          value={this.state.currentRepo.amount2}
                           onChange={this.onChangeAmount2}
                           name="amount2"
                           autoComplete="off"
-                          disabled={!this.state.isMaker}
-                        />
+                          disabled="true"
+                          />
                       </div>
                     </td>
                     </tr>
                     </table>
                     <br/>
-
+{/*
                     <div className="form-group">
                       <label htmlFor="checker">Checker *</label>
                       <select
-                            value={currentDvP.checker}
+                            value={currentRepo.checker}
                             onChange={this.onChangeChecker}                         
                             className="form-control"
                             id="checker"
-                            disabled={!this.state.isMaker || currentDvP.txntype===2}
+                            disabled={!this.state.isMaker || this.state.currentRepo.txntype===2}
                             >
                             {
                               Array.isArray(checkerList) ?
@@ -1258,21 +1121,21 @@ async deleteDvP() {
                         className="form-control"
                         id="checkerComments"
                         required
-                        value={currentDvP.checkerComments}
+                        value={currentRepo.checkerComments}
                         onChange={this.onChangeCheckerComments}
                         name="checkerComments"
                         autoComplete="off"
-                        disabled={!this.state.isChecker || currentDvP.id === 0 || currentDvP.status !== 1 }
+                        disabled={!this.state.isChecker}
                         />
                     </div>
                     <div className="form-group">
                       <label htmlFor="approver">Approver *</label>
                       <select
-                          value={currentDvP.approver}
+                          value={currentRepo.approver}
                           onChange={this.onChangeApprover}                         
                           className="form-control"
                           id="approver"
-                          disabled={!this.state.isMaker || currentDvP.txntype===2}
+                          disabled={!this.state.isMaker || this.state.currentRepo.txntype===2}
                           >
                         {
                           Array.isArray(approverList) ?
@@ -1291,128 +1154,116 @@ async deleteDvP() {
                         className="form-control"
                         id="approverComments"
                         required
-                        value={currentDvP.approverComments}
+                        value={currentRepo.approverComments}
                         onChange={this.onChangeApproverComments}
                         name="approverComments"
                         autoComplete="off"
-                        disabled={!this.state.isApprover || currentDvP.id === 0 || currentDvP.status !== 2 }
+                        disabled={!this.state.isApprover}
                         />
                     </div>
+*/}
+
                   </form>
-
-
-              {  //// buttons!
-
-
-                  this.state.isMaker && currentDvP.id === 0 &&  // creating new draft
-                        <button 
-                        onClick={this.createDvPDraft} 
-                        type="submit"
-                        className="m-3 btn btn-sm btn-primary"
-                        >
-                          Submit Request
-                        </button>
-              }
-                    
-              { 
-                  this.state.isMaker && currentDvP.status <= 0 &&  // creating draft or amending draft
-                        <>
-                            <button
-                            type="submit"
-                            className="m-3 btn btn-sm btn-primary"
-                            onClick={this.submitDvP}
-                            >
-                              Submit 
-                              {
-                                (currentDvP.txntype===0? " Create ":
-                                (currentDvP.txntype===1? " Update ":
-                                (currentDvP.txntype===2? " Delete ":null)))
-                              }
-                              Request
-                            </button> 
-
-                            <button
-                              className="m-3 btn btn-sm btn-danger"
-                              onClick={this.showModal_dropRequest}
-                            >
-                              Drop Request
-                            </button>
-                        </>
-              }
-
-              {
-                this.state.isChecker && currentDvP.status === 1 && 
-                    <button
-                      type="submit"
-                      className="m-3 btn btn-sm btn-primary"
-                      onClick={this.acceptDvP}
-                    >
-                      Endorse
-                      {
-                        (currentDvP.txntype===0? " Create ":
-                        (currentDvP.txntype===1? " Update ":
-                        (currentDvP.txntype===2? " Delete ":null)))
-                      }
-                      Request
-                    </button> 
-              }
-              
-              {
-                    this.state.isApprover && currentDvP.status === 2 &&
+                  {
+                  //this.state.isMaker?
+                  <>
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-primary"
-                    onClick={currentDvP.txntype===2? this.deleteDraft: this.approveDvP}
+                    onClick={this.executeRepo}
+                    disabled={this.state.currentRepo.smartcontractaddress === ""}
+
+                    >
+                      Execute Repo transaction 
+                      {
+                        //(this.state.currentRepo.txntype===0? " Create ":
+                        //(this.state.currentRepo.txntype===1? " Update ":
+                        //(this.state.currentRepo.txntype===2? " Delete ":null)))
+                      }
+                      
+                    </button> 
+{/*
+                    <button
+                      className="m-3 btn btn-sm btn-danger"
+                      onClick={this.showModal_dropRequest}
+                    >
+                      Drop Request
+                    </button>
+*/}
+                </>
+
+                  
+                  /*
+                  :
+                  (this.state.isChecker? 
+                  <button
+                  type="submit"
+                  className="m-3 btn btn-sm btn-primary"
+                  onClick={this.acceptRepo}
+                  >
+                    Endorse
+                    {
+                      (this.state.currentRepo.txntype===0? " Create ":
+                      (this.state.currentRepo.txntype===1? " Update ":
+                      (this.state.currentRepo.txntype===2? " Delete ":null)))
+                    }
+                    Request
+
+                  </button> 
+                  :
+                  (
+                    this.state.isApprover?
+                    <button
+                    type="submit"
+                    className="m-3 btn btn-sm btn-primary"
+                    onClick={this.state.currentRepo.txntype===2? this.deleteDraft: this.approveRepo}
                     >
                       Approve
                       {
-                        (currentDvP.txntype===0? " Create ":
-                        (currentDvP.txntype===1? " Update ":
-                        (currentDvP.txntype===2? " Delete ":null)))
+                        (this.state.currentRepo.txntype===0? " Create ":
+                        (this.state.currentRepo.txntype===1? " Update ":
+                        (this.state.currentRepo.txntype===2? " Delete ":null)))
                       }
                       Request
 
                     </button> 
-                
-              }
-&nbsp;
-              {
-                currentDvP.id !== 0 && (this.state.isChecker || this.state.isApprover) && 
-                currentDvP.status < 2 &&   // status < 2 still in draft and not deployed yet
-                    <button
-                    type="submit"
-                    className="m-3 btn btn-sm btn-danger"
-                    onClick={this.rejectDvP}
-                    >
-                      Reject
-                    </button> 
-              }
-&nbsp;
-              { 
-                this.state.isMaker?
-                (this.state.datachanged ? 
-                  <button className="m-3 btn btn-sm btn-secondary" onClick={this.showModal_Leave}>
-                    Cancel
-                  </button>
-                  : 
-                  <Link to="/dvp">
-                  <button className="m-3 btn btn-sm btn-secondary">
-                    Cancel
-                  </button>
-                  </Link>
-                )
-              : 
-                <Link to="/dvp">
-                <button className="m-3 btn btn-sm btn-secondary">
-                  Cancel
-                </button>
-                </Link>
-              }  
+                  */
+//                    : null
+//                  ))
+                  }
+   &nbsp;
+                  {
+                    this.state.isChecker || this.state.isApprover ?
+
+                  <button
+                  type="submit"
+                  className="m-3 btn btn-sm btn-danger"
+                  onClick={this.rejectRepo}
+                  >
+                    Reject
+                  </button> 
+                  : null
+                  }
+  &nbsp;
+                  { 
+
+                   ((this.state.datachanged) ? 
+                    <button className="m-3 btn btn-sm btn-secondary" onClick={this.showModal_Leave}>
+                      Back
+                    </button>
+                    : 
+                    <Link to="/inbox">
+                    <button className="m-3 btn btn-sm btn-secondary">
+                      Back
+                    </button>
+                    </Link>
+                   )
+                   }
 
 
                   {this.state.isLoading ? <LoadingSpinner /> : null}
 
-                  <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/inbox'} handleProceed2={this.deleteDvP} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
+                  <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/repo'} handleProceed2={this.deleteRepo} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
                     {this.state.modalmsg}
                   </Modal>
 
@@ -1429,4 +1280,4 @@ async deleteDvP() {
   }
 }
 
-export default withRouter(DvP);
+export default withRouter(Repo);

@@ -1163,6 +1163,7 @@ exports.findDraftByNameExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
+      console.log("findDraftByNameExact data: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1186,6 +1187,7 @@ exports.findDraftByApprovedId = (req, res) => {
     { where: condition },
     )
     .then(data => {
+      console.log("findDraftByApprovedId data: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1206,6 +1208,7 @@ exports.findExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
+      console.log("findExact data: ", data);
       res.send(data);
     })
     .catch(err => {

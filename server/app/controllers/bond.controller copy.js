@@ -1130,9 +1130,13 @@ exports.findDraftByNameExact = (req, res) => {
   } : null;
 
   Bond_Draft.findAll(
-    { where: condition },
-    )
+    { 
+      // raw: true, // display only dataValues, not metadata
+      where: condition,
+    }
+  )
     .then(data => {
+      console.log("findDraftByNameExact data: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1153,9 +1157,13 @@ exports.findDraftByApprovedId = (req, res) => {
   } : null;
 
   Bond_Draft.findAll(
-    { where: condition },
-    )
+    { 
+      // raw: true, // display only dataValues, not metadata
+      where: condition 
+    }
+  )
     .then(data => {
+      console.log("findDraftByApprovedId data: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1173,9 +1181,13 @@ exports.findExact = (req, res) => {
   var condition = name ? { name: name } : null;
 
   Bond.findAll(
-    { where: condition },
-    )
+    { 
+      // raw: true, // display only dataValues, not metadata
+      where: condition 
+    }
+  )
     .then(data => {
+      console.log("findExact data: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1198,6 +1210,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
   
   Bond.findAll(
   { 
+    // raw: true, // display only dataValues, not metadata
     where: { id : Id },
   })
   .then(async data => {
@@ -1308,10 +1321,12 @@ exports.findByName = (req, res) => {
   var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
 
   Bond.findAll(
-    { include: db.recipients,
+    { 
+      // raw: true, // display only dataValues, not metadata
+      include: db.recipients,
       where: condition
-    },
-    )
+    }
+  )
     .then(data => {
       console.log("Bond.findByName:", data)
       res.send(data);
@@ -1335,6 +1350,7 @@ exports.getAllByBondId = (req, res) => {
 
   Bond.findAll(
     { 
+      // raw: true, // display only dataValues, not metadata
       where: condition,
       //include: db.recipients
       include: [
@@ -1382,6 +1398,7 @@ exports.getAll = (req, res) => {
 
   Bond.findAll(
   {
+    // raw: true, // display only dataValues, not metadata
     include: [
       {
         model: db.recipients,
@@ -1445,6 +1462,7 @@ exports.getAllDraftsByUserId = (req, res) => {
 
   Bond_Draft.findAll( 
     { 
+      // raw: true, // display only dataValues, not metadata
       where: condition,
       //include: db.recipients
       include: [
@@ -1493,6 +1511,7 @@ exports.getAllDraftsByBondId = (req, res) => {
     },
     { include: db.recipients},
 */
+      // raw: true, // display only dataValues, not metadata
       where: condition,
       //include: db.recipients
       include: [
@@ -1567,11 +1586,12 @@ exports.findOne = (req, res) => {
   const id = req.params.id;
 
   Bond.findByPk(id, {
+    // raw: true, // display only dataValues, not metadata
     include: db.recipients,
     include: db.campaigns,
   })
     .then(data => {
-      //console.log("Bond.findByPk:", data)
+      console.log("Bond.findOne:", data)
       if (data) {
         res.send(data);
       } else {
@@ -1592,6 +1612,7 @@ exports.getAllInvestorsById = (req, res) => {
   console.log("In Bond.getAllInvestorsById: id=", id);
 
   Bond.findByPk(id, {
+    // raw: true, // display only dataValues, not metadata
     include: db.recipients,
     include: db.campaigns,
   })

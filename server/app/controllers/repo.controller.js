@@ -1,3 +1,4 @@
+const { request } = require("http");
 const db = require("../models");
 const AuditTrail = db.audittrail;
 const Repo = db.repos;
@@ -50,6 +51,7 @@ exports.draftCreate = async (req, res) => {
       underlyingTokenID2    : req.body.underlyingTokenID2,
       amount1               : req.body.amount1,
       amount2               : req.body.amount2,
+      daycountconvention    : req.body.daycountconvention, 
       blockchain            : req.body.blockchain,
 
       txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
@@ -58,7 +60,7 @@ exports.draftCreate = async (req, res) => {
       checker               : req.body.checker,
       approver              : req.body.approver,
       actionby              : req.body.actionby,
-      approvedrepoid         : req.body.approvedrepoid,
+      approvedrepoid        : req.body.approvedrepoid,
       status                : 1,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
       name_changed          : req.body.name_changed,
       description_changed   : req.body.description_changed,
@@ -106,6 +108,7 @@ exports.draftCreate = async (req, res) => {
         underlyingTokenID2    : req.body.underlyingTokenID2,
         amount1               : req.body.amount1,
         amount2               : req.body.amount2,
+        daycountconvention    : req.body.daycountconvention, 
         blockchain            : req.body.blockchain,
 
         txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
@@ -146,33 +149,34 @@ exports.create_review = async (req, res) => {
     return;
   }
 
+  const id = req.params.id;
   console.log("Received for Repo Review:");
   console.log(req.body);
 
   await Repo_Draft.update(
-      { 
-        checkerComments :   checkercomments,
-        status:             2   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
-      }, 
-      { where:      { id: id }},
-      )
-      .then(num => {
-        if (num == 1) {
-          res.send({
-            message: "Repo status has been updated successfully."
-          });
-        } else {
-          res.send({
-            message: `${req.body}. Record updated =${num}. Cannot update Repo with id=${id}. Maybe Repo was not found or req.body is empty!`
-          });
-        }
-      })
-      .catch(err => {
-        console.log(err);
-        res.status(500).send({
-          message: `Error updating Repo. ${err}`
-        });
-      }); 
+    { 
+      checkerComments: req.body.checkerComments,
+      status: 2 // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+    }, 
+    { where: { id: id } }
+  )
+  .then(num => {
+    if (num == 1) {
+      res.send({
+        message: "Repo status has been updated successfully."
+      });
+    } else {
+      res.send({
+        message: `Record updated =${num}. Cannot update Repo with id=${id}. Maybe Repo was not found or req.body is empty!`
+      });
+    }
+  })
+  .catch(err => {
+    console.log(err);
+    res.status(500).send({
+      message: `Error updating Repo. ${err}`
+    });
+  }); 
 }; // create_review
 
 exports.approveDraftById = async (req, res) => {  // 
@@ -247,91 +251,91 @@ exports.approveDraftById = async (req, res) => {  //
   console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
 
   async function compileSmartContract() {
-    // solc compiler
     solc = require("solc");
-
-    // file reader
     fs = require("fs");
 
     console.log("Reading smart contract file... ");
-
-    // Reading the file
-    file = fs.readFileSync("./server/app/contracts/ERCTokenRepo.sol").toString();
-    // console.log(file);
+    file = fs.readFileSync("./server/app/contracts/ERC20TokenRepo.sol").toString();
 
     // input structure for solidity compiler
     var input = {
       language: "Solidity",
       sources: {
-        "ERCTokenRepo.sol": {
+        "ERC20TokenRepo.sol": {
           content: file,
         },
       },
       settings: {
+        optimizer: {     // to avoid "Stack too deep" error
+          enabled: true, // Enable optimizer to reduce stack depth
+          runs: 200,     // Optimize for 200 runs
+        },
+        viaIR: true,     // Enable IR-based compilation to avoid stack issues
         outputSelection: {
           "*": {
             "*": ["*"],
           },
         },
-      },
+      },    
     };
 
     const path = require('path');
     // https://stackoverflow.com/questions/67321111/file-import-callback-not-supported/68459731#68459731
     function findImports(relativePath) {
-      //my imported sources are stored under the node_modules folder!
       const absolutePath = path.resolve(__dirname, '../../../node_modules', relativePath);
       const source = fs.readFileSync(absolutePath, 'utf8');
-      console.log("reading file: ", absolutePath);
-
+      console.log("Reading file: ", absolutePath);
       return { contents: source };
     }
       
     console.log("Compiling smart contract file... ");
     var output = JSON.parse(solc.compile(JSON.stringify(input), { import: findImports }));
+    // Check for compilation errors
+    if (output.errors && output.errors.some(error => error.severity === 'error')) {
+      console.error("Compilation errors:", output.errors);
+      throw new Error("Smart contract compilation failed");
+    }
+    
     console.log("Compilation done... ");
-    console.log("Result of compilation: ", output);
-
     console.log("Generating bytecode from smart contract file ");
-    ABI = output.contracts["ERCTokenRepo.sol"]["ERCTokenREPO"].abi;
-    bytecode = output.contracts["ERCTokenRepo.sol"]["ERCTokenREPO"].evm.bytecode.object;
-    // console.log("solc.compile output: ", output);
-    // console.log("ABI: ", ABI);
-    // console.log("Bytecode: ", bytecode);
-    await fs.writeFile("./server/app/abis/ERCTokenRepo.abi.json", JSON.stringify(ABI) , 'utf8', function (err) {
+    ABI = output.contracts["ERC20TokenRepo.sol"]["ERC20TokenRepo"].abi;
+    bytecode = output.contracts["ERC20TokenRepo.sol"]["ERC20TokenRepo"].evm.bytecode.object;
+
+    await fs.writeFile("./server/app/abis/ERC20TokenRepo.abi.json", JSON.stringify(ABI), 'utf8', function (err) {
       if (err) {
-        console.log("An error occured while writing Repo ABI JSON Object to File.");
-        return console.log(err);
+        console.log("An error occurred while writing Repo ABI JSON Object to File.");
+        throw err;
       }
       console.log("Repo ABI JSON file has been saved.");
     });
-    await fs.writeFile("./server/app/abis/ERCTokenRepo.bytecode.json", JSON.stringify(bytecode) , 'utf8', function (err) {
+    await fs.writeFile("./server/app/abis/ERC20TokenRepo.bytecode.json", JSON.stringify(bytecode), 'utf8', function (err) {
       if (err) {
-        console.log("An error occured while writing Repo bytecode JSON Object to File.");
-        return console.log(err);
+        console.log("An error occurred while writing Repo bytecode JSON Object to File.");
+        throw err;
       }
       console.log("Repo Bytecode JSON file has been saved.");
     });
-
   }
 
-  async function dAppCreate() {  // create and deploy new smart contract
+  async function dAppCreate() {  // create and deploy new smart contract and createTrade()
     var errorSent = false;
     updatestatus = false;
 
     fs = require("fs");
 
+    console.log("Compiling smart contract...");
+    await compileSmartContract();
+/*
     try {
-      if (! (fs.existsSync("./server/app/abis/ERCTokenRepo.abi.json") && fs.existsSync("./server/app/abis/ERCTokenRepo.bytecode.json"))) {
+      if (! (fs.existsSync("./server/app/abis/ERC20TokenRepo.abi.json") && fs.existsSync("./server/app/abis/ERC20TokenRepo.bytecode.json"))) {
         console.log("Compiling smart contract...");
         await compileSmartContract();
       } else{
-        // Just read the ABI file
         console.log("Repo ABI and Bytecode files are present, just read them, no need to recompile...");
         console.log("Read Repo ABI JSON file.");
-        ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenRepo.abi.json").toString());
+        ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.abi.json").toString());
         console.log("Read Repo Bytecode JSON file.");
-        bytecode = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenRepo.bytecode.json").toString());
+        bytecode = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.bytecode.json").toString());
       }
     } catch(err) {
       console.error("Err7: ",err)
@@ -344,76 +348,154 @@ exports.approveDraftById = async (req, res) => {  //
       }
       return false;
     }
-    
+*/   
     // Creation of Web3 class
     Web3 = require("web3");
 
-    // Setting up a HttpProvider
-    web3 = new Web3( 
-      Web3.providers.HttpProvider(
-        `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
-      ) 
-    );
-    //console.log("web3: =========>", web3);
+    // Validate environment variables
+    if (!ETHEREUM_NETWORK || !INFURA_API_KEY) {
+      console.error("Missing ETHEREUM_NETWORK or INFURA_API_KEY environment variables");
+      if (!errorSent) {
+        res.status(500).send({ 
+          message: "Server configuration error: Missing ETHEREUM_NETWORK or INFURA_API_KEY"
+        });
+        errorSent = true;
+      }
+      return false;
+    }
+
+    // Initialize Web3 provider
+    const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;
+    console.log("Initializing Web3 provider with URL:", providerUrl.replace(INFURA_API_KEY, '****'));
+
+    try {
+      web3 = new Web3(new Web3.providers.HttpProvider(providerUrl));
+      
+      // Test provider connection
+      await web3.eth.getNodeInfo();
+      console.log("Web3 provider connected successfully");
+    } catch (err) {
+      console.error("Failed to connect to Web3 provider:", err);
+      if (!errorSent) {
+        res.status(500).send({ 
+          message: "Failed to connect to Ethereum network: " + err.message
+        });
+        errorSent = true;
+      }
+      return false;
+    }
 
     console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
     // Creating a signing account from a private key
     const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
-    // console.log("signer:", signer);  // contains private key
     console.log("req.body = ", req.body);
 
     console.log("Startdate (unix time) = ", Number(new Date(req.body.startdate)));
     console.log("Enddate   (unix time) = ", Number(new Date(req.body.enddate)));
     try {
-//      const this_amount1 = req.body.amount1 * 1e18;
-//      const this_amount2 = req.body.amount2 * 1e18;
-//const this_amount1 = web3.utils.toWei(req.body.amount1, "ether"); // returns string
-//const this_amount2 = web3.utils.toWei(req.body.amount2, "ether"); // returns string
 
-const BN = require('bn.js');
-const this_amount1 = new BN(req.body.amount1).mul(new BN("1000000000000000000")); 
-const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000")); 
+    // Validate inputs
+    if (!req.body.amount1 || !req.body.amount2 || isNaN(parseFloat(req.body.amount1)) || isNaN(parseFloat(req.body.amount2))) {
+      throw new Error("Invalid amount1 or amount2");
+    }
+
+    // Convert amounts to Wei using web3.utils.toWei
+    const this_amount1 = web3.utils.toWei(req.body.amount1.toString(), "ether");
+    const this_amount2 = web3.utils.toWei(req.body.amount2.toString(), "ether");
+
+    console.log("this_amount1 (Wei): ", this_amount1);
+    console.log("this_amount2 (Wei): ", this_amount2);
+
+    const ERC20TokenRepoContract = new web3.eth.Contract(ABI);
 
       // Deploy contract
       const deployContract = async () => {
-        console.log('Attempting to deploy from account:', signer.address);
-        const ERCTokenRepocontract = new web3.eth.Contract(ABI);
-        const contractTx = await ERCTokenRepocontract.deploy({
-          data: bytecode,
-          arguments:  [ 
-            req.body.name, 
-            req.body.counterparty1, 
-            req.body.counterparty2, 
-            req.body.smartcontractaddress1, 
-            req.body.smartcontractaddress2, 
-            this_amount1.toString(), 
-            this_amount2.toString(), 
-            Number(new Date(req.body.startdate)),
-            Number(new Date(req.body.enddate))
-          ],
-        });
+        
+        console.log('Creating trade parameters in Repo contract...');
+        console.log('createTrade req.body:', JSON.stringify(req.body, null, 2));
 
-        // https://github.com/web3/web3.js/issues/1001
-        web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+        // Validate all required inputs
+        const requiredFields = [
+          'startdate', 'starttime', 'enddate', 'endtime', 'bondisin',
+          'securityLB', 'startamount', 'interestamount',
+          'counterparty1', 'counterparty2', 'smartcontractaddress1', 'smartcontractaddress2'
+        ];
+        for (const field of requiredFields) {
+          if (!req.body[field]) {
+            throw new Error(`Missing required field: ${field}`);
+          }
+        }
+
+        // Validate time inputs
+        if (!req.body.starttime.match(/^\d{2}:\d{2}(:\d{2})?$/) || !req.body.endtime.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+          throw new Error("Invalid time format for starttime or endtime (expected HH:MM or HH:MM:SS)");
+        }
+
+        // Validate addresses
+        if (!web3.utils.isAddress(req.body.counterparty1) || !web3.utils.isAddress(req.body.counterparty2)) {
+          throw new Error('Invalid counterparty addresses');
+        }
+        if (!web3.utils.isAddress(req.body.smartcontractaddress1) || !web3.utils.isAddress(req.body.smartcontractaddress2)) {
+          throw new Error('Invalid token addresses');
+        }
+
+        // Validate numeric fields
+        if (isNaN(parseFloat(req.body.startamount)) || isNaN(parseFloat(req.body.interestamount))) {
+          throw new Error("Invalid startamount or interestamount");
+        }
+
+        // Convert SGT time to UTC
+        const startDateTimeSGT = Math.floor(new Date(req.body.startdate).getTime() / 1000) + parseInt(req.body.starttime.split(':')[0]) * 3600 + parseInt(req.body.starttime.split(':')[1]) * 60;
+        const maturityDateTimeSGT = Math.floor(new Date(req.body.enddate).getTime() / 1000) + parseInt(req.body.endtime.split(':')[0]) * 3600 + parseInt(req.body.endtime.split(':')[1]) * 60;
+        const SGT_OFFSET = 8 * 3600; // SGT is UTC+8
+        const startDateTimeUTC = startDateTimeSGT - SGT_OFFSET;
+        const maturityDateTimeUTC = maturityDateTimeSGT - SGT_OFFSET;
+
+        const tradeInput = {
+          startDateTime: startDateTimeUTC,
+          maturityDateTime: maturityDateTimeUTC,
+          bondIsin: req.body.bondisin,
+          counterparty1RepoType: (req.body.securityLB === "B" ? 0 : 1), // RepoType: 0=Repo, 1=ReverseRepo
+          bondAmount: (req.body.securityLB === "B" ? this_amount1 : this_amount2),
+          startAmount: web3.utils.toWei(req.body.startamount.toString(), 'ether'),
+          interestAmount: web3.utils.toWei(req.body.interestamount.toString(), 'ether'),
+          cashAmount: (req.body.securityLB === "B" ? this_amount2 : this_amount1),
+          counterparty1: req.body.counterparty1,
+          counterparty2: req.body.counterparty2,
+          cashToken: (req.body.securityLB === "B" ? req.body.smartcontractaddress2 : req.body.smartcontractaddress1),
+          bondToken: (req.body.securityLB === "B" ? req.body.smartcontractaddress1 : req.body.smartcontractaddress2),
+        };
+
+        console.log('Attempting to deploy from account:', signer.address);
+        const nonce = await web3.eth.getTransactionCount(signer.address, "latest");
+
+        const deployTx = ERC20TokenRepoContract.deploy({ data: bytecode, arguments: [tradeInput] });  
+        let gasFees;
+        try {
+          gasFees = await deployTx.estimateGas({ from: signer.address });
+        } catch (error2) {
+          console.error("Error while estimating Gas fee: ", error2);
+          gasFees = 2100000; // Default gas limit
+        }
+        console.log("Estimated gas fee for deploy: ", gasFees);
 
         const createTransaction = await web3.eth.accounts.signTransaction(
           {
             from: signer.address,
-            data: contractTx.encodeABI(),
-            gas: 8700000, // 4700000,
+            data: deployTx.encodeABI(),
+            gas: Math.floor(gasFees * 1.1),
+            gasPrice: await web3.eth.getGasPrice(), // Add gasPrice
           },
           signer.privateKey
         );
-        console.log('Sending signed txn...');
-        //console.log('Sending signed txn:', createTransaction);
-
+        console.log('Sending signed Repo deploy txn...');
 
         const createReceipt = await web3.eth.sendSignedTransaction(
           createTransaction.rawTransaction, 
         
           function (error1, hash) {
             if (error1) {
-                console.log("Error11a  when submitting your signed transaction:", error1);
+                console.log("Error11a when submitting your signed Repo deploy transaction:", error1);
                 if (!errorSent) {
                   console.log("Sending error 400 back to client");
                   res.status(400).send({ 
@@ -432,9 +514,8 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
                 // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
                 web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
                   if (receipt) {
-                    console.log('>> GOT RECEIPT!!!!!!!!!!!!!!!!!!!!!!!');
+                    console.log('>>>>>>>>>>>>>>>> GOT RECEIPT -->> ', receipt);
                     clearInterval(interval);
-                    console.log('Receipt -->>: ', receipt);
 
                     const trx = await web3.eth.getTransaction(hash);
                     console.log('trx.status -->>: ',trx);
@@ -452,12 +533,12 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
                       errorSent = true;
                     }
                     return false;
-                      }
+                  }
                 });
                 timer++;
               }, 1000);
             } // function
-          })
+          })  // sendSignedTransaction
           .on("error", err => {
               console.log("Err22 sentSignedTxn error: ", err)
               if (!errorSent) {
@@ -468,20 +549,184 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
                 errorSent = true;
               }
               return false;
-        // do something on transaction error
           }); // sendSignedTransaction
 
         console.log('**** Txn executed:', createReceipt);
-
         console.log('New Contract deployed at address', createReceipt.contractAddress);
         newcontractaddress = createReceipt.contractAddress;
 
+        // Update contract instance with deployed address
+        ERC20TokenRepoContract.options.address = newcontractaddress;
         return true;
+      };  // deployContract
 
-      };
+      /*
+      async function createTrade() {
+        console.log('Creating trade in Repo contract...');
+        console.log('createTrade req.body:', JSON.stringify(req.body, null, 2));
+        const nonce = await web3.eth.getTransactionCount(signer.address, "latest");
 
-      return(await deployContract());
+        try {
+          // Validate all required inputs
+          const requiredFields = [
+            'startdate', 'starttime', 'enddate', 'endtime', 'bondisin',
+            'securityLB', 'startamount', 'interestamount',
+            'counterparty1', 'counterparty2', 'smartcontractaddress1', 'smartcontractaddress2'
+          ];
+          for (const field of requiredFields) {
+            if (!req.body[field]) {
+              throw new Error(`Missing required field: ${field}`);
+            }
+          }
 
+          // Validate time inputs
+          if (!req.body.starttime.match(/^\d{2}:\d{2}(:\d{2})?$/) || !req.body.endtime.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+            throw new Error("Invalid time format for starttime or endtime (expected HH:MM or HH:MM:SS)");
+          }
+
+          // Validate addresses
+          if (!web3.utils.isAddress(req.body.counterparty1) || !web3.utils.isAddress(req.body.counterparty2)) {
+            throw new Error('Invalid counterparty addresses');
+          }
+          if (!web3.utils.isAddress(req.body.smartcontractaddress1) || !web3.utils.isAddress(req.body.smartcontractaddress2)) {
+            throw new Error('Invalid token addresses');
+          }
+
+          // Validate numeric fields
+          if (isNaN(parseFloat(req.body.startamount)) || isNaN(parseFloat(req.body.interestamount))) {
+            throw new Error("Invalid startamount or interestamount");
+          }
+
+          // Convert SGT time to UTC
+          const startDateTimeSGT = Math.floor(new Date(req.body.startdate).getTime() / 1000) + parseInt(req.body.starttime.split(':')[0]) * 3600 + parseInt(req.body.starttime.split(':')[1]) * 60;
+          const maturityDateTimeSGT = Math.floor(new Date(req.body.enddate).getTime() / 1000) + parseInt(req.body.endtime.split(':')[0]) * 3600 + parseInt(req.body.endtime.split(':')[1]) * 60;
+          const SGT_OFFSET = 8 * 3600; // SGT is UTC+8
+          const startDateTimeUTC = startDateTimeSGT - SGT_OFFSET;
+          const maturityDateTimeUTC = maturityDateTimeSGT - SGT_OFFSET;
+
+          const tradeInput = {
+            startDateTime: startDateTimeUTC,
+            maturityDateTime: maturityDateTimeUTC,
+            bondIsin: req.body.bondisin,
+            counterparty1RepoType: (req.body.securityLB === "B" ? 0 : 1), // RepoType: 0=Repo, 1=ReverseRepo
+            bondAmount: (req.body.securityLB === "B" ? this_amount1 : this_amount2),
+            startAmount: web3.utils.toWei(req.body.startamount.toString(), 'ether'),
+            interestAmount: web3.utils.toWei(req.body.interestamount.toString(), 'ether'),
+            cashAmount: (req.body.securityLB === "B" ? this_amount2 : this_amount1),
+            counterparty1: req.body.counterparty1,
+            counterparty2: req.body.counterparty2,
+            cashToken: (req.body.securityLB === "B" ? req.body.smartcontractaddress2 : req.body.smartcontractaddress1),
+            bondToken: (req.body.securityLB === "B" ? req.body.smartcontractaddress1 : req.body.smartcontractaddress2),
+          };
+
+          console.log('Calling createTrade with:', tradeInput);
+
+          const contractTx = ERC20TokenRepoContract.methods.createTrade(tradeInput);
+          let gasFees;
+          try {
+            gasFees = await contractTx.estimateGas({ from: signer.address });
+          } catch (error) {
+            console.error("Error while estimating gas for createTrade: ", error);
+            gasFees = 2100000; // Default gas limit
+          }
+          console.log("Estimated gas fee for createTrade: ", gasFees);
+
+          const createTransaction = await web3.eth.accounts.signTransaction(
+            {
+              nonce: nonce,
+              from: signer.address,
+              to: newcontractaddress,
+              data: contractTx.encodeABI(),
+              gas: Math.floor(gasFees * 1.1),
+              gasPrice: await web3.eth.getGasPrice(),
+            },
+            signer.privateKey
+          );
+          console.log('Sending signed transaction...');
+
+          const createReceipt = await web3.eth.sendSignedTransaction(
+            createTransaction.rawTransaction, 
+            function (error1, hash) {
+              if (error1) {
+                  console.log("Error11a when submitting your signed createTrade transaction:", error1);
+                  if (!errorSent) {
+                    console.log("Sending error 400 back to client");
+                    res.status(400).send({ 
+                      message: error1.toString().replace('*', ''),
+                    });
+                    errorSent = true;
+                  }
+                  return false;
+              } else {
+                  console.log("Txn sent!, hash: ", hash);
+                  var timer = 1;
+                  const interval = setInterval(function() {
+                    console.log("Attempting to get transaction receipt for createTrade...");
+
+                    web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
+                      if (receipt) {
+                        console.log('>>>>>>>>>>>>>>>> GOT RECEIPT <<<<<<<<<<<<<<<<<<<<');
+                        clearInterval(interval);
+                        console.log('Receipt -->>: ', receipt);
+
+                        const trx = await web3.eth.getTransaction(hash);
+                        console.log('trx.status -->>: ', trx);
+
+                        return receipt.status;
+                      }
+                      if (error3) {
+                        console.log("!! getTransactionReceipt error: ", error3);
+                        clearInterval(interval);
+                        if (!errorSent) {
+                          console.log("Sending error 400 back to client");
+                          res.status(400).send({ 
+                            message: error3.toString().replace('*', ''),
+                          });
+                          errorSent = true;
+                        }
+                        return false;
+                      }
+                    });
+                    timer++;
+                  }, 1000);
+              }
+            })
+            .on("error", err => {
+                console.log("Err22 sentSignedTxn error: ", err);
+                if (!errorSent) {
+                  console.log("Sending error 400 back to client");
+                  res.status(400).send({ 
+                    message: err.toString().replace('*', ''),
+                  });
+                  errorSent = true;
+                }
+                return false;
+            });
+          console.log('**** Txn executed:', createReceipt);
+          return true;
+        } catch (err) {
+          console.error("Error creating trade:", err);
+          if (!errorSent) {
+            console.log("Sending error 400 back to client");
+            res.status(400).send({
+              message: err.toString().replace('*', ''),
+            });
+            errorSent = true;
+          }
+          return false;
+        }
+      }  // createTrade
+      */
+
+      // Deploy contract
+      if (await deployContract()) {
+        console.log('**** Contract deployed successfully');
+        //return(await createTrade());
+        return(true);
+      } else {
+        console.log('**** Contract deployed failed!!!');
+        return(false);
+      }
     } catch(err) {
       console.error("Err8: ",err)
       if (!errorSent) {
@@ -495,13 +740,13 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
     }  // try catch
   } //dAppCreate
 
-  async function dAppUpdate() {  // update 
+  async function dAppUpdate() {  // update existing smart contract
     var errorSent = false;
     updatestatus = false;
 
     // Readng ABI from JSON file
     fs = require("fs");
-    ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenRepo.abi.json").toString());
+    ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.abi.json").toString());
 
     // Creation of Web3 class
     Web3 = require("web3");
@@ -523,35 +768,41 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
     const UpdateContract = async () => {
       try {
         console.log('Creating Repo contract with ABI');
-        const ERCTokenRepocontract = new web3.eth.Contract(ABI);
+        const ERC20TokenRepoContract = new web3.eth.Contract(ABI);
 
         // https://github.com/web3/web3.js/issues/1001
-        web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+        // web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
         
-        let setToTalSupply = (isNaN(+req.body.amount)? req.body.amount: req.body.amount.toString())   
-        + createStringWithZeros(adjustdecimals);  // pad zeros behind
+        let setToTalSupply = (isNaN(+req.body.amount) ? req.body.amount : req.body.amount.toString()) + createStringWithZeros(adjustdecimals);
         console.log("Repo setToTalSupply = ", setToTalSupply);
 
-        console.log('**** Signing update txn('+CONTRACT_OWNER_WALLET+','+req.body.amount );
-        const nonce = await web3.eth.getTransactionCount(CONTRACT_OWNER_WALLET, "latest") //get latest nonce
+        console.log('**** Signing update txn('+signer.address+','+req.body.amount );
+        const nonce = await web3.eth.getTransactionCount(signer.address, "latest");
+        const contractTx = ERC20TokenRepoContract.methods.updateTotalSupply(web3.utils.toBN(setToTalSupply));
+        let gasFees;
+        try {
+          gasFees = await contractTx.estimateGas({ from: signer.address });
+        } catch (error) {
+          console.error("Error while estimating gas for updateTotalSupply: ", error);
+          gasFees = 8700000; // Default gas limit
+        }
+        console.log("Estimated gas fee for updateTotalSupply: ", gasFees);
+
         const createTransaction = await web3.eth.accounts.signTransaction(
-          { // Sign transaction to setTotalSupply in smart contract
+          {
             nonce: nonce,
             from: signer.address,
             to: req.body.smartcontractaddress,
-            data: ERCTokenRepocontract.methods.updateTotalSupply(
-                    web3.utils.toBN( setToTalSupply )
-                  ).encodeABI(),
-            gas: 8700000,  // 4700000,
+            data: contractTx.encodeABI(),
+            gas: Math.floor(gasFees * 1.1),
+            gasPrice: await web3.eth.getGasPrice(),
           },
           SIGNER_PRIVATE_KEY
-        ); // signTransaction
+        );
         console.log('**** Sending signed txn...');
-        //console.log('Sending signed txn:', createTransaction);
 
         const createReceipt = await web3.eth.sendSignedTransaction(
           createTransaction.rawTransaction, 
-        
           function (error1, hash) {
             if (error1) {
                 console.log("Error111 submitting your signed transaction:", error1);
@@ -563,44 +814,42 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
                   errorSent = true;
                 }
                 return false;
-        } else {
-              console.log("Txn sent!, hash: ", hash);
-              var timer = 1;
-              // retry every second to chk for receipt
-              const interval = setInterval(function() {
-                console.log("Attempting to get transaction receipt...");
+            } else {
+                console.log("Txn sent!, hash: ", hash);
+                var timer = 1;
+                const interval = setInterval(function() {
+                  console.log("Attempting to get transaction receipt...");
 
-                // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
-                web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
-                  if (receipt) {
-                    console.log('>> GOT RECEIPT!!!!!!!!!!!!!!!!!!!!!!!');
-                    clearInterval(interval);
-                    console.log('Receipt -->>: ', receipt);
+                  web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
+                    if (receipt) {
+                      console.log('>>>>>>>>>>>>>>>> GOT RECEIPT <<<<<<<<<<<<<<<<<<');
+                      clearInterval(interval);
+                      console.log('Receipt -->>: ', receipt);
 
-                    const trx = await web3.eth.getTransaction(hash);
-                    console.log('trx.status -->>: ',trx);
+                      const trx = await web3.eth.getTransaction(hash);
+                      console.log('trx.status -->>: ', trx);
 
-                    return(receipt.status);
-                  }
-                  if (error3) {
-                    console.log("!! getTransactionReceipt error3: ", error3)
-                    if (!errorSent) {
-                      console.log("Sending error 400 back to client");
-                      res.status(400).send({ 
-                        message: error3.toString().replace('*', ''),
-                      });
-                      errorSent = true;
+                      return receipt.status;
                     }
-                    clearInterval(interval);
-                    return false;
-                  }
-                });
-                timer++;
-              }, 1000);
-            } // function
+                    if (error3) {
+                      console.log("!! getTransactionReceipt error3: ", error3);
+                      if (!errorSent) {
+                        console.log("Sending error 400 back to client");
+                        res.status(400).send({ 
+                          message: error3.toString().replace('*', ''),
+                        });
+                        errorSent = true;
+                      }
+                      clearInterval(interval);
+                      return false;
+                    }
+                  });
+                  timer++;
+                }, 1000);
+            }
           })
           .on("error", err => {
-              console.log("sentSignedTxn error2: ", err)
+              console.log("sentSignedTxn error2: ", err);
               if (!errorSent) {
                 console.log("Sending error 400 back to client");
                 res.status(400).send({ 
@@ -609,13 +858,12 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
                 errorSent = true;
               }
               return false;
-        // do something on transaction error
-          }); // sendSignedTransaction
+          });
 
         console.log('**** Repo Txn executed:', createReceipt);
         return true;
       } catch(error) {
-        console.log('Error4 encountered -->: ',error)   
+        console.log('Error4 encountered -->: ', error);
         if (!errorSent) {
           console.log("Sending error 400 back to client");
           res.status(400).send({ 
@@ -624,8 +872,7 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
           errorSent = true;
         }
         return false;
-      } // try catch
-
+      }
     }; // UpdateContract()
 
     return ( await UpdateContract());
@@ -647,69 +894,69 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
   // update draft table
     await Repo_Draft.update(  // update draft table status to "3"
     { 
-      status            : 3,
-      approverComments  : req.body.approvercomments,
+      status                : 3,
+      smartcontractaddress  : newcontractaddress,
+      approverComments      : req.body.approvercomments,
     }, 
     { where:      { id: draft_id }},
     )
     .then(num => {
       if (num == 1) {
 
-      // write to audit
-      AuditTrail.create(
-        { 
-          action                : "Repo "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - approved",
-          name                  : req.body.name,
-          description           : req.body.description, 
-          
-          tradedate             : req.body.tradedate,
-          startdatetime         : req.body.startdatetime, 
-          enddatetime           : req.body.enddatetime, 
-          bondisin              : req.body.bondisin,
-          securityLB            : req.body.securityLB,
-          nominal               : req.body.nominal,
-          cleanprice            : req.body.cleanprice,
-          dirtyprice            : req.body.dirtyprice,
-          haircut               : req.body.haircut,
-          startamount           : req.body.startamount,
-          currency              : req.body.currency,
-          reporate              : req.body.reporate,
-          interestamount        : req.body.interestamount,
+        // write to audit
+        AuditTrail.create(
+          { 
+            action                : "Repo "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - approved",
+            name                  : req.body.name,
+            description           : req.body.description, 
+            
+            tradedate             : req.body.tradedate,
+            startdatetime         : req.body.startdatetime, 
+            enddatetime           : req.body.enddatetime, 
+            bondisin              : req.body.bondisin,
+            securityLB            : req.body.securityLB,
+            nominal               : req.body.nominal,
+            cleanprice            : req.body.cleanprice,
+            dirtyprice            : req.body.dirtyprice,
+            haircut               : req.body.haircut,
+            startamount           : req.body.startamount,
+            currency              : req.body.currency,
+            reporate              : req.body.reporate,
+            interestamount        : req.body.interestamount,
 
-          counterpartyname      : req.body.counterpartyname,
-          counterparty1         : req.body.counterparty1,
-          counterparty2         : req.body.counterparty2,
-          smartcontractaddress1 : req.body.smartcontractaddress1,
-          smartcontractaddress2 : req.body.smartcontractaddress2,
-          underlyingTokenID1    : req.body.underlyingTokenID1,
-          underlyingTokenID2    : req.body.underlyingTokenID2,
-          amount1               : req.body.amount1,
-          amount2               : req.body.amount2,
-          blockchain            : req.body.blockchain,
+            counterpartyname      : req.body.counterpartyname,
+            counterparty1         : req.body.counterparty1,
+            counterparty2         : req.body.counterparty2,
+            smartcontractaddress1 : req.body.smartcontractaddress1,
+            smartcontractaddress2 : req.body.smartcontractaddress2,
+            underlyingTokenID1    : req.body.underlyingTokenID1,
+            underlyingTokenID2    : req.body.underlyingTokenID2,
+            amount1               : req.body.amount1,
+            amount2               : req.body.amount2,
+            daycountconvention    : req.body.daycountconvention, 
+            blockchain            : req.body.blockchain,
 
-          txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
-    
-          smartcontractaddress  : (isNewRepo? newcontractaddress : req.body.smartcontractaddress),
-    
-          draftrepoId            : draft_id,
-          maker                 : req.body.maker,
-          checker               : req.body.checker,
-          approver              : req.body.approver,
-          actionby              : req.body.actionby,
-          checkerComments       : req.body.checkerComments,
-          approverComments      : req.body.approverComments,
-          status                : 3,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
-        }, 
-      )
-      .then(auditres => {
-        console.log("Data written to audittrail for approving repo request:", auditres);
+            txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
+      
+            smartcontractaddress  : (isNewRepo? newcontractaddress : req.body.smartcontractaddress),
+      
+            draftrepoid           : draft_id,
+            maker                 : req.body.maker,
+            checker               : req.body.checker,
+            approver              : req.body.approver,
+            actionby              : req.body.actionby,
+            checkerComments       : req.body.checkerComments,
+            approverComments      : req.body.approverComments,
+            status                : 3,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+          }, 
+        )
+        .then(auditres => {
+          console.log("Data written to audittrail for approving repo request:", auditres);
 
-      })
-      .catch(err => {
-        console.log("Error while logging to audittrail for approving repo request: "+err.message);
-      });
-
-
+        })
+        .catch(err => {
+          console.log("Error while logging to audittrail for approving repo request: "+err.message);
+        });
       } else {
         res.send({
           message: `${req.body}. Record updated =${num}. Cannot update Repo with id=${id}. Maybe Repo was not found or req.body is empty!`
@@ -751,18 +998,20 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
           counterpartyname      : req.body.counterpartyname,
           counterparty1         : req.body.counterparty1,
           counterparty2         : req.body.counterparty2,
+          smartcontractaddress  : newcontractaddress, // Add smartcontractaddress
           smartcontractaddress1 : req.body.smartcontractaddress1,
           smartcontractaddress2 : req.body.smartcontractaddress2,
           underlyingTokenID1    : req.body.underlyingTokenID1,
           underlyingTokenID2    : req.body.underlyingTokenID2,
           amount1               : req.body.amount1,
           amount2               : req.body.amount2,
+          daycountconvention    : req.body.daycountconvention,
           blockchain            : req.body.blockchain,
 
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
               
           actionby              : req.body.actionby,
-          draftrepoid            : req.body.id,          
+          draftrepoid           : req.body.id,          
         }, 
       )
       .then(data => {
@@ -810,12 +1059,13 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
         underlyingTokenID2    : req.body.underlyingTokenID2,
         amount1               : req.body.amount1,
         amount2               : req.body.amount2,
+        daycountconvention    : req.body.daycountconvention, 
         blockchain            : req.body.blockchain,
 
         txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
 
         actionby              : req.body.actionby,
-        draftrepoid            : req.body.id,             
+        draftrepoid           : req.body.id,             
       }, 
       { where:      { id: req.body.approvedrepoid }},
       )
@@ -837,6 +1087,74 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
     }
   } // ExecutionSucc
 }; // approveDraftById
+
+exports.withdrawTokens = async (req, res) => {      // withdrawTokens() is meant for manual recovery to transfer locked tokens out of the Repo smart contract
+  const { tradeId, token, to, amount } = req.body;
+  let errorSent = false;
+
+  require('dotenv').config();
+  const ETHEREUM_NETWORK = (() => {
+    switch (req.body.blockchain) {
+      case 80001: return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK;
+      case 80002: return process.env.REACT_APP_POLYGON_AMOY_NETWORK;
+      case 11155111: return process.env.REACT_APP_ETHEREUM_SEPOLIA_NETWORK;
+      case 43113: return process.env.REACT_APP_AVALANCHE_FUJI_NETWORK;
+      case 137: return process.env.REACT_APP_POLYGON_MAINNET_NETWORK;
+      case 1: return process.env.REACT_APP_ETHEREUM_MAINNET_NETWORK;
+      case 43114: return process.env.REACT_APP_AVALANCHE_MAINNET_NETWORK;
+      default: return null;
+    }
+  })();
+  const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
+  const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
+
+  try {
+    const fs = require("fs");
+    const Web3 = require("web3");
+    const web3 = new Web3(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`);
+    const ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.abi.json").toString());
+    const contract = new web3.eth.Contract(ABI, req.body.smartcontractaddress);
+    const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY);
+
+    const txData = contract.methods.withdrawTokens(tradeId, token, to, web3.utils.toWei(amount.toString(), 'ether')).encodeABI();
+    const nonce = await web3.eth.getTransactionCount(CONTRACT_OWNER_WALLET, "latest");
+    const gasEstimate = await contract.methods.withdrawTokens(tradeId, token, to, web3.utils.toWei(amount.toString(), 'ether')).estimateGas({ from: signer.address });
+
+    const signedTx = await web3.eth.accounts.signTransaction(
+      {
+        nonce: nonce,
+        from: signer.address,
+        to: req.body.smartcontractaddress,
+        data: txData,
+        gas: Math.floor(gasEstimate * 1.1),
+      },
+      SIGNER_PRIVATE_KEY
+    );
+
+    const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+    console.log("WithdrawTokens transaction successful:", receipt);
+
+    // Log to audit trail
+    await AuditTrail.create({
+      action: `Withdraw tokens for trade ${tradeId}`,
+      tradeId: tradeId,
+      token: token,
+      to: to,
+      amount: amount,
+      status: 4, // Adjust status as needed
+      actionby: req.body.actionby,
+    });
+
+    res.send({ message: "Tokens withdrawn successfully." });
+  } catch (err) {
+    console.error("Error in withdrawTokens:", err);
+    if (!errorSent) {
+      res.status(400).send({ message: err.toString().replace('*', '') });
+      errorSent = true;
+    }
+  }
+};
 
 exports.executeRepoById = async (req, res) => {  // 
   // Steps:
@@ -905,12 +1223,11 @@ exports.executeRepoById = async (req, res) => {  //
     fs = require("fs");
 
     try { // read the ABI file
-      
       console.log("Repo ABI and Bytecode files are present, just read them, no need to recompile...");
       console.log("Read Repo ABI JSON file.");
-      ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenRepo.abi.json").toString());
+      ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.abi.json").toString());
       console.log("Read Repo Bytecode JSON file.");
-      bytecode = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenRepo.bytecode.json").toString());
+      bytecode = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.bytecode.json").toString());
     } catch(err) {
       console.error("Err7 while reading ABI and Bytecode files: ",err)
       if (!errorSent) {
@@ -1127,6 +1444,7 @@ exports.executeRepoById = async (req, res) => {  //
             underlyingTokenID2    : req.body.underlyingTokenID2,
             amount1               : req.body.amount1,
             amount2               : req.body.amount2,
+            daycountconvention    : req.body.daycountconvention,
             blockchain            : req.body.blockchain,
 
 
@@ -1155,13 +1473,16 @@ exports.findDraftByNameExact = (req, res) => {
   } : null;
 
   Repo_Draft.findAll(
-    { where: condition },
-    )
-    .then(data => {
-      res.send(data);
-    })
-    .catch(err => {
-      console.log("Error while retreiving repo1 draft: "+err.message);
+    { 
+      // raw: true, // display only dataValues, not metadata
+      where: condition,
+    }
+  )
+  .then(data => {
+    res.send(data);
+  })
+  .catch(err => {
+    console.log("Error while retreiving repo1 draft: "+err.message);
 
       res.status(400).send({
         message:
@@ -1178,13 +1499,16 @@ exports.findDraftByApprovedId = (req, res) => {
   } : null;
 
   Repo_Draft.findAll(
-    { where: condition },
-    )
-    .then(data => {
-      res.send(data);
-    })
-    .catch(err => {
-      console.log("Error while retreiving repo1 draft: "+err.message);
+    { 
+      // raw: true, // display only dataValues, not metadata
+      where: condition 
+    }
+  )
+  .then(data => {
+    res.send(data);
+  })
+  .catch(err => {
+    console.log("Error while retreiving repo1 draft: "+err.message);
 
       res.status(400).send({
         message:
@@ -1198,8 +1522,11 @@ exports.findExact = (req, res) => {
   var condition = name ? { name: name } : null;
 
   Repo.findAll(
-    { where: condition },
-    )
+    { 
+      // raw: true, // display only dataValues, not metadata
+      where: condition 
+    }
+  )
     .then(data => {
       res.send(data);
     })
@@ -1223,6 +1550,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
   
   Repo.findAll(
   { 
+    // raw: true, // display only dataValues, not metadata
     where: { id : Id },
   })
   .then(async data => {
@@ -1232,7 +1560,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     /// Query blockchain
     // Readng ABI from JSON file
     fs = require("fs");
-    ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenRepo.abi.json").toString());  // <-- dropdown menu
+    ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.abi.json").toString());  // <-- dropdown menu
 
     // Creation of Web3 class
     Web3 = require("web3");
@@ -1316,7 +1644,9 @@ exports.findByName = (req, res) => {
   var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
 
   Repo.findAll(
-    { include: db.recipients,
+    { 
+      // raw: true, // display only dataValues, not metadata
+      include: db.recipients,
       where: condition
     },
     )
@@ -1348,6 +1678,7 @@ exports.getAll = (req, res) => {
       }
     },
     */
+    // raw: true, // display only dataValues, not metadata
     include: [
       {
         model: db.recipients,
@@ -1409,21 +1740,19 @@ exports.getAllRepoDraftsByUserId = (req, res) => {
         ],      
       } : null;
 
-  Repo_Draft.findAll( 
+  Repo_Draft.findAll(
     { 
+//      raw: true, // display only dataValues, not metadata
       where: condition,
       //include: db.recipients
       include: [
         {
           model: db.recipients,
           on: 
-//          {
-//            [Op.or]: 
-//            [
 //              {   id: db.Sequelize.where(db.Sequelize.col("repos_draft.counterparty1"), "=", db.Sequelize.col("recipient.id"))   },
-              {   id: db.Sequelize.where(db.Sequelize.col("repos_draft.counterparty2"), "=", db.Sequelize.col("recipient.id"))   },
-//            ]
-//          },
+              {   
+                id: db.Sequelize.where(db.Sequelize.col("repos_draft.counterparty2"), "=", db.Sequelize.col("recipient.id")),
+              },
           attributes: ['id','name'],
         },
         {
@@ -1464,6 +1793,7 @@ exports.getAllDraftsByRepoId = (req, res) => {
     },
     { include: db.recipients},
 */
+      // raw: true, // display only dataValues, not metadata
       where: condition,
       //include: db.recipients
       include: [
@@ -1519,6 +1849,7 @@ exports.findOne = (req, res) => {
     },
     { include: db.recipients},
 */
+      // raw: true, // display only dataValues, not metadata
       where: condition,
       //include: db.recipients
 /*
@@ -1600,6 +1931,7 @@ exports.submitDraftById = async (req, res) => {
     underlyingTokenID2    : req.body.underlyingTokenID2,
     amount1               : req.body.amount1,
     amount2               : req.body.amount2,
+    daycountconvention    : req.body.daycountconvention, 
     blockchain            : req.body.blockchain,
 
     txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
@@ -1647,11 +1979,12 @@ exports.submitDraftById = async (req, res) => {
           underlyingTokenID2    : req.body.underlyingTokenID2,
           amount1               : req.body.amount1,
           amount2               : req.body.amount2,
+          daycountconvention    : req.body.daycountconvention,
           blockchain            : req.body.blockchain,
 
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
     
-          draftrepoId            : draft_id,
+          draftrepoId           : draft_id,
           maker                 : req.body.maker,
           checker               : req.body.checker,
           approver              : req.body.approver,
@@ -1697,9 +2030,9 @@ exports.acceptDraftById = async (req, res) => {
 
   await Repo_Draft.update(
   { 
-    status :          2,
-    checkerComments: req.body.checkerComments,
-    approverComments: req.body.approverComments,
+    status            : 2,
+    checkerComments   : req.body.checkerComments,
+    approverComments  : req.body.approverComments,
   }, 
   { where:      { id: draft_id }},
   )
@@ -1737,11 +2070,12 @@ exports.acceptDraftById = async (req, res) => {
           underlyingTokenID2    : req.body.underlyingTokenID2,
           amount1               : req.body.amount1,
           amount2               : req.body.amount2,
+          daycountconvention    : req.body.daycountconvention,
           blockchain            : req.body.blockchain,
 
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
     
-          draftrepoId            : draft_id,
+          draftrepoid           : draft_id,
           maker                 : req.body.maker,
           checker               : req.body.checker,
           approver              : req.body.approver,
@@ -1787,9 +2121,9 @@ exports.rejectDraftById = async (req, res) => {
 
   await Repo_Draft.update(
   { 
-    status :          -1,
-    checkerComments: req.body.checkerComments,
-    approverComments: req.body.approverComments,
+    status            : -1,
+    checkerComments   : req.body.checkerComments,
+    approverComments  : req.body.approverComments,
   }, 
   { where:      { id: draft_id }},
   )
@@ -1827,11 +2161,12 @@ exports.rejectDraftById = async (req, res) => {
           underlyingTokenID2    : req.body.underlyingTokenID2,
           amount1               : req.body.amount1,
           amount2               : req.body.amount2,
+          daycountconvention    : req.body.daycountconvention,
           blockchain            : req.body.blockchain,
 
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
-    
-          draftrepoId            : draft_id,
+
+          draftrepoid           : draft_id,
           maker                 : req.body.maker,
           checker               : req.body.checker,
           approver              : req.body.approver,
@@ -1913,7 +2248,7 @@ exports.update = async (req, res) => {
 
     // Readng ABI from JSON file
     fs = require("fs");
-    ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenRepo.abi.json").toString());
+    ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.abi.json").toString());
 
     // Creation of Web3 class
     Web3 = require("web3");
@@ -1935,7 +2270,7 @@ exports.update = async (req, res) => {
     const UpdateContract = async () => {
       try {
         console.log('Creating contract with ABI');
-        const ERCTokenRepocontract = new web3.eth.Contract(ABI);
+        const ERC20TokenRepoContract = new web3.eth.Contract(ABI);
 
         // https://github.com/web3/web3.js/issues/1001
         web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
@@ -1951,7 +2286,7 @@ exports.update = async (req, res) => {
             nonce: nonce,
             from: signer.address,
             to: req.body.smartcontractaddress,
-            data: ERCTokenRepocontract.methods.updateTotalSupply(
+            data: ERC20TokenRepoContract.methods.updateTotalSupply(
                     web3.utils.toBN( setToTalSupply )
                   ).encodeABI(),
             gas: 8700000,  // 4700000,
@@ -2053,6 +2388,7 @@ exports.update = async (req, res) => {
           underlyingTokenID2    : req.body.underlyingTokenID2,
           amount1               : req.body.amount1,
           amount2               : req.body.amount2,
+          daycountconvention    : req.body.daycountconvention,
           blockchain            : req.body.blockchain,
 
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
@@ -2097,7 +2433,7 @@ exports.update = async (req, res) => {
 
               txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
 
-              draftrepoId            : draft_id,
+              draftrepoid           : draft_id,
               maker                 : req.body.maker,
               checker               : req.body.checker,
               approver              : req.body.approver,
@@ -2188,11 +2524,12 @@ exports.approveDeleteDraftById = async (req, res) => {
           underlyingTokenID2    : req.body.underlyingTokenID2,
           amount1               : req.body.amount1,
           amount2               : req.body.amount2,
+          daycountconvention    : req.body.daycountconvention,
           blockchain            : req.body.blockchain,
 
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
 
-          draftrepoId            : draft_id,
+          draftrepoid           : draft_id,
           maker                 : req.body.maker,
           checker               : req.body.checker,
           approver              : req.body.approver,
@@ -2310,11 +2647,12 @@ exports.dropRequestById = async (req, res) => {
           underlyingTokenID2    : req.body.underlyingTokenID2,
           amount1               : req.body.amount1,
           amount2               : req.body.amount2,
+          daycountconvention    : req.body.daycountconvention,
           blockchain            : req.body.blockchain,
 
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
-    
-          draftrepoId            : draft_id,
+
+          draftrepoid           : draft_id,
           maker                 : req.body.maker,
           checker               : req.body.checker,
           approver              : req.body.approver,

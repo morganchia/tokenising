@@ -307,146 +307,160 @@ class Repo extends Component {
 */
   }
 
+  formatNumber2decimals(num) {
+    const trimmed = parseFloat(parseFloat(num).toFixed(10)); // remove floating point noise
+
+    // If it's a whole number, show exactly 2 decimal places
+    if (trimmed % 1 === 0) {
+      return trimmed.toFixed(2);
+    }
+
+    // Otherwise, trim to meaningful decimals (up to 10), removing trailing zeros
+    return trimmed.toString();
+  }
+
   componentDidUpdate(prevProps, prevState) {
-    const { currentRepo } = this.state;
+    if (! this.state.status > 0) { // if status is 0, it means the repo is a maker/draft
+      const { currentRepo } = this.state;
 
-    let new_startamount = null;
+      let new_startamount = null;
 
-    if ( 
-        currentRepo.nominal !== prevState.currentRepo.nominal ||
-        currentRepo.dirtyprice !== prevState.currentRepo.dirtyprice ||
-        currentRepo.haircut !== prevState.currentRepo.haircut
-    ) {
+      if ( 
+          currentRepo.nominal !== prevState.currentRepo.nominal ||
+          currentRepo.dirtyprice !== prevState.currentRepo.dirtyprice ||
+          currentRepo.haircut !== prevState.currentRepo.haircut
+      ) {
 
-      // compute new_startamount based on changes in nominal, dirtyprice and haircut
-      new_startamount = (currentRepo.nominal !== undefined && currentRepo.nominal !=="" && currentRepo.nominal !== null && currentRepo.nominal > 0 ?  
-        (currentRepo.haircut !== undefined && currentRepo.haircut !=="" && currentRepo.haircut !== null ?
-          ( currentRepo.dirtyprice !== undefined && currentRepo.dirtyprice !=="" && currentRepo.dirtyprice !== null ?
-            (((1-(currentRepo.haircut / 100))*currentRepo.dirtyprice)* (currentRepo.nominal/100)).toFixed(2) : null) : null) : null);
+        // compute new_startamount based on changes in nominal, dirtyprice and haircut
+        new_startamount = (currentRepo.nominal !== undefined && currentRepo.nominal !=="" && currentRepo.nominal !== null && currentRepo.nominal > 0 ?  
+          (currentRepo.haircut !== undefined && currentRepo.haircut !=="" && currentRepo.haircut !== null ?
+            ( currentRepo.dirtyprice !== undefined && currentRepo.dirtyprice !=="" && currentRepo.dirtyprice !== null ?
+              (Math.round((((1-(currentRepo.haircut / 100))*currentRepo.dirtyprice)* (currentRepo.nominal/100))*100)/100).toFixed(2) : null) : null) : null);
 
-      console.log("new_startamount:", new_startamount);
+        console.log("componentDidUpdate(): new_startamount:", new_startamount);
 
-      this.setState(prevState => ({
-        currentRepo: {
-          ...prevState.currentRepo,
-          startamount: new_startamount
-        }
-      }));
-    }
+        this.setState(prevState => ({
+          currentRepo: {
+            ...prevState.currentRepo,
+            startamount: new_startamount
+          }
+        }));
+      }
 
-    if ( 
-        new_startamount != null ||
-        currentRepo.startamount !== prevState.currentRepo.startamount ||
-        currentRepo.startdate !== prevState.currentRepo.startdate ||
-        currentRepo.starttime !== prevState.currentRepo.starttime ||
-        currentRepo.enddate !== prevState.currentRepo.enddate ||
-        currentRepo.endtime !== prevState.currentRepo.endtime ||
-        currentRepo.reporate !== prevState.currentRepo.reporate ||
+      if ( 
+          new_startamount != null ||
+          currentRepo.startamount !== prevState.currentRepo.startamount ||
+          currentRepo.startdate !== prevState.currentRepo.startdate ||
+          currentRepo.starttime !== prevState.currentRepo.starttime ||
+          currentRepo.enddate !== prevState.currentRepo.enddate ||
+          currentRepo.endtime !== prevState.currentRepo.endtime ||
+          currentRepo.reporate !== prevState.currentRepo.reporate ||
+          currentRepo.currency !== prevState.currentRepo.currency ||
+          currentRepo.daycountconvention !== prevState.currentRepo.daycountconvention
+      ) {
+        // startamount takes the latest value or the one from the currentRepo(if no change)
+        let startamount = (new_startamount !== undefined && new_startamount !=="" && new_startamount !== null && new_startamount > 0 ? new_startamount : currentRepo.startamount);
+
+        const startDateTime = new Date(`${currentRepo.startdate}T${currentRepo.starttime}`);
+        const endDateTime = new Date(`${currentRepo.enddate}T${currentRepo.endtime}`);
+
+        // compute interestamount based on changes in startamount, startdate, starttime, enddate, endtime, reporate and daycountconvention
+        let interestamount =
+        (validator.isDate(currentRepo.startdate) && validator.isDate(currentRepo.enddate) && this.isTime(currentRepo.starttime) && this.isTime(currentRepo.endtime) ?
+          (currentRepo.reporate !== undefined && currentRepo.reporate !=="" && currentRepo.reporate >= 0 ?
+            (startamount !== undefined && startamount !=="" && startamount > 0 ?
+              (currentRepo.daycountconvention !== undefined && currentRepo.daycountconvention !=="" && currentRepo.daycountconvention !== 0 ?
+                (Math.round(((currentRepo.reporate/100)*startamount*(endDateTime - startDateTime)/(currentRepo.daycountconvention*60*60*24*1000))*100)/100).toFixed(2) : null) : null) : null) : null);
+
+        console.log("componentDidUpdate(): currentRepo.reporate/100:", currentRepo.reporate/100);
+        console.log("componentDidUpdate(): startamount:", startamount);
+        console.log("componentDidUpdate(): startDateTime:", startDateTime);
+        console.log("componentDidUpdate(): endDateTime:", endDateTime);
+        console.log("componentDidUpdate(): endDateTime - startDateTime:", endDateTime - startDateTime);
+        console.log("componentDidUpdate(): currentRepo.daycountconvention:", currentRepo.daycountconvention);
+
+        console.log("componentDidUpdate(): interestamount:", interestamount);
+
+        this.setState(prevState => ({
+          currentRepo: {
+            ...prevState.currentRepo,
+            interestamount: interestamount
+          }
+        }));
+      }
+
+      if (
         currentRepo.currency !== prevState.currentRepo.currency ||
-        currentRepo.daycountconvention !== prevState.currentRepo.daycountconvention
-    ) {
-      // startamount takes the latest value or the one from the currentRepo(if no change)
-      let startamount = (new_startamount !== undefined && new_startamount !=="" && new_startamount !== null && new_startamount > 0 ? new_startamount : currentRepo.startamount);
+        currentRepo.securityLB !== prevState.currentRepo.securityLB ||
+        currentRepo.nominal !== prevState.currentRepo.nominal
+      )
+      {
+        console.log("componentDidUpdate(): currentRepo.currency:", currentRepo.currency);
+        console.log("componentDidUpdate(): currentRepo.securityLB:", currentRepo.securityLB);
+        console.log("componentDidUpdate(): currentRepo.nominal:", currentRepo.nominal);
 
-      const startDateTime = new Date(`${currentRepo.startdate}T${currentRepo.starttime}`);
-      const endDateTime = new Date(`${currentRepo.enddate}T${currentRepo.endtime}`);
+        let startamount = (new_startamount !== undefined && new_startamount !=="" && new_startamount !== null && new_startamount > 0 ? new_startamount : currentRepo.startamount);
+        console.log("componentDidUpdate(): startamount:", startamount);
 
-      // compute interestamount based on changes in startamount, startdate, starttime, enddate, endtime, reporate and daycountconvention
-      let interestamount =
-      (validator.isDate(currentRepo.startdate) && validator.isDate(currentRepo.enddate) && this.isTime(currentRepo.starttime) && this.isTime(currentRepo.endtime) ?
-        (currentRepo.reporate !== undefined && currentRepo.reporate !=="" && currentRepo.reporate >= 0 ?
-          (startamount !== undefined && startamount !=="" && startamount > 0 ?
-            (currentRepo.daycountconvention !== undefined && currentRepo.daycountconvention !=="" && currentRepo.daycountconvention !== 0 ?
-              ((currentRepo.reporate/100)*startamount*(endDateTime - startDateTime)/(currentRepo.daycountconvention*60*60*24*1000)).toFixed(2) : null) : null) : null) : null);
+        let lot = 0;
+        if (currentRepo.currency === "SGD" || currentRepo.currency === "AUD") {
+          // lot = currentRepo.nominal / 250000; // 250000 is the lot size for SGD and AUD
+          lot = currentRepo.nominal;
+          console.log("componentDidUpdate(): lot:", lot);
 
-      console.log("currentRepo.reporate/100:", currentRepo.reporate/100);
-      console.log("startamount:", startamount);
-      console.log("startDateTime:", startDateTime);
-      console.log("endDateTime:", endDateTime);
-      console.log("endDateTime - startDateTime:", endDateTime - startDateTime);
-      console.log("currentRepo.daycountconvention:", currentRepo.daycountconvention);
+          if (currentRepo.securityLB === "B") { // we borrow SGD
 
-      console.log("interestamount:", interestamount);
+            console.log("componentDidUpdate(): Action: Borrow SGD");
 
-      this.setState(prevState => ({
-        currentRepo: {
-          ...prevState.currentRepo,
-          interestamount: interestamount
-        }
-      }));
-    }
+            this.setState(prevState => ({
+              currentRepo: {
+                ...prevState.currentRepo,
+                amount1: lot,
+                amount2: startamount
+              }
+            }));
+          } else {
 
-    if (
-      currentRepo.currency !== prevState.currentRepo.currency ||
-      currentRepo.securityLB !== prevState.currentRepo.securityLB ||
-      currentRepo.nominal !== prevState.currentRepo.nominal
-    )
-    {
-      console.log("currentRepo.currency:", currentRepo.currency);
-      console.log("currentRepo.securityLB:", currentRepo.securityLB);
-      console.log("currentRepo.nominal:", currentRepo.nominal);
+            console.log("componentDidUpdate(): Action: Lend SGD");
 
-      let startamount = (new_startamount !== undefined && new_startamount !=="" && new_startamount !== null && new_startamount > 0 ? new_startamount : currentRepo.startamount);
-      console.log("startamount:", startamount);
+            this.setState(prevState => ({
+              currentRepo: {
+                ...prevState.currentRepo,
+                amount1: startamount,
+                amount2: lot
+              }
+            }));
+          }
+        } else if (currentRepo.currency !== ""){
+          // lot = currentRepo.nominal / 200000;  // 200000 is the lot size for USD
+          lot = currentRepo.nominal;
 
-      let lot = 0;
-      if (currentRepo.currency === "SGD" || currentRepo.currency === "AUD") {
-        // lot = currentRepo.nominal / 250000; // 250000 is the lot size for SGD and AUD
-        lot = currentRepo.nominal;
-        console.log("lot:", lot);
-        
-        if (currentRepo.securityLB === "B") { // we borrow SGD
+          if (currentRepo.securityLB === "B") { // we borrow USD
 
-          console.log("Action: Borrow SGD");
+            console.log("componentDidUpdate(): Action: Borrow USD");
 
-          this.setState(prevState => ({
-            currentRepo: {
-              ...prevState.currentRepo,
-              amount1: lot,
-              amount2: startamount
-            }
-          }));
-        } else {
+            this.setState(prevState => ({
+              currentRepo: {
+                ...prevState.currentRepo,
+                amount1: lot,
+                amount2: startamount
+              }
+            }));
+          } else {
 
-          console.log("Action: Lend SGD");
+            console.log("componentDidUpdate(): Action: Lend USD");
 
-          this.setState(prevState => ({
-            currentRepo: {
-              ...prevState.currentRepo,
-              amount1: startamount,
-              amount2: lot
-            }
-          }));
-        }
-      } else if (currentRepo.currency !== ""){
-        // lot = currentRepo.nominal / 200000;  // 200000 is the lot size for USD
-        lot = currentRepo.nominal;
-
-        if (currentRepo.securityLB === "B") { // we borrow USD
-
-          console.log("Action: Borrow USD");
-
-          this.setState(prevState => ({
-            currentRepo: {
-              ...prevState.currentRepo,
-              amount1: lot,
-              amount2: startamount
-            }
-          }));
-        } else {
-
-          console.log("Action: Lend USD");
-
-          this.setState(prevState => ({
-            currentRepo: {
-              ...prevState.currentRepo,
-              amount1: startamount,
-              amount2: lot
-            }
-          }));
+            this.setState(prevState => ({
+              currentRepo: {
+                ...prevState.currentRepo,
+                amount1: startamount,
+                amount2: lot
+              }
+            }));
+          }
         }
       }
-    }
+    } // if maker draft
   }
 
   onChangeName(e) {
@@ -480,7 +494,7 @@ class Repo extends Component {
       };
     });
   }
-*/
+
   onChangeUnderlying1(e) {
     const underlyingTokenID = e.target.value;
     console.log("New underlying=", underlyingTokenID);
@@ -550,15 +564,127 @@ class Repo extends Component {
     });
     console.log("New currentRepo=", this.state.currentRepo);
   }
+*/
+  onChangeUnderlying1(e) {
+    const underlyingTokenID = e.target.value;
+    console.log("New underlying1=", underlyingTokenID);
+    let newBlockchain = null;
+    if (this.state.currentRepo.securityLB === "B") {
+      try {
+        newBlockchain = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+      } catch (e) {
+        console.log("Error finding underlyingTokenID in BondList:", e);
+      }
+    } else {
+      newBlockchain = this.state.currentRepo.blockchain; // no change
+    }
+    console.log("New blockchain=", newBlockchain);
+    let newSmartContractAddress = null;
+    try {
+      newSmartContractAddress = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).smartcontractaddress
+    } catch (e) {
+      console.log("Error finding underlyingTokenID in underlyingDSGDList:", e);
+      try {
+        newSmartContractAddress = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).smartcontractaddress
+      } catch (e) {
+        console.log("Error finding underlyingTokenID in BondList:", e);
+      }
+    }
+    console.log("New smart contract address=", newSmartContractAddress);
+    let newUnderlyingDSGDsmartcontractaddress = null
+    try {
+      newUnderlyingDSGDsmartcontractaddress = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+    } catch (e) {
+      console.log("Error finding underlyingTokenID in underlyingDSGDList:", e);
+      try {
+        newUnderlyingDSGDsmartcontractaddress = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+      } catch (e) {
+        console.log("Error finding underlyingTokenID in BondList:", e);
+      }
+    }
+    console.log("New underlyingDSGDsmartcontractaddress=", newUnderlyingDSGDsmartcontractaddress);
+    let newCampaign = 0;
+    try {
+      newCampaign = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).campaign;
+    } catch (e) {
+      console.log("Error finding underlyingTokenID in underlyingDSGDList:", e);
+      try {
+        newCampaign = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).campaign;
+      } catch (e) {
+        console.log("Error finding underlyingTokenID in BondList:", e);
+      }
+    }
+    console.log("New campaign=", newCampaign);
+    
+    // when underlying changes, blockchain might change also bccos underlying could be in different blockchain
+    this.setState({
+      datachanged: true
+    });
+    this.setState(function(prevState) {
+      return {
+        currentRepo: {
+          ...prevState.currentRepo,
+          underlyingTokenID1: underlyingTokenID,
+          blockchain: newBlockchain,
+          smartcontractaddress1: newUnderlyingDSGDsmartcontractaddress,
+          campaign: newCampaign,
+        }
+      };
+    });
+    console.log("New currentRepo=", this.state.currentRepo);
+  }
 
   onChangeUnderlying2(e) {
     const underlyingTokenID = e.target.value;
-    console.log("New underlying=", underlyingTokenID);
-    const newBlockchain = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+    console.log("New underlying2=", underlyingTokenID);
+    let newBlockchain = null;
+    if (this.state.currentRepo.securityLB === "L") {
+      try {
+        newBlockchain = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+      } catch (e) {
+        console.log("Error finding underlyingTokenID in BondList:", e);
+      }
+    } else {
+      newBlockchain = this.state.currentRepo.blockchain; // no change
+    }
     console.log("New blockchain=", newBlockchain);
-    const newUnderlyingDSGDsmartcontractaddress = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).smartcontractaddress
-    const newCampaign = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID));
-
+    let newSmartContractAddress = null;
+    try {
+      newSmartContractAddress = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).smartcontractaddress
+    } catch (e) {
+      console.log("Error finding underlyingTokenID in underlyingDSGDList:", e);
+      try {
+        newSmartContractAddress = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).smartcontractaddress
+      } catch (e) {
+        console.log("Error finding underlyingTokenID in BondList:", e);
+      }
+    }
+    console.log("New smart contract address=", newSmartContractAddress);
+    let newUnderlyingDSGDsmartcontractaddress = null
+    try {
+      newUnderlyingDSGDsmartcontractaddress = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+    } catch (e) {
+      console.log("Error finding underlyingTokenID in underlyingDSGDList:", e);
+      try {
+        newUnderlyingDSGDsmartcontractaddress = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+      } catch (e) {
+        console.log("Error finding underlyingTokenID in BondList:", e);
+      }
+    }
+    console.log("New underlyingDSGDsmartcontractaddress=", newUnderlyingDSGDsmartcontractaddress);
+    let newCampaign = 0;
+    try {
+      newCampaign = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).campaign;
+    } catch (e) {
+      console.log("Error finding underlyingTokenID in underlyingDSGDList:", e);
+      try {
+        newCampaign = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).campaign;
+      } catch (e) {
+        console.log("Error finding underlyingTokenID in BondList:", e);
+      }
+    }
+    console.log("New campaign=", newCampaign);
+    
     // when underlying changes, blockchain might change also bccos underlying could be in different blockchain
     this.setState({
       datachanged: true
@@ -747,7 +873,7 @@ class Repo extends Component {
       currentRepo: {
         ...prevState.currentRepo,
         securityLB: securityLB,
-        repotype: (securityLB === "B" ? "reverserepo" : (securityLB === "L" ? "repo" : "")),
+        repotype: (securityLB === "B" ? "repo" : (securityLB === "L" ? "reverserepo" : "")),
       }
     }));
   }
@@ -944,9 +1070,14 @@ class Repo extends Component {
       RepoDataService.getAllDraftsByRepoId(id)
         .then(response => {
           response.data[0].actionby = user.username;
-          console.log("startDateTime:", response.data[0].startdatetime);
-          console.log("endDateTime:", response.data[0].enddatetime);
-          console.log("tradedate:", response.data[0].tradedate);
+          console.log("getRepo(): startDateTime:", response.data[0].startdatetime);
+          console.log("getRepo(): endDateTime:", response.data[0].enddatetime);
+          console.log("getRepo(): tradedate:", response.data[0].tradedate);
+          console.log("getRepo(): clean price:", response.data[0].cleanprice);
+          console.log("getRepo(): dirty price:", response.data[0].dirtyprice);
+          console.log("getRepo(): nominal:", response.data[0].nominal);
+          console.log("getRepo(): start amount:", response.data[0].startamount);
+          console.log("getRepo(): interest:", response.data[0].interestamount);
 
           this.setState({
             currentRepo: {
@@ -956,7 +1087,9 @@ class Repo extends Component {
               enddate: (response.data[0].enddatetime !== undefined && response.data[0].enddatetime !== null ? response.data[0].enddatetime.split("T")[0]: "0000-00-00"),
               endtime: (response.data[0].enddatetime !== undefined && response.data[0].enddatetime !== null ? response.data[0].enddatetime.split("T")[1].split(".")[0]: "00:00:00"),
               tradedate: (response.data[0].tradedate !== undefined && response.data[0].tradedate !== null ? response.data[0].tradedate.split("T")[0]: "0000-00-00"),
-              repotype: (response.data[0].securityLB === "B" ? "reverserepo" : (response.data[0].securityLB === "L" ? "repo" : "")),
+              repotype: (response.data[0].securityLB === "B" ? "repo" : (response.data[0].securityLB === "L" ? "reverserepo" : "")),
+              cleanprice: this.formatNumber2decimals(response.data[0].cleanprice),
+              dirtyprice: this.formatNumber2decimals(response.data[0].dirtyprice),
             },
           });
           console.log("Response from getAllDraftsByRepoId(id):",response.data[0]);
@@ -1013,305 +1146,358 @@ class Repo extends Component {
       });
   }
 
-getAllCounterpartys() {
-    RecipientDataService.findAllRecipients()
-      .then(response => {
+  getAllCounterpartys() {
+      RecipientDataService.findAllRecipients()
+        .then(response => {
 
-        this.setState({
-            recipientList: response.data
+          this.setState({
+              recipientList: response.data
+          });
+        })
+        .catch(e => {
+          console.log(e);
+          //return(null);
         });
-      })
-      .catch(e => {
-        console.log(e);
-        //return(null);
-      });
-}
-
-displayModal(msg, b1text, b2text, b3text, b0text) {
-  this.setState({
-    showm: true, 
-    modalmsg: msg, 
-    button1text: b1text,
-    button2text: b2text,
-    button3text: b3text,
-    button0text: b0text,
-  });
-}
-
-isTime(time1) {
-  const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
-  return timeRegex.test(time1);
-}
-
-async validateForm() {    
-    var err = "";
-
-    if (!(typeof this.state.currentRepo.name ==='string' || this.state.currentRepo.name instanceof String)) {
-      err += "- Name cannot be empty\n";
-    } else if ((this.state.currentRepo.name.trim() === "")) {
-      err += "- Name cannot be empty\n"; 
-    } else if (this.state.isNewRepo) { // only check if new repo, dont need to check if it is existing repo because surely will have name alrdy
-      await RepoDataService.findByNameExact(this.state.currentRepo.name.trim())
-      .then(response => {
-        console.log("Find duplicate name:",response.data);
-
-        if (response.data.length > 0) {
-          err += "- Name of repo is already present (duplicate name)\n";
-          console.log("Found repo name (duplicate!):"+this.state.currentRepo.name);
-        } else {
-          console.log("Didnt find repo name1 (ok no duplicate):"+this.state.currentRepo.name);
-        }
-      })
-      .catch(e => {
-        console.log("Didnt find repo name2 (ok no duplicate):"+this.state.currentRepo.name);
-        // ok to proceed
-      });
-    }
-
-        if (! validator.isDate(this.state.currentRepo.tradedate)) {
-      err += "- Trade Date is invalid\n";
-      console.log("tradedate is invalid");
-      console.log("this.state.currentRepo.tradedate:", this.state.currentRepo.tradedate);
-    }    
-    if (! validator.isDate(this.state.currentRepo.startdate)) {
-      err += "- Start Date is invalid\n";
-      console.log("start date is invalid");
-      console.log("this.state.currentRepo.startdate:", this.state.currentRepo.startdate);
-    }
-    if (! validator.isDate(this.state.currentRepo.enddate)) {
-      err += "- Maturity Date is invalid\n";
-      console.log("end date is invalid");
-      console.log("this.state.currentRepo.enddate:", this.state.currentRepo.enddate);
-    }
-    
-    if (validator.isDate(this.state.currentRepo.startdate) && validator.isDate(this.state.currentRepo.enddate) && this.state.currentRepo.startdate > this.state.currentRepo.enddate) err += "- Start date cannot be later than End date\n";
-
-    if (!this.isTime(this.state.currentRepo.starttime)) {
-      err += "- Start Time is invalid\n";
-      console.log("start time is invalid: ", this.state.currentRepo.starttime);
-    }
-    if (!this.isTime(this.state.currentRepo.endtime)) {
-      err += "- Maturity Time is invalid\n";
-      console.log("maturity time is invalid: ", this.state.currentRepo.endtime);
-    }
-    const startDateTime = new Date(`${this.state.currentRepo.startdate}T${this.state.currentRepo.starttime}`);
-    const endDateTime = new Date(`${this.state.currentRepo.enddate}T${this.state.currentRepo.endtime}`);
-    if (startDateTime > endDateTime) {
-      console.log("Start date and time is later than Maurity date and time");
-      err += "- Start date and time cannot be later than Maurity date and time\n";
-    }
-    console.log("start date:'"+this.state.currentRepo.startdate+"'");
-    console.log("end date:'"+this.state.currentRepo.enddate+"'");
-    console.log("Start > End? "+ (this.state.currentRepo.startdate > this.state.currentRepo.enddate));
-        
-    // dont need t check description, it can be empty
-    if (this.state.currentRepo.counterpartyname === "") err += "- Counterparty name cannot be empty\n";
-    if (this.state.currentRepo.underlyingTokenID1 === "") err += "- Our "+ (this.state.currentRepo.securityLB !== "" && this.state.currentRepo.securityLB === 'B'?'Bond ' : this.state.currentRepo.securityLB === 'L'?'Cash ' : " ") +"token cannot be empty\n";
-    if (this.state.currentRepo.underlyingTokenID2 === "") err += "- Counterparty "+ (this.state.currentRepo.securityLB !== "" && this.state.currentRepo.securityLB === 'B'?'Cash ' : this.state.currentRepo.securityLB === 'L'?'Bond ' : " ") + "token cannot be empty\n";
-
-    if (parseInt(this.state.currentRepo.nominal) <=  0) err += "- Nominal must be more than zero\n";
-    if (parseInt(this.state.currentRepo.cleanprice) <=  0) err += "- Clean Price must be more than zero\n";
-    if (parseInt(this.state.currentRepo.dirtyprice) <=  0) err += "- Dirty Price must be more than zero\n";
-    if (this.state.currentRepo.currency === "") err += "- Currency cannot be empty\n";
-    if (this.state.currentRepo.daycountconvention === "") err += "- Day Count Convention cannot be empty\n";
-    if (this.state.currentRepo.counterparty1 === "") err += "- Our Wallet Address cannot be empty\n";
-    if (this.state.currentRepo.counterparty2 === "") err += "- Counterparty Wallet Address cannot be empty\n";
-
-    if (this.state.currentRepo.amount1 === "") err += "- Amount 1 cannot be empty\n";
-    if (this.state.currentRepo.amount2 === "") err += "- Amount 2 cannot be empty\n";
-    if (parseInt(this.state.currentRepo.amount1) <=  0) err += "- Amount 1 must be more than zero\n";
-    if (parseInt(this.state.currentRepo.amount2) <=  0) err += "- Amount 2 must be more than zero\n";
-
-    if (this.state.currentRepo.checker === "" || this.state.currentRepo.checker === null) err += "- Checker cannot be empty\n";
-    if (this.state.currentRepo.approver === "" || this.state.currentRepo.approver === null) err += "- Approver cannot be empty\n";
-    if (this.state.currentRepo.checker === this.state.currentUser.id.toString() 
-        && this.state.currentRepo.approver === this.state.currentUser.id.toString()) {
-      err += "- Maker, Checker and Approver cannot be the same person\n";
-    } else {
-      if (this.state.currentRepo.checker === this.state.currentUser.id.toString()) err += "- Maker and Checker cannot be the same person (yourself)\n";
-      if (this.state.currentRepo.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
-      if (this.state.currentRepo.checker!==null && this.state.currentRepo.checker!=="" 
-            && this.state.currentRepo.checker === this.state.currentRepo.approver) err += "- Checker and Approver cannot be the same person\n";
-    }
-
-    if (err !=="" ) {
-      err = "Form validation issues found:\n"+err;
-      //alert(err);
-      this.displayModal(err, null, null, null, "OK");
-      err = ""; // clear var
-      return false;
-    }
-    return true;
-}
-
-async createRepoDraft() {  // for Maker
-
-  // Trade date   : 20250514
-  // Start date   : 20250516
-  // Maturity date: 20250523 
-  // Bond ISIN    : SGXF1234567
-  // Security L/B : Borrow / Lend
-  // Report Type  : Repo / Reverse Repo
-  // Nominal      : $100,000,000
-  // Clean Price  : $101.97
-  // Dirty Price  : $102.5229891
-  // Haircut      : 5%
-  // Start Amount : $97,396,839.65
-  // Currency     : SGD
-  // REPO rate    : 3%
-  // Interest amount : 56036.53788
-  // Counterparty : OCBC
-  // Day count convention: 365
-
-  if (this.state.isMaker) {  // only for Makers
-    
-      if (await this.validateForm() === true) { 
-
-      console.log("Creating Repo draft this.state.underlyingDSGDList= ", this.state.underlyingDSGDList);
-      if (this.state.currentRepo.underlyingTokenID1 < 1000000000) { // DSGD 1 ~ 1000000000,   Bond > 1000000000
-        console.log("Creating Repo draft underlyingDSGDsmartcontractaddress1= ", this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID1)).smartcontractaddress);
-      } else {
-        console.log("Creating Repo draft underlyingBondsmartcontractaddress1= ", this.state.BondList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID1)).smartcontractaddress);
-      }
-
-      if (this.state.currentRepo.underlyingTokenID2 < 1000000000) { // DSGD 1 ~ 1000000000,   Bond > 1000000000
-        console.log("Creating Repo draft underlyingDSGDsmartcontractaddress2= ", this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID2)).smartcontractaddress);
-      } else {
-        console.log("Creating Repo draft underlyingBondsmartcontractaddress2= ", this.state.BondList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID2)).smartcontractaddress);
-      }
-
-      var data = {
-
-        tradedate          : this.state.currentRepo.tradedate,
-        startdatetime      : this.state.currentRepo.startdate+"T"+this.state.currentRepo.starttime,
-        enddatetime        : this.state.currentRepo.enddate+"T"+this.state.currentRepo.endtime,
-        bondisin           : this.state.currentRepo.bondisin,
-        securityLB         : this.state.currentRepo.securityLB,
-        nominal            : this.state.currentRepo.nominal,
-        cleanprice         : this.state.currentRepo.cleanprice,
-        dirtyprice         : this.state.currentRepo.dirtyprice,
-        haircut            : this.state.currentRepo.haircut,
-        startamount        : this.state.currentRepo.startamount,
-        currency           : this.state.currentRepo.currency,
-        reporate           : this.state.currentRepo.reporate,
-        interestamount     : this.state.currentRepo.interestamount,
-        counterpartyname   : this.state.currentRepo.counterpartyname,
-        daycountconvention : this.state.currentRepo.daycountconvention,
-
-        name               : this.state.currentRepo.name,
-//        description        : this.state.currentRepo.description,
-        counterparty1      : this.state.currentRepo.counterparty1,
-        counterparty2      : this.state.currentRepo.counterparty2,
-        underlyingTokenID1 : this.state.currentRepo.underlyingTokenID1,
-        underlyingTokenID2 : this.state.currentRepo.underlyingTokenID2,
-        smartcontractaddress1  : (this.state.currentRepo.underlyingTokenID1 < 1000000000 ? this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID1)).smartcontractaddress : this.state.BondList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID1)).smartcontractaddress),
-        smartcontractaddress2  : (this.state.currentRepo.underlyingTokenID2 < 1000000000 ? this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID2)).smartcontractaddress : this.state.BondList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID2)).smartcontractaddress),
-        blockchain         : this.state.currentRepo.blockchain,
-
-        amount1            : this.state.currentRepo.amount1,
-        amount2            : this.state.currentRepo.amount2,
-
-        txntype            : 0,    // create
-        maker              : this.state.currentUser.id,
-        checker            : this.state.checker,
-        approver           : this.state.approver,
-        actionby           : this.state.currentUser.username,
-        approvedrepoid      : -1,
-      };
-  
-      console.log("Form Validation passed! creating repo smart contract...");
-      //alert("Form validation passed! creating repo...");
-
-      console.log("IsLoad=true");
-      this.show_loading();  // show progress
-
-      await RepoDataService.draftCreate(data)
-      .then(response => {
-        console.log("Response: ", response);
-        console.log("IsLoad=false");
-        this.hide_loading();  // hide progress
-  
-        this.setState({
-          id                  : response.data.id,
-
-          tradedate           : response.data.tradedate,
-          startdate           : response.data.startdatetime.split("T")[0],  // YYYY-MM-DD
-          enddate             : response.data.enddatetime.split("T")[0],    // YYYY-MM-DD
-          starttime           : response.data.startdatetime.split("T")[1].split(".")[0], // HH:mm:ss
-          endtime             : response.data.enddatetime.split("T")[1].split(".")[0],   // HH:mm:ss
-          bondisin            : response.data.bondisin,
-          securityLB          : response.data.securityLB,
-          nominal             : response.data.nominal,
-          cleanprice          : response.data.cleanprice,
-          dirtyprice          : response.data.dirtyprice,
-          haircut             : response.data.haircut,
-          startamount         : response.data.startamount,
-          currency            : response.data.currency,
-          reporate            : response.data.reporate,
-          interestamount      : response.data.interestamount,
-          counterpartyname    : response.data.counterpartyname,
-          daycountconvention  : response.data.daycountconvention,
-
-          name                : response.data.name,
-//          description         : response.data.description,
-          underlyingTokenID1  : response.data.underlyingTokenID1,
-          underlyingTokenID2  : response.data.underlyingTokenID2,
-          smartcontractaddress1: response.data.smartcontractaddress1,
-          smartcontractaddress2: response.data.smartcontractaddress2,
-          counterparty1       : response.data.counterparty1,
-          counterparty2       : response.data.counterparty2,
-          amount1             : response.data.amount1,
-          amount2             : response.data.amount2,
-
-          submitted: true,
-
-        });
-//          this.displayModal("Repo draft submitted for review" + (response.data.smartcontractaddress !==""? " with smart contract deployed at "+response.data.smartcontractaddress + ". You can start minting now.": "." ) ,
-//                              "OK", null, null);
-        this.displayModal("Repo smart contract creation request submitted for review.", "OK", null, null, null);
-
-        //console.log("Responseeeee"+response.data);
-      })
-      .catch(e => {
-      
-        this.hide_loading();  // hide progress
-
-        console.log("Error: ",e);
-        console.log("Response error:",e.response.data.message);
-        if (e.response.data.message !== "") 
-          this.displayModal("Error: "+e.response.data.message+".\n\nPlease contact tech support.", null, null, null, "OK");
-        else
-          this.displayModal("Error: "+e.message+".\n\nPlease contact tech support.", null, null, null, "OK");
-      });
-    } else {
-      console.log("Form Validation failed >>>");
-      //alert("Form Validation failed >>>");
-      this.hide_loading();  // hide progress
-    }
-  } else {
-    this.displayModal("Error: this role is only for maker.", null, null, null, "OK");
   }
 
-  console.log("IsLoad=false");
-  this.hide_loading();  // hide progress
+  displayModal(msg, b1text, b2text, b3text, b0text) {
+    this.setState({
+      showm: true, 
+      modalmsg: msg, 
+      button1text: b1text,
+      button2text: b2text,
+      button3text: b3text,
+      button0text: b0text,
+    });
+  }
 
-}
+  isTime(time1) {
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
+    return timeRegex.test(time1);
+  }
 
-async submitRepo() {
-  
-  if (await this.validateForm()) { 
-        console.log("Form Validation passed");
-  
+  async validateForm() {    
+      var err = "";
+
+      if (!(typeof this.state.currentRepo.name ==='string' || this.state.currentRepo.name instanceof String)) {
+        err += "- Name cannot be empty\n";
+      } else if ((this.state.currentRepo.name.trim() === "")) {
+        err += "- Name cannot be empty\n"; 
+      } else if (this.state.isNewRepo) { // only check if new repo, dont need to check if it is existing repo because surely will have name alrdy
+        await RepoDataService.findByNameExact(this.state.currentRepo.name.trim())
+        .then(response => {
+          console.log("Find duplicate name:",response.data);
+
+          if (response.data.length > 0) {
+            err += "- Name of repo is already present (duplicate name)\n";
+            console.log("Found repo name (duplicate!):"+this.state.currentRepo.name);
+          } else {
+            console.log("Didnt find repo name1 (ok no duplicate):"+this.state.currentRepo.name);
+          }
+        })
+        .catch(e => {
+          console.log("Didnt find repo name2 (ok no duplicate):"+this.state.currentRepo.name);
+          // ok to proceed
+        });
+      }
+
+          if (! validator.isDate(this.state.currentRepo.tradedate)) {
+        err += "- Trade Date is invalid\n";
+        console.log("tradedate is invalid");
+        console.log("this.state.currentRepo.tradedate:", this.state.currentRepo.tradedate);
+      }    
+      if (! validator.isDate(this.state.currentRepo.startdate)) {
+        err += "- Start Date is invalid\n";
+        console.log("start date is invalid");
+        console.log("this.state.currentRepo.startdate:", this.state.currentRepo.startdate);
+      }
+      if (! validator.isDate(this.state.currentRepo.enddate)) {
+        err += "- Maturity Date is invalid\n";
+        console.log("end date is invalid");
+        console.log("this.state.currentRepo.enddate:", this.state.currentRepo.enddate);
+      }
+      
+      if (validator.isDate(this.state.currentRepo.startdate) && validator.isDate(this.state.currentRepo.enddate) && this.state.currentRepo.startdate > this.state.currentRepo.enddate) err += "- Start date cannot be later than End date\n";
+
+      if (!this.isTime(this.state.currentRepo.starttime)) {
+        err += "- Start Time is invalid\n";
+        console.log("start time is invalid: ", this.state.currentRepo.starttime);
+      }
+      if (!this.isTime(this.state.currentRepo.endtime)) {
+        err += "- Maturity Time is invalid\n";
+        console.log("maturity time is invalid: ", this.state.currentRepo.endtime);
+      }
+      const startDateTime = new Date(`${this.state.currentRepo.startdate}T${this.state.currentRepo.starttime}`);
+      const endDateTime = new Date(`${this.state.currentRepo.enddate}T${this.state.currentRepo.endtime}`);
+      if (startDateTime > endDateTime) {
+        console.log("Start date and time is later than Maurity date and time");
+        err += "- Start date and time cannot be later than Maurity date and time\n";
+      }
+      console.log("start date:'"+this.state.currentRepo.startdate+"'");
+      console.log("end date:'"+this.state.currentRepo.enddate+"'");
+      console.log("Start > End? "+ (this.state.currentRepo.startdate > this.state.currentRepo.enddate));
+          
+      // dont need t check description, it can be empty
+      if (this.state.currentRepo.counterpartyname === "") err += "- Counterparty name cannot be empty\n";
+      if (this.state.currentRepo.underlyingTokenID1 === "") err += "- Our "+ (this.state.currentRepo.securityLB !== "" && this.state.currentRepo.securityLB === 'B'?'Bond ' : this.state.currentRepo.securityLB === 'L'?'Cash ' : " ") +"token cannot be empty\n";
+      if (this.state.currentRepo.underlyingTokenID2 === "") err += "- Counterparty "+ (this.state.currentRepo.securityLB !== "" && this.state.currentRepo.securityLB === 'B'?'Cash ' : this.state.currentRepo.securityLB === 'L'?'Bond ' : " ") + "token cannot be empty\n";
+
+      if (parseInt(this.state.currentRepo.nominal) <=  0) err += "- Nominal must be more than zero\n";
+      if (parseInt(this.state.currentRepo.cleanprice) <=  0) err += "- Clean Price must be more than zero\n";
+      if (parseInt(this.state.currentRepo.dirtyprice) <=  0) err += "- Dirty Price must be more than zero\n";
+      if (this.state.currentRepo.currency === "") err += "- Currency cannot be empty\n";
+      if (this.state.currentRepo.daycountconvention === "") err += "- Day Count Convention cannot be empty\n";
+      if (this.state.currentRepo.counterparty1 === "") err += "- Our Wallet Address cannot be empty\n";
+      if (this.state.currentRepo.counterparty2 === "") err += "- Counterparty Wallet Address cannot be empty\n";
+
+      if (this.state.currentRepo.amount1 === "") err += "- Amount 1 cannot be empty\n";
+      if (this.state.currentRepo.amount2 === "") err += "- Amount 2 cannot be empty\n";
+      if (parseInt(this.state.currentRepo.amount1) <=  0) err += "- Amount 1 must be more than zero\n";
+      if (parseInt(this.state.currentRepo.amount2) <=  0) err += "- Amount 2 must be more than zero\n";
+
+      if (this.state.currentRepo.checker === "" || this.state.currentRepo.checker === null) err += "- Checker cannot be empty\n";
+      if (this.state.currentRepo.approver === "" || this.state.currentRepo.approver === null) err += "- Approver cannot be empty\n";
+      if (this.state.currentRepo.checker === this.state.currentUser.id.toString() 
+          && this.state.currentRepo.approver === this.state.currentUser.id.toString()) {
+        err += "- Maker, Checker and Approver cannot be the same person\n";
+      } else {
+        if (this.state.currentRepo.checker === this.state.currentUser.id.toString()) err += "- Maker and Checker cannot be the same person (yourself)\n";
+        if (this.state.currentRepo.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
+        if (this.state.currentRepo.checker!==null && this.state.currentRepo.checker!=="" 
+              && this.state.currentRepo.checker === this.state.currentRepo.approver) err += "- Checker and Approver cannot be the same person\n";
+      }
+
+      if (err !=="" ) {
+        err = "Form validation issues found:\n"+err;
+        //alert(err);
+        this.displayModal(err, null, null, null, "OK");
+        err = ""; // clear var
+        return false;
+      }
+      return true;
+  }
+
+  async createRepoDraft() {  // for Maker
+
+    // Trade date   : 20250514
+    // Start date   : 20250516
+    // Maturity date: 20250523 
+    // Bond ISIN    : SGXF1234567
+    // Security L/B : Borrow / Lend
+    // Report Type  : Repo / Reverse Repo
+    // Nominal      : $100,000,000
+    // Clean Price  : $101.97
+    // Dirty Price  : $102.5229891
+    // Haircut      : 5%
+    // Start Amount : $97,396,839.65
+    // Currency     : SGD
+    // REPO rate    : 3%
+    // Interest amount : 56036.53788
+    // Counterparty : OCBC
+    // Day count convention: 365
+
+    if (this.state.isMaker) {  // only for Makers
+      
+        if (await this.validateForm() === true) { 
+
+        console.log("Creating Repo draft this.state.underlyingDSGDList= ", this.state.underlyingDSGDList);
+        if (this.state.currentRepo.underlyingTokenID1 < 1000000000) { // DSGD 1 ~ 1000000000,   Bond > 1000000000
+          console.log("Creating Repo draft underlyingDSGDsmartcontractaddress1= ", this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID1)).smartcontractaddress);
+        } else {
+          console.log("Creating Repo draft underlyingBondsmartcontractaddress1= ", this.state.BondList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID1)).smartcontractaddress);
+        }
+
+        if (this.state.currentRepo.underlyingTokenID2 < 1000000000) { // DSGD 1 ~ 1000000000,   Bond > 1000000000
+          console.log("Creating Repo draft underlyingDSGDsmartcontractaddress2= ", this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID2)).smartcontractaddress);
+        } else {
+          console.log("Creating Repo draft underlyingBondsmartcontractaddress2= ", this.state.BondList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID2)).smartcontractaddress);
+        }
+
+        var data = {
+
+          tradedate          : this.state.currentRepo.tradedate,
+          startdatetime      : this.state.currentRepo.startdate+"T"+this.state.currentRepo.starttime,
+          enddatetime        : this.state.currentRepo.enddate+"T"+this.state.currentRepo.endtime,
+          bondisin           : this.state.currentRepo.bondisin,
+          securityLB         : this.state.currentRepo.securityLB,
+          nominal            : this.state.currentRepo.nominal,
+          cleanprice         : this.state.currentRepo.cleanprice,
+          dirtyprice         : this.state.currentRepo.dirtyprice,
+          haircut            : this.state.currentRepo.haircut,
+          startamount        : this.state.currentRepo.startamount,
+          currency           : this.state.currentRepo.currency,
+          reporate           : this.state.currentRepo.reporate,
+          interestamount     : this.state.currentRepo.interestamount,
+          counterpartyname   : this.state.currentRepo.counterpartyname,
+          daycountconvention : this.state.currentRepo.daycountconvention,
+
+          name               : this.state.currentRepo.name,
+  //        description        : this.state.currentRepo.description,
+          counterparty1      : this.state.currentRepo.counterparty1,
+          counterparty2      : this.state.currentRepo.counterparty2,
+          underlyingTokenID1 : this.state.currentRepo.underlyingTokenID1,
+          underlyingTokenID2 : this.state.currentRepo.underlyingTokenID2,
+          smartcontractaddress1  : (this.state.currentRepo.underlyingTokenID1 < 1000000000 ? this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID1)).smartcontractaddress : this.state.BondList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID1)).smartcontractaddress),
+          smartcontractaddress2  : (this.state.currentRepo.underlyingTokenID2 < 1000000000 ? this.state.underlyingDSGDList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID2)).smartcontractaddress : this.state.BondList.find((e) => e.id === parseInt(this.state.currentRepo.underlyingTokenID2)).smartcontractaddress),
+          blockchain         : this.state.currentRepo.blockchain,
+
+          amount1            : this.state.currentRepo.amount1,
+          amount2            : this.state.currentRepo.amount2,
+
+          txntype            : 0,    // create
+          maker              : this.state.currentUser.id,
+          checker            : this.state.currentRepo.checker,
+          approver           : this.state.currentRepo.approver,
+          actionby           : this.state.currentUser.username,
+          approvedrepoid      : -1,
+        };
+    
+        console.log("Form Validation passed! creating repo smart contract...");
+        //alert("Form validation passed! creating repo...");
+
+        console.log("IsLoad=true");
+        this.show_loading();  // show progress
+
+        await RepoDataService.draftCreate(data)
+        .then(response => {
+          console.log("Response: ", response);
+          console.log("IsLoad=false");
+          this.hide_loading();  // hide progress
+    
+          this.setState({
+            id                  : response.data.id,
+
+            tradedate           : response.data.tradedate,
+            startdate           : response.data.startdatetime.split("T")[0],  // YYYY-MM-DD
+            enddate             : response.data.enddatetime.split("T")[0],    // YYYY-MM-DD
+            starttime           : response.data.startdatetime.split("T")[1].split(".")[0], // HH:mm:ss
+            endtime             : response.data.enddatetime.split("T")[1].split(".")[0],   // HH:mm:ss
+            bondisin            : response.data.bondisin,
+            securityLB          : response.data.securityLB,
+            nominal             : response.data.nominal,
+            cleanprice          : response.data.cleanprice,
+            dirtyprice          : response.data.dirtyprice,
+            haircut             : response.data.haircut,
+            startamount         : response.data.startamount,
+            currency            : response.data.currency,
+            reporate            : response.data.reporate,
+            interestamount      : response.data.interestamount,
+            counterpartyname    : response.data.counterpartyname,
+            daycountconvention  : response.data.daycountconvention,
+
+            name                : response.data.name,
+  //          description         : response.data.description,
+            underlyingTokenID1  : response.data.underlyingTokenID1,
+            underlyingTokenID2  : response.data.underlyingTokenID2,
+            smartcontractaddress1: response.data.smartcontractaddress1,
+            smartcontractaddress2: response.data.smartcontractaddress2,
+            counterparty1       : response.data.counterparty1,
+            counterparty2       : response.data.counterparty2,
+            amount1             : response.data.amount1,
+            amount2             : response.data.amount2,
+
+            submitted: true,
+
+          });
+  //          this.displayModal("Repo draft submitted for review" + (response.data.smartcontractaddress !==""? " with smart contract deployed at "+response.data.smartcontractaddress + ". You can start minting now.": "." ) ,
+  //                              "OK", null, null);
+          this.displayModal("Repo smart contract creation request submitted for review.", "OK", null, null, null);
+
+          //console.log("Responseeeee"+response.data);
+        })
+        .catch(e => {
+        
+          this.hide_loading();  // hide progress
+
+          console.log("Error: ",e);
+          console.log("Response error:",e.response.data.message);
+          if (e.response.data.message !== "") 
+            this.displayModal("Error: "+e.response.data.message+".\n\nPlease contact tech support.", null, null, null, "OK");
+          else
+            this.displayModal("Error: "+e.message+".\n\nPlease contact tech support.", null, null, null, "OK");
+        });
+      } else {
+        console.log("Form Validation failed >>>");
+        //alert("Form Validation failed >>>");
+        this.hide_loading();  // hide progress
+      }
+    } else {
+      this.displayModal("Error: this role is only for maker.", null, null, null, "OK");
+    }
+
+    console.log("IsLoad=false");
+    this.hide_loading();  // hide progress
+
+  }
+
+  async submitRepo() {
+    
+    if (await this.validateForm()) { 
+          console.log("Form Validation passed");
+    
+          console.log("IsLoad=true");
+          this.show_loading();
+    
+          await RepoDataService.submitDraftById(
+            this.state.currentRepo.id,
+            this.state.currentRepo,
+          )
+          .then(response => {
+            this.hide_loading();
+    
+            console.log("Response: ", response);
+            console.log("IsLoad=false");
+            this.hide_loading();
+      
+            this.setState({  
+              datachanged: false,
+            });
+            this.displayModal("Repo submitted. Routing to checker.", "OK", null, null, null);
+          })
+          .catch(e => {
+            this.hide_loading();
+    
+            console.log(e);
+            console.log(e.message);
+            this.displayModal("Repo submit failed.", null, null, null, "OK");
+    
+            try {
+              console.log(e.response.data.message);
+              // Need to check draft and approved repo names
+              if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
+                this.displayModal("The Repo submit failed. The new repo name is already used, please use another name.", null, null, null, "OK");
+              }
+            } catch(e) {
+              this.hide_loading();
+    
+              console.log("Error: ",e);
+              console.log("Response error:",e.response.data.message);
+              if (e.response.data.message !== "") 
+                this.displayModal("Error: "+e.response.data.message+". Please contact tech support.", null, null, null, "OK");
+              else
+                this.displayModal("Error: "+e.message+". Please contact tech support.", null, null, null, "OK");
+            } 
+          });
+    //    }
+        this.hide_loading();
+      }
+  }
+      
+  async acceptRepo() {  // checker endorse
+    
+  //    if (await this.validateForm()) { 
+  //      console.log("Form Validation passed");
+
         console.log("IsLoad=true");
         this.show_loading();
-  
-        await RepoDataService.submitDraftById(
+
+        await RepoDataService.acceptDraftById(
           this.state.currentRepo.id,
           this.state.currentRepo,
         )
         .then(response => {
           this.hide_loading();
-  
+
           console.log("Response: ", response);
           console.log("IsLoad=false");
           this.hide_loading();
@@ -1319,24 +1505,23 @@ async submitRepo() {
           this.setState({  
             datachanged: false,
           });
-          this.displayModal("Repo submitted. Routing to checker.", "OK", null, null, null);
+          this.displayModal("Repo request checked, sending for approval.", "OK", null, null, null);
         })
         .catch(e => {
           this.hide_loading();
-  
+
           console.log(e);
           console.log(e.message);
-          this.displayModal("Repo submit failed.", null, null, null, "OK");
-  
+          this.displayModal("Repo accept failed.", null, null, null, "OK");
+
           try {
             console.log(e.response.data.message);
-            // Need to check draft and approved repo names
             if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-              this.displayModal("The Repo submit failed. The new repo name is already used, please use another name.", null, null, null, "OK");
+              this.displayModal("The repo accept failed. The new repo name is already used, please use another name.", null, null, null, "OK");
             }
           } catch(e) {
             this.hide_loading();
-  
+
             console.log("Error: ",e);
             console.log("Response error:",e.response.data.message);
             if (e.response.data.message !== "") 
@@ -1347,18 +1532,17 @@ async submitRepo() {
         });
   //    }
       this.hide_loading();
-    }
-}
-    
-async acceptRepo() {  // checker endorse
-  
-//    if (await this.validateForm()) { 
-//      console.log("Form Validation passed");
+  }
 
+  async approveRepo() {
+    
+      //    if (await this.validateForm()) { 
+      //      console.log("Form Validation passed");
+      
       console.log("IsLoad=true");
       this.show_loading();
 
-      await RepoDataService.acceptDraftById(
+      await RepoDataService.approveDraftById(
         this.state.currentRepo.id,
         this.state.currentRepo,
       )
@@ -1368,141 +1552,115 @@ async acceptRepo() {  // checker endorse
         console.log("Response: ", response);
         console.log("IsLoad=false");
         this.hide_loading();
-  
+
         this.setState({  
           datachanged: false,
         });
-        this.displayModal("Repo request checked, sending for approval.", "OK", null, null, null);
+        this.displayModal("The Repo smart contract is approved, executed successfully"+ (typeof(response.data.smartcontractaddress)!=="undefined" && response.data.smartcontractaddress!==null && response.data.smartcontractaddress!==""? " and deployed at "+response.data.smartcontractaddress+". \n\nYou can start transacting using the Repo smart contract now.": "."), "OK", null, null, null);
+      })
+      .catch(e => {
+        this.hide_loading();
+
+        console.log("-->response:",e);
+        console.log(e.message);
+        //this.displayModal("Repo approval failed. "+e.message+".", null, null, "OK");
+        this.displayModal(e.message+". "+(typeof(e.response.data.message)!=='undefined' && e.response.data.message!==null ? e.response.data.message:""), null, null, null, "OK");
+
+        try {
+          console.log(e.response.data.message);
+          if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
+            this.displayModal("The Repo smart contract update failed. The Repo smart contract name is already used, please use another name.", null, null, null, "OK");
+          }
+        } catch(e) {
+          this.hide_loading();
+
+          console.log("Error: ",e);
+          if (typeof (e.response.data.message) !== "undefined" && e.response.data.message !== null && e.response.data.message !== "" ) {
+            console.log("Response error:", e.response.data.message);
+            this.displayModal("Error: "+e.response.data.message+". Please contact tech support.", null, null, null, "OK");
+          } else
+            this.displayModal("Error: "+e.message+". Please contact tech support.", null, null, null, "OK");
+        } 
+      });
+  //    }
+      this.hide_loading();
+  }
+
+  async rejectRepo() {
+
+    console.log("isChecker? ", this.state.isChecker);
+    console.log("this.state.currentRepo.checkerComments: ", this.state.currentRepo.checkerComments);
+    console.log("isApprover? ", this.state.isApprover);
+    console.log("this.state.currentRepo.approverComments: ", this.state.currentRepo.approverComments);
+
+    if ( this.state.isChecker && (typeof this.state.currentRepo.checkerComments==="undefined" || this.state.currentRepo.checkerComments==="" || this.state.currentRepo.checkerComments===null)) { 
+      this.displayModal("Please enter the reason for rejection in the Checker Comments.", null, null, null, "OK");
+    } else 
+    if (this.state.isApprover && (typeof this.state.currentRepo.approverComments==="undefined" || this.state.currentRepo.approverComments==="" || this.state.currentRepo.approverComments===null)) {
+      this.displayModal("Please enter the reason for rejection in the Approver Comments.", null, null, null, "OK");
+    } else {
+      //console.log("Form Validation passed");
+    
+      console.log("IsLoad=true");
+      this.show_loading();
+
+      await RepoDataService.rejectDraftById(
+        this.state.currentRepo.id,
+        this.state.currentRepo,
+      )
+      .then(response => {
+        this.hide_loading();
+
+        console.log("Response: ", response);
+        console.log("IsLoad=false");
+        this.hide_loading();
+
+        this.setState({  
+          datachanged: false,
+        });
+        this.displayModal("This repo request is rejected. Routing back to maker.", "OK", null, null, null);
       })
       .catch(e => {
         this.hide_loading();
 
         console.log(e);
         console.log(e.message);
-        this.displayModal("Repo accept failed.", null, null, null, "OK");
-
-        try {
-          console.log(e.response.data.message);
-          if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-            this.displayModal("The repo accept failed. The new repo name is already used, please use another name.", null, null, null, "OK");
-          }
-        } catch(e) {
-          this.hide_loading();
-
-          console.log("Error: ",e);
-          console.log("Response error:",e.response.data.message);
-          if (e.response.data.message !== "") 
-            this.displayModal("Error: "+e.response.data.message+". Please contact tech support.", null, null, null, "OK");
-          else
-            this.displayModal("Error: "+e.message+". Please contact tech support.", null, null, null, "OK");
-        } 
+        this.displayModal("Repo rejection failed.", null, null, null, "OK");
       });
-//    }
+    }
     this.hide_loading();
-}
-
-async approveRepo() {
-  
-    //    if (await this.validateForm()) { 
-    //      console.log("Form Validation passed");
-    
-    console.log("IsLoad=true");
-    this.show_loading();
-
-    await RepoDataService.approveDraftById(
-      this.state.currentRepo.id,
-      this.state.currentRepo,
-    )
-    .then(response => {
-      this.hide_loading();
-
-      console.log("Response: ", response);
-      console.log("IsLoad=false");
-      this.hide_loading();
-
-      this.setState({  
-        datachanged: false,
-      });
-      this.displayModal("The Repo smart contract is approved, executed successfully"+ (typeof(response.data.smartcontractaddress)!=="undefined" && response.data.smartcontractaddress!==null && response.data.smartcontractaddress!==""? " and deployed at "+response.data.smartcontractaddress+". \n\nYou can start using it to transacting using the Repo smart contract now.": "."), "OK", null, null, null);
-    })
-    .catch(e => {
-      this.hide_loading();
-
-      console.log("-->response:",e);
-      console.log(e.message);
-      //this.displayModal("Repo approval failed. "+e.message+".", null, null, "OK");
-      this.displayModal(e.message+". "+(typeof(e.response.data.message)!=='undefined' && e.response.data.message!==null ? e.response.data.message:""), null, null, null, "OK");
-
-      try {
-        console.log(e.response.data.message);
-        if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-          this.displayModal("The Repo smart contract update failed. The Repo smart contract name is already used, please use another name.", null, null, null, "OK");
-        }
-      } catch(e) {
-        this.hide_loading();
-
-        console.log("Error: ",e);
-        if (typeof (e.response.data.message) !== "undefined" && e.response.data.message !== null && e.response.data.message !== "" ) {
-          console.log("Response error:", e.response.data.message);
-          this.displayModal("Error: "+e.response.data.message+". Please contact tech support.", null, null, null, "OK");
-        } else
-          this.displayModal("Error: "+e.message+". Please contact tech support.", null, null, null, "OK");
-      } 
-    });
-//    }
-    this.hide_loading();
-}
-
-async rejectRepo() {
-
-  console.log("isChecker? ", this.state.isChecker);
-  console.log("this.state.currentRepo.checkerComments: ", this.state.currentRepo.checkerComments);
-  console.log("isApprover? ", this.state.isApprover);
-  console.log("this.state.currentRepo.approverComments: ", this.state.currentRepo.approverComments);
-
-  if ( this.state.isChecker && (typeof this.state.currentRepo.checkerComments==="undefined" || this.state.currentRepo.checkerComments==="" || this.state.currentRepo.checkerComments===null)) { 
-    this.displayModal("Please enter the reason for rejection in the Checker Comments.", null, null, null, "OK");
-  } else 
-  if (this.state.isApprover && (typeof this.state.currentRepo.approverComments==="undefined" || this.state.currentRepo.approverComments==="" || this.state.currentRepo.approverComments===null)) {
-    this.displayModal("Please enter the reason for rejection in the Approver Comments.", null, null, null, "OK");
-  } else {
-    //console.log("Form Validation passed");
-  
-    console.log("IsLoad=true");
-    this.show_loading();
-
-    await RepoDataService.rejectDraftById(
-      this.state.currentRepo.id,
-      this.state.currentRepo,
-    )
-    .then(response => {
-      this.hide_loading();
-
-      console.log("Response: ", response);
-      console.log("IsLoad=false");
-      this.hide_loading();
-
-      this.setState({  
-        datachanged: false,
-      });
-      this.displayModal("This repo request is rejected. Routing back to maker.", "OK", null, null, null);
-    })
-    .catch(e => {
-      this.hide_loading();
-
-      console.log(e);
-      console.log(e.message);
-      this.displayModal("Repo rejection failed.", null, null, null, "OK");
-    });
   }
-  this.hide_loading();
-}
-    
-async deleteRepo() {    
+      
+  async deleteRepo() {    
+      console.log("IsLoad=true");
+      this.show_loading();        // show progress
+
+      await RepoDataService.approveDeleteDraftById(
+        this.state.currentRepo.id,
+        this.state.currentRepo,
+      )
+      .then(response => {
+        console.log("IsLoad=false");
+        this.hide_loading();     // hide progress
+
+        this.displayModal("Repo is deleted.", "OK", null, null, null);
+        console.log(response.data);
+        //this.props.router.navigate('/inbox');
+      })
+      .catch(e => {
+        console.log("IsLoad=false");
+        this.hide_loading();     // hide progress
+        this.displayModal(e.message+". "+(typeof(e.response.data.message)!=='undefined' && e.response.data.message!==null ? e.response.data.message:""), null, null, null, "OK");
+
+        console.log(e);
+      });
+  }
+
+  async dropRequest() {    
     console.log("IsLoad=true");
     this.show_loading();        // show progress
 
-    await RepoDataService.approveDeleteDraftById(
+    await RepoDataService.dropRequestById(
       this.state.currentRepo.id,
       this.state.currentRepo,
     )
@@ -1510,7 +1668,7 @@ async deleteRepo() {
       console.log("IsLoad=false");
       this.hide_loading();     // hide progress
 
-      this.displayModal("Repo is deleted.", "OK", null, null, null);
+      this.displayModal("Request is dropped (deleted).", "OK", null, null, null);
       console.log(response.data);
       //this.props.router.navigate('/inbox');
     })
@@ -1521,32 +1679,7 @@ async deleteRepo() {
 
       console.log(e);
     });
-}
-
-async dropRequest() {    
-  console.log("IsLoad=true");
-  this.show_loading();        // show progress
-
-  await RepoDataService.dropRequestById(
-    this.state.currentRepo.id,
-    this.state.currentRepo,
-  )
-  .then(response => {
-    console.log("IsLoad=false");
-    this.hide_loading();     // hide progress
-
-    this.displayModal("Request is dropped (deleted).", "OK", null, null, null);
-    console.log(response.data);
-    //this.props.router.navigate('/inbox');
-  })
-  .catch(e => {
-    console.log("IsLoad=false");
-    this.hide_loading();     // hide progress
-    this.displayModal(e.message+". "+(typeof(e.response.data.message)!=='undefined' && e.response.data.message!==null ? e.response.data.message:""), null, null, null, "OK");
-
-    console.log(e);
-  });
-}
+  }
 
   show_loading() {
     this.setState({isLoading: true});
@@ -1614,6 +1747,21 @@ async dropRequest() {
                         disabled={!this.state.isMaker || currentRepo.txntype===2 || currentRepo.status > 0}
                         />
                     </div>
+                    { currentRepo.smartcontractaddress !== "" && currentRepo.smartcontractaddress !== null ?
+                      <div className="form-group">
+                        <label htmlFor="name">Smart Contract Address</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          id="smartcontractaddress"
+                          maxLength="45"
+                          value={currentRepo.smartcontractaddress}
+                          required
+                          disabled={true}
+                          />
+                      </div> 
+                    : null 
+                    }
 {/*
                   <div className="form-group">
                     <label htmlFor="description">Description</label>
@@ -1752,8 +1900,8 @@ async dropRequest() {
                           disabled={true}
                         >
                           <option >   </option>
-                          <option value="reverserepo"  selected={currentRepo.repotype === "reverserepo"}>Reverse Repo</option>
-                          <option value="repo" selected={currentRepo.repotype === "repo"}>Repo</option>
+                          <option value="repo"  selected={currentRepo.repotype === "repo"}>Repo</option>
+                          <option value="reverserepo" selected={currentRepo.repotype === "reverserepo"}>Reverse Repo</option>
                         </select>
                   </div>
                     <div className="form-group">
@@ -1961,32 +2109,34 @@ async dropRequest() {
                           onChange={this.onChangeUnderlying1}                         
                           className="form-control"
                           id="underlyingTokenID1"
-                          disabled={!this.state.isMaker || currentRepo.securityLB === "" || currentRepo.status > 0}
+                          disabled={!this.state.isMaker || currentRepo.securityLB === "" || currentRepo.status > 0 || (currentRepo.securityLB !== 'B' && currentRepo.underlyingTokenID2 === "")}
                         >
                           <option value=""> </option>
-                          <option value="" disabled>--- DSGD ---</option>
-                          {
-                            Array.isArray(underlyingDSGDList) ?
-                            underlyingDSGDList.map( (d) => {
-                              // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                                if (typeof d.id === "number")
-                                  return <option value={d.id} selected={d.id === currentRepo.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
-                                else 
-                                  return "";
-                              })
-                            : null
+                          { currentRepo.securityLB === 'B'?
+                                <option value="" disabled>--- Bond ---</option>
+                          :
+                                <option value="" disabled>--- Digital Cash ---</option>
                           }
-                          <option value="" disabled>--- Bond ---</option>
-                          {
-                            Array.isArray(BondList) ?
-                            BondList.map( (d) => {
-                              // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                                if (typeof d.id === "number")
-                                  return <option value={d.id} selected={d.id === currentRepo.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
-                                else 
-                                  return "";
-                              })
-                            : null
+                          { currentRepo.securityLB === 'B'?
+                                  (Array.isArray(BondList) ?
+                                  BondList.map( (d) => {
+                                    // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                                      if (typeof d.id === "number")
+                                        return <option value={d.id} selected={d.id === currentRepo.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                                      else 
+                                        return "";
+                                    })
+                                  : null)                          
+                            :
+                                  (Array.isArray(underlyingDSGDList) ?
+                                  underlyingDSGDList.map( (d) => {
+                                    // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                                    if (typeof d.id === "number" && d.blockchain === currentRepo.blockchain)
+                                        return <option value={d.id} selected={d.id === currentRepo.underlyingTokenID1}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                                      else 
+                                        return "";
+                                    })
+                                  : null)
                           }
                     </select>
                   </div>
@@ -1996,37 +2146,39 @@ async dropRequest() {
                           onChange={this.onChangeUnderlying2}                         
                           className="form-control"
                           id="underlyingTokenID2"
-                          disabled={!this.state.isMaker || currentRepo.securityLB === "" || currentRepo.status > 0}
+                          disabled={!this.state.isMaker || currentRepo.securityLB === "" || currentRepo.status > 0 || (currentRepo.securityLB !== 'L' && currentRepo.underlyingTokenID1 === "")}
                         >
                           <option value=""> </option>
-                          <option value="" disabled>--- DSGD ---</option>
-                          {
-                            Array.isArray(underlyingDSGDList) ?
-                            underlyingDSGDList.map( (d) => {
-                              // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                              if (typeof d.id === "number" && d.blockchain === currentRepo.blockchain)
-                                return <option value={d.id} selected={d.id === currentRepo.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
-                              else 
-                                return "";
-                            })
-                            : null
+                          { currentRepo.securityLB === 'L'?
+                                <option value="" disabled>--- Bond ---</option>
+                          :
+                                <option value="" disabled>--- Digital Cash ---</option>
                           }
-                          <option value="" disabled>--- Bond ---</option>
-                          {
-                            Array.isArray(BondList) ?
-                            BondList.map( (d) => {
-                              // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                              if (typeof d.id === "number" && d.blockchain === currentRepo.blockchain)
-                                return <option value={d.id} selected={d.id === currentRepo.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
-                              else 
-                                return "";
-                            })
-                            : null
+                          { currentRepo.securityLB === 'L'?
+                                (Array.isArray(BondList) ?
+                                BondList.map( (d) => {
+                                  // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                                    if (typeof d.id === "number")
+                                      return <option value={d.id} selected={d.id === currentRepo.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                                    else 
+                                      return "";
+                                  })
+                                : null)                          
+                            :
+                                (Array.isArray(underlyingDSGDList) ?
+                                underlyingDSGDList.map( (d) => {
+                                  // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                                    if (typeof d.id === "number" && d.blockchain === currentRepo.blockchain)
+                                      return <option value={d.id} selected={d.id === currentRepo.underlyingTokenID2}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                                    else 
+                                      return "";
+                                  })
+                                : null)
                           }
                     </select>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="blockchain">Blockchain to Deploy at</label>
+                    <label htmlFor="blockchain">Repo to transact on Blockchain where Bond is Deployed</label>
                     {// use the blockchain where the underlying was deployed
                     }
                     <select

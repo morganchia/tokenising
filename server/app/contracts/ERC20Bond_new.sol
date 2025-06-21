@@ -185,7 +185,7 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
         return _admins[account];
     }
 
-    function payCoupon(uint256 couponIndex, address[] calldata holderList, uint256[] calldata amounts) public onlyOwnerOrAdmin {
+    function payCoupon(uint256 couponIndex, address[] calldata holderList, uint256[] calldata amounts) public onlyOwnerOrAdmin whenNotPaused {
         require(config.couponRate > 0, "Bond: No coupon payments configured");
         require(couponIndex < couponCount, "Bond: Invalid coupon index");
         require(!_couponPaid[couponIndex], "Bond: Coupon already paid");

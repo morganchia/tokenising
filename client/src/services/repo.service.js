@@ -5,17 +5,15 @@ class RepoDataService {
   getAll() {
     return http.get("/repo");
   }
-/*
 
+/*
   get(id) {
     return http.get(`/repo/${id}`);
   }
 
-
   create(data) {
     return http.post("/repo", data);
   }
-
 
   wrapMint_draftCreate(data) {
     return http.post("/repo/wrapmintdraftcreate", data);
@@ -25,12 +23,16 @@ class RepoDataService {
     return http.post("/repo/draftcreate", data);
   }
 
-  /*
-
+/*
   update(id, data) {
     return http.put(`/repo/${id}`, data);
   }
 */
+
+  withdrawTokens(id, data) {
+    console.log("Calling /repo/withdrawtokens?id");
+    return http.put(`/repo/withdrawtokens/${id}`, data);
+  }
 
   submitDraftById(id, data) {
     console.log("Calling /repo/submitdraftbyid?id");
@@ -66,6 +68,7 @@ class RepoDataService {
     console.log("Calling /repo/executerepobyid?id");
     return http.put(`/repo/executerepobyid/${id}`, data);
   }
+
 /*
   delete(id) {
     return http.delete(`/repo/${id}`);

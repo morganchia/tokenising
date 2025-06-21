@@ -489,8 +489,8 @@ export default class CampaignList extends Component {
                               ? this.shorten(dvp1.counterparty2)  :null
                           }
                       </td>
-                      <td>{dvp1.amount1}</td>
-                      <td>{dvp1.amount2}</td>
+                      <td>{dvp1.amount1.toLocaleString()}</td>
+                      <td>{dvp1.amount2.toLocaleString()}</td>
                       <td>{dvp1.startdate}</td>
                       <td>{dvp1.enddate}</td>
                       {
@@ -599,7 +599,7 @@ export default class CampaignList extends Component {
                               ? pbm1.recipient.name  :null
                           }
                       </td>
-                      <td>{pbm1.amount}</td>
+                      <td>{pbm1.amount.toLocaleString()}</td>
                       {
                         /*
                       <td>
@@ -708,7 +708,7 @@ export default class CampaignList extends Component {
                           }
                       </td>
 */}
-                      <td>{wrapmint1.amount}</td>
+                      <td>{wrapmint1.amount.toLocaleString()}</td>
                       {
                         /*
                       <td>
@@ -816,7 +816,7 @@ export default class CampaignList extends Component {
                               ? campaign1.recipient.name  :null
                           }
                       </td>
-                      <td>{campaign1.amount}</td>
+                      <td>{campaign1.amount.toLocaleString()}</td>
                       {
                         /*
                       <td>
@@ -929,8 +929,8 @@ export default class CampaignList extends Component {
                               ? this.shorten(repo1.counterparty2)  :null
                           }
                       </td>
-                      <td>{repo1.amount1}</td>
-                      <td>{repo1.amount2}</td>
+                      <td>{repo1.amount1.toLocaleString()}</td>
+                      <td>{repo1.amount2.toLocaleString()}</td>
                       <td>{repo1.startdatetime.split("T")[0]}</td>
                       <td>{repo1.enddatetime.split("T")[0]}</td>
                       {
@@ -1026,7 +1026,7 @@ export default class CampaignList extends Component {
                         }
                       )()}
                       </td>
-                      <td>{mint1.mintAmt}</td>
+                      <td>{mint1.mintAmount.toLocaleString()}</td>
                       {
                         /*
                       <td>
@@ -1123,7 +1123,7 @@ export default class CampaignList extends Component {
                         }
                       )()}
                       </td>
-                      <td>{transfer1.transferAmount}</td>
+                      <td>{transfer1.transferAmount.toLocaleString()}</td>
                       {
                       /*
                       <td>

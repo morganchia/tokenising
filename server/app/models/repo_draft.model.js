@@ -62,8 +62,8 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.FLOAT,
       allowNull: false
     },
-    interestamount: {  // float
-      type: Sequelize.FLOAT,
+    interestamount: {  // double
+      type: Sequelize.DOUBLE,
       allowNull: false
     },
     daycountconvention: {  // int

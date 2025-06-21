@@ -1,0 +1,304 @@
+[
+    {
+      "inputs": [
+        {
+          "components": [
+            {"internalType": "uint256", "name": "startDateTime", "type": "uint256"},
+            {"internalType": "uint256", "name": "maturityDateTime", "type": "uint256"},
+            {"internalType": "string", "name": "bondIsin", "type": "string"},
+            {"internalType": "uint8", "name": "counterparty1RepoType", "type": "uint8"},
+            {"internalType": "uint256", "name": "bondAmount", "type": "uint256"},
+            {"internalType": "uint256", "name": "startAmount", "type": "uint256"},
+            {"internalType": "uint256", "name": "interestAmount", "type": "uint256"},
+            {"internalType": "uint256", "name": "cashAmount", "type": "uint256"},
+            {"internalType": "address", "name": "counterparty1", "type": "address"},
+            {"internalType": "address", "name": "counterparty2", "type": "address"},
+            {"internalType": "address", "name": "cashToken", "type": "address"},
+            {"internalType": "address", "name": "bondToken", "type": "address"}
+          ],
+          "internalType": "struct ERC20TokenRepo.TradeInput",
+          "name": "input",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "address", "name": "admin", "type": "address"},
+        {"indexed": false, "internalType": "bool", "name": "isAdded", "type": "bool"}
+      ],
+      "name": "AdminUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": false, "internalType": "uint256", "name": "newEndDate", "type": "uint256"}
+      ],
+      "name": "EndDateUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": false, "internalType": "bool", "name": "isPaused", "type": "bool"}
+      ],
+      "name": "Paused",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "uint256", "name": "tradeId", "type": "uint256"},
+        {"indexed": true, "internalType": "address", "name": "counterparty1", "type": "address"},
+        {"indexed": true, "internalType": "address", "name": "counterparty2", "type": "address"}
+      ],
+      "name": "TradeCreated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "uint256", "name": "tradeId", "type": "uint256"}
+      ],
+      "name": "TradeCancelled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "uint256", "name": "tradeId", "type": "uint256"},
+        {"indexed": false, "internalType": "string", "name": "reason", "type": "string"}
+      ],
+      "name": "TradeFailed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "uint256", "name": "tradeId", "type": "uint256"}
+      ],
+      "name": "TradeMatured",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "uint256", "name": "tradeId", "type": "uint256"}
+      ],
+      "name": "TradeStarted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {"indexed": true, "internalType": "uint256", "name": "tradeId", "type": "uint256"},
+        {"indexed": true, "internalType": "address", "name": "token", "type": "address"},
+        {"indexed": true, "internalType": "address", "name": "to", "type": "address"},
+        {"indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256"}
+      ],
+      "name": "TokensWithdrawn",
+      "type": "event"
+    },
+    {
+      "inputs": [{"internalType": "address", "name": "", "type": "address"}],
+      "name": "admins",
+      "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{"internalType": "uint256", "name": "_tradeId", "type": "uint256"}],
+      "name": "cancelTrade",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {"internalType": "uint256", "name": "startDateTime", "type": "uint256"},
+            {"internalType": "uint256", "name": "maturityDateTime", "type": "uint256"},
+            {"internalType": "string", "name": "bondIsin", "type": "string"},
+            {"internalType": "uint8", "name": "counterparty1RepoType", "type": "uint8"},
+            {"internalType": "uint256", "name": "bondAmount", "type": "uint256"},
+            {"internalType": "uint256", "name": "startAmount", "type": "uint256"},
+            {"internalType": "uint256", "name": "interestAmount", "type": "uint256"},
+            {"internalType": "uint256", "name": "cashAmount", "type": "uint256"},
+            {"internalType": "address", "name": "counterparty1", "type": "address"},
+            {"internalType": "address", "name": "counterparty2", "type": "address"},
+            {"internalType": "address", "name": "cashToken", "type": "address"},
+            {"internalType": "address", "name": "bondToken", "type": "address"}
+          ],
+          "internalType": "struct ERC20TokenRepo.TradeInput",
+          "name": "input",
+          "type": "tuple"
+        }
+      ],
+      "name": "createTrade",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "endDate",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getEndDateSGT",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{"internalType": "uint256", "name": "_tradeId", "type": "uint256"}],
+      "name": "getTradeBasics",
+      "outputs": [
+        {"internalType": "uint256", "name": "tradeId", "type": "uint256"},
+        {"internalType": "uint256", "name": "startDateTime", "type": "uint256"},
+        {"internalType": "uint256", "name": "maturityDateTime", "type": "uint256"},
+        {"internalType": "string", "name": "bondIsin", "type": "string"},
+        {"internalType": "uint8", "name": "counterparty1RepoType", "type": "uint8"},
+        {"internalType": "uint256", "name": "startAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "interestAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "bondAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "cashAmount", "type": "uint256"},
+        {"internalType": "uint8", "name": "status", "type": "uint8"}
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{"internalType": "uint256", "name": "_tradeId", "type": "uint256"}],
+      "name": "getTradeBasicsSGT",
+      "outputs": [
+        {"internalType": "uint256", "name": "tradeId", "type": "uint256"},
+        {"internalType": "uint256", "name": "startDateTime", "type": "uint256"},
+        {"internalType": "uint256", "name": "maturityDateTime", "type": "uint256"},
+        {"internalType": "string", "name": "bondIsin", "type": "string"},
+        {"internalType": "uint8", "name": "counterparty1RepoType", "type": "uint8"},
+        {"internalType": "uint256", "name": "startAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "interestAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "bondAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "cashAmount", "type": "uint256"},
+        {"internalType": "uint8", "name": "status", "type": "uint8"}
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{"internalType": "uint256", "name": "_tradeId", "type": "uint256"}],
+      "name": "getTradeDetails",
+      "outputs": [
+        {"internalType": "uint256", "name": "tradeId", "type": "uint256"},
+        {"internalType": "address", "name": "counterparty1", "type": "address"},
+        {"internalType": "address", "name": "counterparty2", "type": "address"},
+        {"internalType": "address", "name": "cashToken", "type": "address"},
+        {"internalType": "address", "name": "bondToken", "type": "address"},
+        {"internalType": "uint8", "name": "status", "type": "uint8"}
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {"internalType": "address", "name": "_admin", "type": "address"},
+        {"internalType": "bool", "name": "_add", "type": "bool"}
+      ],
+      "name": "manageAdmins",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [{"internalType": "uint256", "name": "_tradeId", "type": "uint256"}],
+      "name": "matureTrade",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "paused",
+      "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [{"internalType": "bool", "name": "_pause", "type": "bool"}],
+      "name": "pauseUnpause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [{"internalType": "uint256", "name": "_newEndDate", "type": "uint256"}],
+      "name": "setEndDate",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [{"internalType": "uint256", "name": "_tradeId", "type": "uint256"}],
+      "name": "startTrade",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "name": "trades",
+      "outputs": [
+        {"internalType": "uint256", "name": "tradeId", "type": "uint256"},
+        {"internalType": "uint256", "name": "startDateTime", "type": "uint256"},
+        {"internalType": "uint256", "name": "maturityDateTime", "type": "uint256"},
+        {"internalType": "string", "name": "bondIsin", "type": "string"},
+        {"internalType": "enum ERC20TokenRepo.RepoType", "name": "counterparty1RepoType", "type": "uint8"},
+        {"internalType": "uint256", "name": "bondAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "startAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "interestAmount", "type": "uint256"},
+        {"internalType": "uint256", "name": "cashAmount", "type": "uint256"},
+        {"internalType": "address", "name": "counterparty1", "type": "address"},
+        {"internalType": "address", "name": "counterparty2", "type": "address"},
+        {"internalType": "address", "name": "cashToken", "type": "address"},
+        {"internalType": "address", "name": "bondToken", "type": "address"},
+        {"internalType": "enum ERC20TokenRepo.Status", "name": "status", "type": "uint8"}
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "tradeCount",
+      "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {"internalType": "uint256", "name": "_tradeId", "type": "uint256"},
+        {"internalType": "address", "name": "_token", "type": "address"},
+        {"internalType": "address", "name": "_to", "type": "address"},
+        {"internalType": "uint256", "name": "_amount", "type": "uint256"}
+      ],
+      "name": "withdrawTokens",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]

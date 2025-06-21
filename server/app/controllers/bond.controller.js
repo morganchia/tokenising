@@ -579,6 +579,13 @@ exports.approveDraftById = async (req, res) => {  //
               });
               console.log("Estimated gas fee for transfer: ", gasFees);
 
+              const balance = await web3.eth.getBalance(signer.address);
+              console.log("Signer balance:", web3.utils.fromWei(balance, "ether"), "ETH");
+              if (web3.utils.toBN(balance).lt(web3.utils.toBN(gasFees).mul(web3.utils.toBN("1000000000")))) {
+                res.status(400).send({ message: "Insufficient funds for gas." });
+                return false;
+              }
+
               const contractTx = await ERC20TokenisedBondcontract.deploy({
                   data: bytecode,
                   arguments: [
@@ -588,11 +595,14 @@ exports.approveDraftById = async (req, res) => {  //
                   ],
               });
 
+              const nonce = await web3.eth.getTransactionCount(signer.address, "pending");
+              console.log("Using nonce:", nonce);
               const createTransaction = await web3.eth.accounts.signTransaction(
                   {
                       from: signer.address,
                       data: contractTx.encodeABI(),
                       gas: Math.floor(gasFees * 1.1), // Increase by 10%
+                      nonce: nonce
                   },
                   signer.privateKey
               );
@@ -863,8 +873,9 @@ exports.approveDraftById = async (req, res) => {  //
   // update draft table
     await Bond_Draft.update(  // update draft table status to "3"
     { 
-      status            : 3,
-      approverComments  : req.body.approvercomments,
+      status                : 3,
+      smartcontractaddress  : newcontractaddress,
+      approverComments      : req.body.approvercomments,
     }, 
     { where:      { id: draft_id }},
     )

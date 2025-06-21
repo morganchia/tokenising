@@ -40,6 +40,8 @@ module.exports = app => {
   // Retrieve a single Repo with id
   router.get("/findone", repo.findOne);
 
+  router.put('/withdrawtokens/:id', repo.withdrawTokens);
+
   // sequence matters
   router.put("/submitdraftbyid/:id", repo.submitDraftById);
   router.put("/acceptdraftbyid/:id", repo.acceptDraftById);
@@ -48,7 +50,6 @@ module.exports = app => {
   router.put("/approvedeletedraftbyid/:id", repo.approveDeleteDraftById); 
   router.put("/droprequestbyid/:id", repo.dropRequestById);
   router.put("/executerepobyid/:id", repo.executeRepoById);
-
 
 /*
   router.put("/submitwrapmintdraftbyid/:id", repo.submitWrapMintDraftById);

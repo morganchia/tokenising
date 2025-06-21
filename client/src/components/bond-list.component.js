@@ -237,7 +237,7 @@ export default class BondList extends Component {
                   <th>Total Issue Size</th>
                   <th>Bond Smart Contract</th>
                   <th>Cash Token Smart Contract</th>
-                  <th>View Bond</th>
+                  <th>View Details</th>
                   <th>View on Blockchain explorer</th>
                   <th>Issuer Fund Coupon</th>
                   <th>Action</th>
@@ -292,7 +292,7 @@ export default class BondList extends Component {
                               ? bond1.recipient.name  :null
                           }
                       </td>
-                      <td>{bond1.totalsupply}</td>
+                      <td>{bond1.totalsupply.toLocaleString()}</td>
                       <td>{
                             (bond1.smartcontractaddress !== undefined && typeof bond1.smartcontractaddress === "string")? this.shorten(bond1.smartcontractaddress): null
                           }

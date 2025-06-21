@@ -973,7 +973,7 @@ async deleteDvP() {
                           disabled="true"
                           >
                           <option value=""> </option>
-                          <option value="" disabled>--- DSGD ---</option>
+                          <option value="" disabled>--- Digital Cash ---</option>
                           {
                             Array.isArray(underlyingDSGDList) ?
                             underlyingDSGDList.map( (d) => {
@@ -1004,7 +1004,7 @@ async deleteDvP() {
                           disabled="true"
                           >
                           <option value=""> </option>
-                          <option value="" disabled>--- DSGD ---</option>
+                          <option value="" disabled>--- Digital Cash ---</option>
                           {
                             Array.isArray(underlyingDSGDList) ?
                             underlyingDSGDList.map( (d) => {
