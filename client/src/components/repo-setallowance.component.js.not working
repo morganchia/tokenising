@@ -57,6 +57,8 @@ export default class repocouponallowance extends Component {
     this.networkOptions = [
       { name: "Sepolia Testnet", chainId: "0xaa36a7" }, // 11155111
       { name: "Amoy Testnet", chainId: "0x13882" }, // 80002
+      { name: "Ethereum Mainnet", chainId: "0x1" }, // 1
+      { name: "Polygon Mainnet", chainId: "0x89" }, // 137
     ];
   }
 
@@ -221,13 +223,52 @@ export default class repocouponallowance extends Component {
           const Token1_abi = repotype === "Repo" ? JSON.parse(JSON.stringify(bondToken_jsonData)) : JSON.parse(JSON.stringify(cashToken_jsonData));
           const Token2_abi = repotype === "Repo" ? JSON.parse(JSON.stringify(cashToken_jsonData)) : JSON.parse(JSON.stringify(bondToken_jsonData));
 
-          const tokenInst1 = new web3.eth.Contract(Token1_abi, Token1Addr);
-          const balance1 = await tokenInst1.methods.balanceOf(accounts[0]).call();
-          const symbol1 = await tokenInst1.methods.symbol().call();
+          let balance1 = 0, balance2 = 0, symbol1 = "Unknown", symbol2 = "Unknown";
+          try {
+            const tokenInst1 = new web3.eth.Contract(Token1_abi, Token1Addr);
+            balance1 = await tokenInst1.methods.balanceOf(accounts[0]).call();
+            symbol1 = await tokenInst1.methods.symbol().call();
+          } catch (token1Err) {
+            console.log(`Failed to fetch Token1 (${Token1Addr}) data: ${token1Err.message}`);
+            this.setState({
+              connectionStatus: `Failed to fetch Token1 data: ${token1Err.message}`,
+              tradeDetails: null,
+              Token1Addr: "",
+              Token2Addr: "",
+              symbolLeg1: "",
+              symbolLeg2: "",
+              TokenBalanceLeg1: 0,
+              TokenBalanceLeg2: 0,
+              TokenRequiredLeg1: 0,
+              TokenRequiredLeg2: 0,
+              approve_token_amount1: "",
+              approve_token_amount2: "",
+            });
+            return;
+          }
 
-          const tokenInst2 = new web3.eth.Contract(Token2_abi, Token2Addr);
-          const balance2 = await tokenInst2.methods.balanceOf(accounts[0]).call();
-          const symbol2 = await tokenInst2.methods.symbol().call();
+          try {
+            const tokenInst2 = new web3.eth.Contract(Token2_abi, Token2Addr);
+            balance2 = await tokenInst2.methods.balanceOf(accounts[0]).call();
+            symbol2 = await tokenInst2.methods.symbol().call();
+          } catch (token2Err) {
+            console.log(`Failed to fetch Token2 (${Token2Addr}) data: ${token2Err.message}`);
+            this.setState({
+              connectionStatus: `Failed to fetch Token2 data: ${token2Err.message}`,
+              tradeDetails: null,
+              Token1Addr: "",
+              Token2Addr: "",
+              symbolLeg1: "",
+              symbolLeg2: "",
+              TokenBalanceLeg1: 0,
+              TokenBalanceLeg2: 0,
+              TokenRequiredLeg1: 0,
+              TokenRequiredLeg2: 0,
+              approve_token_amount1: "",
+              approve_token_amount2: "",
+            });
+            return;
+          }
 
           let stateUpdate = {
             RepoType: repotype,
@@ -438,7 +479,7 @@ export default class repocouponallowance extends Component {
               <div className="input-group">
                 <label htmlFor="networkSelect">Select Network</label>
                 <select
-                  onChange={this.onChangeNetwork}
+                  onChange={this.onChangeSysAdmin}
                   className="select"
                   id="networkSelect"
                   value={this.state.selectedNetwork}
@@ -451,7 +492,6 @@ export default class repocouponallowance extends Component {
                   ))}
                 </select>
               </div>
-              <br/>
               <div className="input-group">
                 <label htmlFor="Reposmartcontract">Enter Repo Smart Contract Address</label>
                 <input
@@ -466,13 +506,11 @@ export default class repocouponallowance extends Component {
 
               {this.state.connectedAccount && (
                 <>
-                  <br/>
                   <div className="input-group">
                     <label style={{color: 'blue'}}><small>{this.state.connectionStatus}</small></label>
                   </div>
                 </>
               )}
-              <br/>
               <div className="input-group">
                 <label htmlFor="approve_token_amount1">
                   <small>
@@ -543,7 +581,7 @@ export default class repocouponallowance extends Component {
         </div>
         <Modal
           showm={this.state.showm}
-          handleProceed1={event => window.location.href='/repo'}
+          handleProceed1={event => window.location.href='/repocouponallowance/1'}
           handleProceed2={this.deleteRepo}
           handleProceed3={this.dropRequest}
           button1text={this.state.button1text}

@@ -533,7 +533,6 @@ export default class repocouponallowance extends Component {
 
           {this.state.connectedAccount && (
             <>
-              <br/>
               <div class="input-group">
                 <label style={{color:'blue'}}><small>{this.state.connectionStatus}</small></label>
 
@@ -541,7 +540,6 @@ export default class repocouponallowance extends Component {
 
             </>
           )}
-          <br/>
           <div class="input-group">
               <label for="approve_token_amount1"><small>Set Allowance for Start Trade(First leg) [required: {this.state.TokenRequiredLeg1.toLocaleString()}, balance: {this.state.TokenBalanceLeg1.toLocaleString()} {this.state.symbolLeg1} tokens]</small></label>
               <input 

@@ -62,7 +62,7 @@ import DvPTransact from "./components/dvp-transact.component";
 
 import RepoList from "./components/repo-list.component";
 import RepoCheckApprove from "./components/repo-checkapprove.component";
-import RepoCouponAllowance from "./components/repo-couponallowance.component";
+import RepoCouponAllowance from "./components/repo-setallowance.component";
 import RepoTradeManager from "./components/RepoTradeManager.component";
 import RepoTransact from "./components/repo-transact.component";
 
@@ -445,7 +445,7 @@ class App extends Component {
 
             <Route path="/repo" element={<RepoList/>} />
             <Route path="/repocheckapprove/:id" element={<RepoCheckApprove/>} />
-            <Route path="/repocouponallowance/:id" element={<RepoCouponAllowance />} />
+            <Route path="/reposetallowance/:id" element={<RepoCouponAllowance />} />
             <Route path="/repotrademanager/:id" element={<RepoTradeManager />} />
             <Route path="/repotransact/:id" element={<RepoTransact/>} />
 
