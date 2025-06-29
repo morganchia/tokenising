@@ -28,8 +28,6 @@ function getTodayTime() {
 class Repo extends Component {
   constructor(props) {
     super(props);
-    this.getRepo = this.getRepo.bind(this);
-    this.approveRepo = this.approveRepo.bind(this);
     this.showModal_Leave = this.showModal_Leave.bind(this);
     this.showModal_dropRequest = this.showModal_dropRequest.bind(this);
     this.hideModal = this.hideModal.bind(this);
@@ -195,9 +193,6 @@ class Repo extends Component {
 
     let isapprover = user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "APPROVER");
     this.setState({ isApprover: (isapprover === undefined ? false : true) });
-
-    //this.getAllUnderlyingAssets();
-    //this.getAllCounterpartys();
 
     const loadWeb3 = async () => {
       if (window.ethereum) {
@@ -677,88 +672,6 @@ class Repo extends Component {
     */
   }
 
-  async getRepo(user, id) {
-    console.log(">>>>> id:", id);
-    (typeof id === "string" ? id = parseInt(id) : id = id);
-
-    if (id !== undefined && (typeof id === "number" && id !== 0)) {
-      try {
-        const response = await RepoDataService.getAllDraftsByRepoId(id);
-        const repoData = response.data[0];
-        repoData.actionby = user.username;
-        console.log("getRepo(): Backend response:", repoData);
-
-        this.setState({
-          currentRepo: {
-            ...repoData,
-            startdate: (repoData.startdatetime ? repoData.startdatetime.split("T")[0] : "0000-00-00"),
-            starttime: (repoData.startdatetime ? repoData.startdatetime.split("T")[1].split(".")[0] : "00:00:00"),
-            enddate: (repoData.enddatetime ? repoData.enddatetime.split("T")[0] : "0000-00-00"),
-            endtime: (repoData.enddatetime ? repoData.enddatetime.split("T")[1].split(".")[0] : "00:00:00"),
-            tradedate: (repoData.tradedate ? repoData.tradedate.split("T")[0] : "0000-00-00"),
-            repotype: (repoData.securityLB === "B" ? "repo" : (repoData.securityLB === "L" ? "reverserepo" : "")),
-            cleanprice: this.formatNumber2decimals(repoData.cleanprice),
-            dirtyprice: this.formatNumber2decimals(repoData.dirtyprice),
-          },
-          isNewRepo: true
-        });
-        console.log("Response from getAllDraftsByRepoId(id):", repoData);
-      } catch (e) {
-        console.log("Error from getAllDraftsByRepoId(id):", e);
-        alert("Error: " + (e.response?.data?.message || e.message));
-      }
-    }
-  }
-
-  getAllUnderlyingAssets() {
-    CampaignDataService.getAll()
-      .then(response => {
-        if (response.data.length === 0) {
-          this.setState({
-            underlyingDSGDList: [{ id: -1, name: "No campaign available, please create a campaign first." }],
-          });
-        } else {          
-          var first_array_record = [{ }];
-          this.setState({
-            underlyingDSGDList: [first_array_record].concat(response.data)
-          });
-        }
-      })
-      .catch(e => {
-        console.log(e);
-      });
-
-    BondDataService.getAll()
-      .then(response => {
-        if (response.data.length === 0) {
-          this.setState({
-            BondList: [{ id: -1, name: "" }],
-          });
-        } else {          
-          var first_array_record = [{ }];
-          this.setState({
-            BondList: [first_array_record].concat(response.data)
-          });
-        }
-        console.log("Response data from retrieveBond() BondDataService.getAll:", response.data);
-      })
-      .catch(e => {
-        console.log(e, "from retrieveBond() BondDataService.getAll");
-      });
-  }
-
-  getAllCounterpartys() {
-    RecipientDataService.findAllRecipients()
-      .then(response => {
-        this.setState({
-          recipientList: response.data
-        });
-      })
-      .catch(e => {
-        console.log(e);
-      });
-  }
-
   displayModal(msg, b1text, b2text, b3text, b0text) {
     this.setState({
       showm: true, 
@@ -774,43 +687,6 @@ class Repo extends Component {
     const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
     return timeRegex.test(time1);
   }
-
-  async approveRepo() {
-    this.show_loading();
-
-    await RepoDataService.approveDraftById(
-      this.state.currentRepo.id,
-      this.state.currentRepo,
-    )
-    .then(response => {
-      this.hide_loading();
-      console.log("Response: ", response);
-      this.setState({  
-        datachanged: false,
-      });
-      this.displayModal("The Repo smart contract is approved, executed successfully" + (typeof(response.data.smartcontractaddress) !== "undefined" && response.data.smartcontractaddress !== null && response.data.smartcontractaddress !== "" ? " and deployed at " + response.data.smartcontractaddress + ". \n\nYou can start transacting using the Repo smart contract now." : "."), "OK", null, null, null);
-    })
-    .catch(e => {
-      this.hide_loading();
-      console.log("-->response:", e);
-      this.displayModal(e.message + ". " + (typeof(e.response.data.message) !== 'undefined' && e.response.data.message !== null ? e.response.data.message : ""), null, null, null, "OK");
-
-      try {
-        if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-          this.displayModal("The Repo smart contract update failed. The Repo smart contract name is already used, please use another name.", null, null, null, "OK");
-        }
-      } catch(e) {
-        this.hide_loading();
-        console.log("Error: ", e);
-        if (typeof (e.response.data.message) !== "undefined" && e.response.data.message !== null && e.response.data.message !== "") {
-          this.displayModal("Error: " + e.response.data.message + ". Please contact tech support.", null, null, null, "OK");
-        } else {
-          this.displayModal("Error: " + e.message + ". Please contact tech support.", null, null, null, "OK");
-        }
-      } 
-    });
-    this.hide_loading();
-  }      
 
   show_loading() {
     this.setState({ isLoading: true });
@@ -836,7 +712,8 @@ class Repo extends Component {
     this.setState({ showm: false });
   };
 
-  triggerStartRepo = async () => {
+  triggerStartRepo = async (event) => {
+    event.preventDefault(); // Prevent form submission
     const web3 = window.web3;
     const repo_abi = JSON.parse(JSON.stringify(repoContract_jsonData));
     const repoContract = new web3.eth.Contract(repo_abi, this.state.currentRepo.smartcontractaddress);
@@ -866,12 +743,43 @@ class Repo extends Component {
       } else if (errMsg.includes("Insufficient token")) {
         errMsg = "You have insufficient tokens in your wallet.";
       }
-      this.displayModal("Error executing startTrade(1) in Metamask: " + errMsg, null, null, null, "OK");
+      this.displayModal("Error executing Start Trade in Metamask: " + errMsg, null, null, null, "OK");
     }
   };
 
-  triggerMatureRepo = () => {
-    // Placeholder for mature repo logic
+  triggerMatureRepo = async (event) => {
+    event.preventDefault(); // Prevent form submission
+    const web3 = window.web3;
+    const repo_abi = JSON.parse(JSON.stringify(repoContract_jsonData));
+    const repoContract = new web3.eth.Contract(repo_abi, this.state.currentRepo.smartcontractaddress);
+    const connectedAccount = this.state.connectedAccount;    
+        
+    try {
+      await repoContract.methods.matureTrade(1).send({
+        from: connectedAccount
+      }, (err, result) => {
+        if (err) {
+          this.displayModal("Error encountered: " + err.message, null, null, null, "OK");
+          console.log("Error executing matureTrade(1): " + err);
+          return;
+        } else {
+          console.log("Transaction executed! Txn hash / Account address: " + result);
+        }
+      }).on('receipt', async (data1) => {
+        console.log("Starting Repo trade (Leg1) - Return values from Receipt of approve(): ", data1.events.Approval.returnValues);
+      });
+    } catch (err) {
+      console.log("Error executing matureTrade(1) in Metamask: ", err);
+      var errMsg = err.message;
+      if (errMsg.includes("User denied transaction signature")) {
+        errMsg = "You have denied the transaction signature in Metamask. Please try again.";
+      } else if (errMsg.includes("Execution prevented because the circuit breaker is open")) {
+        errMsg = "Execution prevented because Metamask internal error, please restart Metamask and try again later.";
+      } else if (errMsg.includes("Insufficient token")) {
+        errMsg = "You have insufficient tokens in your wallet.";
+      }
+      this.displayModal("Error executing Mature Trade in Metamask: " + errMsg, null, null, null, "OK");
+    }
   };
   
   render() {
@@ -1047,7 +955,7 @@ class Repo extends Component {
                     <tr>
                       <td style={{ border: '0', backgroundColor: '#ffffff' }}>
                         <button
-                          type="submit"
+                          type="button" // Changed from submit to button
                           className="m-3 btn btn-sm btn-primary"
                           onClick={this.triggerStartRepo}
                         >
@@ -1095,7 +1003,7 @@ class Repo extends Component {
                     <tr>
                       <td style={{ border: '0', backgroundColor: '#ffffff' }}>
                         <button
-                          type="submit"
+                          type="button" // Changed from submit to button
                           className="m-3 btn btn-sm btn-primary"
                           onClick={this.triggerMatureRepo}
                         >

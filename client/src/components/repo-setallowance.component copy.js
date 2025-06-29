@@ -57,8 +57,8 @@ export default class repocouponallowance extends Component {
     this.networkOptions = [
       { name: "Sepolia Testnet", chainId: "0xaa36a7" }, // 11155111
       { name: "Amoy Testnet", chainId: "0x13882" }, // 80002
-      { name: "Ethereum Mainnet", chainId: "0x1" }, // 1
-      { name: "Polygon Mainnet", chainId: "0x89" }, // 137
+//      { name: "Ethereum Mainnet", chainId: "0x1" }, // 1
+//      { name: "Polygon Mainnet", chainId: "0x89" }, // 137
     ];
   }
 
@@ -383,7 +383,8 @@ export default class repocouponallowance extends Component {
           console.log("Error executing approve(): " + err);
           return;
         } else {
-          console.log("Transaction executed! Txn hash / Account address: " + result);
+          console.log("Transaction sent to the blockchain, pending to be included! Txn hash / Account address: " + result);
+          //this.displayModal("Transaction sent to the blockchain, pending to be included! Txn hash / Account address: " + result, null, null, null, "OK");
         }
       }).on('receipt', async (data1) => {
         console.log("Setting approve() for Holder(" + connectedAccount + "), Spender (" + spenderAddr1 + ") - Return values from Receipt of approve(): ", data1.events.Approval.returnValues);

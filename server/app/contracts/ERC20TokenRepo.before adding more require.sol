@@ -179,9 +179,6 @@ contract ERC20TokenRepo {
     function startTrade(uint256 _tradeId) public onlyAdminOrOwner notAfterEndDate whenNotPaused {
         Trade storage trade = trades[_tradeId];
         require(trade.counterparty1 != address(0), "Trade does not exist");
-//        require(trade.status < Status.Cancelled, "Trade is cancelled");
-//        require(trade.status < Status.Matured, "Trade already matured");
-//        require(trade.status < Status.Started, "Trade already started");
         require(trade.status == Status.Pending, "Trade not pending");
         require(block.timestamp >= trade.startDateTime, "Too early for start");
         require(block.timestamp <= trade.startDateTime + 72 hours, "Start window expired");
@@ -232,8 +229,6 @@ contract ERC20TokenRepo {
     function matureTrade(uint256 _tradeId) public onlyAdminOrOwner notAfterEndDate whenNotPaused {
         Trade storage trade = trades[_tradeId];
         require(trade.counterparty1 != address(0), "Trade does not exist");
-//        require(trade.status < Status.Cancelled, "Trade is cancelled");
-//        require(trade.status < Status.Matured, "Trade already matured");
         require(trade.status == Status.Started, "Trade not started");
         require(block.timestamp >= trade.maturityDateTime, "Too early for maturity");
         require(block.timestamp <= trade.maturityDateTime + 72 hours, "Maturity window expired");

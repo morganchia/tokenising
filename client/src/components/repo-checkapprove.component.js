@@ -1238,17 +1238,17 @@ class Repo extends Component {
       console.log("Start > End? "+ (this.state.currentRepo.startdate > this.state.currentRepo.enddate));
           
       // dont need t check description, it can be empty
-      if (this.state.currentRepo.counterpartyname === "") err += "- Counterparty name cannot be empty\n";
-      if (this.state.currentRepo.underlyingTokenID1 === "") err += "- Our "+ (this.state.currentRepo.securityLB !== "" && this.state.currentRepo.securityLB === 'B'?'Bond ' : this.state.currentRepo.securityLB === 'L'?'Cash ' : " ") +"token cannot be empty\n";
-      if (this.state.currentRepo.underlyingTokenID2 === "") err += "- Counterparty "+ (this.state.currentRepo.securityLB !== "" && this.state.currentRepo.securityLB === 'B'?'Cash ' : this.state.currentRepo.securityLB === 'L'?'Bond ' : " ") + "token cannot be empty\n";
+      if (this.state.currentRepo.counterpartyname === "") err += "- Counterparty 2 name cannot be empty\n";
+      if (this.state.currentRepo.underlyingTokenID1 === "") err += "- Counterparty 1 "+ (this.state.currentRepo.securityLB !== "" && this.state.currentRepo.securityLB === 'B'?'Bond ' : this.state.currentRepo.securityLB === 'L'?'Cash ' : " ") +"token cannot be empty\n";
+      if (this.state.currentRepo.underlyingTokenID2 === "") err += "- Counterparty 2 "+ (this.state.currentRepo.securityLB !== "" && this.state.currentRepo.securityLB === 'B'?'Cash ' : this.state.currentRepo.securityLB === 'L'?'Bond ' : " ") + "token cannot be empty\n";
 
       if (parseInt(this.state.currentRepo.nominal) <=  0) err += "- Nominal must be more than zero\n";
       if (parseInt(this.state.currentRepo.cleanprice) <=  0) err += "- Clean Price must be more than zero\n";
       if (parseInt(this.state.currentRepo.dirtyprice) <=  0) err += "- Dirty Price must be more than zero\n";
       if (this.state.currentRepo.currency === "") err += "- Currency cannot be empty\n";
       if (this.state.currentRepo.daycountconvention === "") err += "- Day Count Convention cannot be empty\n";
-      if (this.state.currentRepo.counterparty1 === "") err += "- Our Wallet Address cannot be empty\n";
-      if (this.state.currentRepo.counterparty2 === "") err += "- Counterparty Wallet Address cannot be empty\n";
+      if (this.state.currentRepo.counterparty1 === "") err += "- Counterparty 1 Wallet Address cannot be empty\n";
+      if (this.state.currentRepo.counterparty2 === "") err += "- Counterparty 2 Wallet Address cannot be empty\n";
 
       if (this.state.currentRepo.amount1 === "") err += "- Amount 1 cannot be empty\n";
       if (this.state.currentRepo.amount2 === "") err += "- Amount 2 cannot be empty\n";
@@ -2060,7 +2060,7 @@ class Repo extends Component {
 {/*  Block chain portion */}
 
                     <div className="form-group">
-                    <label htmlFor="counterparty1">Our Wallet Addr *</label>
+                    <label htmlFor="counterparty1">Counterparty 1 Wallet Addr *</label>
                     <select
                           onChange={this.onChangeCounterParty1}                         
                           className="form-control"
@@ -2082,7 +2082,7 @@ class Repo extends Component {
                         </select>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="counterparty2">Counterparty Wallet Addr *</label>
+                    <label htmlFor="counterparty2">Counterparty 2 Wallet Addr *</label>
                     <select
                           onChange={this.onChangeCounterParty2}                         
                           className="form-control"
@@ -2104,7 +2104,7 @@ class Repo extends Component {
                         </select>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="name">Our {(currentRepo.securityLB !== "" && currentRepo.securityLB === 'B'?'Bond' : currentRepo.securityLB === 'L'?'Cash' : null)} Token*</label>
+                    <label htmlFor="name">Counterparty 1 {(currentRepo.securityLB !== "" && currentRepo.securityLB === 'B'?'Bond' : currentRepo.securityLB === 'L'?'Cash' : null)} Token*</label>
                     <select
                           onChange={this.onChangeUnderlying1}                         
                           className="form-control"
@@ -2141,7 +2141,7 @@ class Repo extends Component {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="name">Counterparty {(currentRepo.securityLB !== "" && currentRepo.securityLB === 'B'?'Cash' : currentRepo.securityLB === 'L'?'Bond' : null)} Token*</label>
+                    <label htmlFor="name">Counterparty 2 {(currentRepo.securityLB !== "" && currentRepo.securityLB === 'B'?'Cash' : currentRepo.securityLB === 'L'?'Bond' : null)} Token*</label>
                     <select
                           onChange={this.onChangeUnderlying2}                         
                           className="form-control"

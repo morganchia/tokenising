@@ -179,8 +179,7 @@ exports.create_review = async (req, res) => {
   }); 
 }; // create_review
 
-// approveDraftById function 
-exports.approveDraftById = async (req, res) => {
+exports.approveDraftById = async (req, res) => {  // 
   // Steps:
   // 1. Is this a new Repo creation or Edit? If approvedrepoid === '-1' then it is a new creation
   // 2. If new repo creation:
@@ -318,7 +317,7 @@ exports.approveDraftById = async (req, res) => {
     });
   }
 
-  async function dAppCreate() {
+  async function dAppCreate() {  // create and deploy new smart contract and createTrade()
     var errorSent = false;
     updatestatus = false;
 
@@ -326,7 +325,30 @@ exports.approveDraftById = async (req, res) => {
 
     console.log("Compiling smart contract...");
     await compileSmartContract();
-
+/*
+    try {
+      if (! (fs.existsSync("./server/app/abis/ERC20TokenRepo.abi.json") && fs.existsSync("./server/app/abis/ERC20TokenRepo.bytecode.json"))) {
+        console.log("Compiling smart contract...");
+        await compileSmartContract();
+      } else{
+        console.log("Repo ABI and Bytecode files are present, just read them, no need to recompile...");
+        console.log("Read Repo ABI JSON file.");
+        ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.abi.json").toString());
+        console.log("Read Repo Bytecode JSON file.");
+        bytecode = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.bytecode.json").toString());
+      }
+    } catch(err) {
+      console.error("Err7: ",err)
+      if (!errorSent) {
+        console.log("Sending error 400 back to client");
+        res.status(400).send({ 
+          message: err
+        });
+        errorSent = true;
+      }
+      return false;
+    }
+*/   
     // Creation of Web3 class
     Web3 = require("web3");
 
@@ -364,28 +386,31 @@ exports.approveDraftById = async (req, res) => {
     }
 
     console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+    // Creating a signing account from a private key
     const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
     console.log("req.body = ", req.body);
 
     console.log("Startdate (unix time) = ", Number(new Date(req.body.startdate)));
     console.log("Enddate   (unix time) = ", Number(new Date(req.body.enddate)));
     try {
-      // Validate inputs
-      if (!req.body.amount1 || !req.body.amount2 || isNaN(parseFloat(req.body.amount1)) || isNaN(parseFloat(req.body.amount2))) {
-        throw new Error("Invalid amount1 or amount2");
-      }
 
-      // Convert amounts to Wei using web3.utils.toWei
-      const this_amount1 = web3.utils.toWei(req.body.amount1.toString(), "ether");
-      const this_amount2 = web3.utils.toWei(req.body.amount2.toString(), "ether");
+    // Validate inputs
+    if (!req.body.amount1 || !req.body.amount2 || isNaN(parseFloat(req.body.amount1)) || isNaN(parseFloat(req.body.amount2))) {
+      throw new Error("Invalid amount1 or amount2");
+    }
 
-      console.log("this_amount1 (Wei): ", this_amount1);
-      console.log("this_amount2 (Wei): ", this_amount2);
+    // Convert amounts to Wei using web3.utils.toWei
+    const this_amount1 = web3.utils.toWei(req.body.amount1.toString(), "ether");
+    const this_amount2 = web3.utils.toWei(req.body.amount2.toString(), "ether");
 
-      const ERC20TokenRepoContract = new web3.eth.Contract(ABI);
+    console.log("this_amount1 (Wei): ", this_amount1);
+    console.log("this_amount2 (Wei): ", this_amount2);
+
+    const ERC20TokenRepoContract = new web3.eth.Contract(ABI);
 
       // Deploy contract
       const deployContract = async () => {
+        
         console.log('Creating trade parameters in Repo contract...');
         console.log('createTrade req.body:', JSON.stringify(req.body, null, 2));
 
@@ -443,6 +468,7 @@ exports.approveDraftById = async (req, res) => {
 
         console.log('Attempting to deploy from account:', signer.address);
         const nonce = await web3.eth.getTransactionCount(signer.address, "latest");
+
         const deployTx = ERC20TokenRepoContract.deploy({ data: bytecode, arguments: [tradeInput] });  
         let gasFees;
         try {
@@ -453,16 +479,12 @@ exports.approveDraftById = async (req, res) => {
         }
         console.log("Estimated gas fee for deploy: ", gasFees);
 
-        let currentGas = Math.floor(gasFees * 1.1);
-        const maxGas = gasFees * 2; // 100% increase maximum
-
         const createTransaction = await web3.eth.accounts.signTransaction(
           {
             from: signer.address,
             data: deployTx.encodeABI(),
-            gas: currentGas,
-            gasPrice: await web3.eth.getGasPrice(),
-            nonce: nonce, // include original nonce
+            gas: Math.floor(gasFees * 1.1),
+            gasPrice: await web3.eth.getGasPrice(), // Add gasPrice
           },
           signer.privateKey
         );
@@ -470,6 +492,7 @@ exports.approveDraftById = async (req, res) => {
 
         const createReceipt = await web3.eth.sendSignedTransaction(
           createTransaction.rawTransaction, 
+        
           function (error1, hash) {
             if (error1) {
                 console.log("Error11a when submitting your signed Repo deploy transaction:", error1);
@@ -481,61 +504,41 @@ exports.approveDraftById = async (req, res) => {
                   errorSent = true;
                 }
                 return false;
-            } else {
-                console.log("Txn sent!, hash: ", hash);
-                var timer = 1;
-                // retry every second to chk for receipt
-                const interval = setInterval(async function() {
-                  console.log("Attempting to get transaction receipt...");
+          } else {
+              console.log("Txn sent!, hash: ", hash);
+              var timer = 1;
+              // retry every second to chk for receipt
+              const interval = setInterval(function() {
+                console.log("Attempting to get transaction receipt...");
 
                 // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
-                  web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
-                    if (receipt) {
-                      console.log('>>>>>>>>>>>>>>>> GOT RECEIPT -->> ', receipt);
-                      clearInterval(interval);
+                web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
+                  if (receipt) {
+                    console.log('>>>>>>>>>>>>>>>> GOT RECEIPT -->> ', receipt);
+                    clearInterval(interval);
 
-                      const trx = await web3.eth.getTransaction(hash);
-                      console.log('trx.status -->>: ',trx);
+                    const trx = await web3.eth.getTransaction(hash);
+                    console.log('trx.status -->>: ',trx);
 
-                      return(receipt.status);
+                    return(receipt.status);
+                  }
+                  if (error3) {
+                    console.log("!! getTransactionReceipt error: ", error3)
+                    clearInterval(interval);
+                    if (!errorSent) {
+                      console.log("Sending error 400 back to client");
+                      res.status(400).send({ 
+                        message: error3.toString().replace('*', ''),
+                      });
+                      errorSent = true;
                     }
-                    if (error3) {
-                      console.log("!! getTransactionReceipt error: ", error3)
-                      clearInterval(interval);
-                      if (!errorSent) {
-                        console.log("Sending error 400 back to client");
-                        res.status(400).send({ 
-                          message: error3.toString().replace('*', ''),
-                        });
-                        errorSent = true;
-                      }
-                      return false;
-                    }
-                    // Increase gas by 10% every 15 seconds
-                    if (timer % 15 === 0 && currentGas < maxGas) {
-                      currentGas = Math.min(Math.floor(currentGas * 1.1), maxGas);
-                      console.log(`Increasing gas to: ${currentGas}`);
-                      try {
-                        const newTransaction = await web3.eth.accounts.signTransaction(
-                          {
-                            from: signer.address,
-                            data: deployTx.encodeABI(),
-                            gas: currentGas,
-                            gasPrice: await web3.eth.getGasPrice(),
-                            nonce: nonce, // Reuse original nonce
-                          },
-                          signer.privateKey
-                        );
-                        await web3.eth.sendSignedTransaction(newTransaction.rawTransaction);
-                      } catch (retryError) {
-                        console.log("Error retrying with increased gas: ", retryError);
-                      }
-                    }
-                    timer++;
-                  });
-                }, 1000);
-            }
-          }) // sendSignedTransaction
+                    return false;
+                  }
+                });
+                timer++;
+              }, 1000);
+            } // function
+          })  // sendSignedTransaction
           .on("error", err => {
               console.log("Err22 sentSignedTxn error: ", err)
               if (!errorSent) {
@@ -552,12 +555,173 @@ exports.approveDraftById = async (req, res) => {
         console.log('New Contract deployed at address', createReceipt.contractAddress);
         newcontractaddress = createReceipt.contractAddress;
 
+        // Update contract instance with deployed address
         ERC20TokenRepoContract.options.address = newcontractaddress;
         return true;
-      };
+      };  // deployContract
 
+      /*
+      async function createTrade() {
+        console.log('Creating trade in Repo contract...');
+        console.log('createTrade req.body:', JSON.stringify(req.body, null, 2));
+        const nonce = await web3.eth.getTransactionCount(signer.address, "latest");
+
+        try {
+          // Validate all required inputs
+          const requiredFields = [
+            'startdate', 'starttime', 'enddate', 'endtime', 'bondisin',
+            'securityLB', 'startamount', 'interestamount',
+            'counterparty1', 'counterparty2', 'smartcontractaddress1', 'smartcontractaddress2'
+          ];
+          for (const field of requiredFields) {
+            if (!req.body[field]) {
+              throw new Error(`Missing required field: ${field}`);
+            }
+          }
+
+          // Validate time inputs
+          if (!req.body.starttime.match(/^\d{2}:\d{2}(:\d{2})?$/) || !req.body.endtime.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+            throw new Error("Invalid time format for starttime or endtime (expected HH:MM or HH:MM:SS)");
+          }
+
+          // Validate addresses
+          if (!web3.utils.isAddress(req.body.counterparty1) || !web3.utils.isAddress(req.body.counterparty2)) {
+            throw new Error('Invalid counterparty addresses');
+          }
+          if (!web3.utils.isAddress(req.body.smartcontractaddress1) || !web3.utils.isAddress(req.body.smartcontractaddress2)) {
+            throw new Error('Invalid token addresses');
+          }
+
+          // Validate numeric fields
+          if (isNaN(parseFloat(req.body.startamount)) || isNaN(parseFloat(req.body.interestamount))) {
+            throw new Error("Invalid startamount or interestamount");
+          }
+
+          // Convert SGT time to UTC
+          const startDateTimeSGT = Math.floor(new Date(req.body.startdate).getTime() / 1000) + parseInt(req.body.starttime.split(':')[0]) * 3600 + parseInt(req.body.starttime.split(':')[1]) * 60;
+          const maturityDateTimeSGT = Math.floor(new Date(req.body.enddate).getTime() / 1000) + parseInt(req.body.endtime.split(':')[0]) * 3600 + parseInt(req.body.endtime.split(':')[1]) * 60;
+          const SGT_OFFSET = 8 * 3600; // SGT is UTC+8
+          const startDateTimeUTC = startDateTimeSGT - SGT_OFFSET;
+          const maturityDateTimeUTC = maturityDateTimeSGT - SGT_OFFSET;
+
+          const tradeInput = {
+            startDateTime: startDateTimeUTC,
+            maturityDateTime: maturityDateTimeUTC,
+            bondIsin: req.body.bondisin,
+            counterparty1RepoType: (req.body.securityLB === "B" ? 0 : 1), // RepoType: 0=Repo, 1=ReverseRepo
+            bondAmount: (req.body.securityLB === "B" ? this_amount1 : this_amount2),
+            startAmount: web3.utils.toWei(req.body.startamount.toString(), 'ether'),
+            interestAmount: web3.utils.toWei(req.body.interestamount.toString(), 'ether'),
+            cashAmount: (req.body.securityLB === "B" ? this_amount2 : this_amount1),
+            counterparty1: req.body.counterparty1,
+            counterparty2: req.body.counterparty2,
+            cashToken: (req.body.securityLB === "B" ? req.body.smartcontractaddress2 : req.body.smartcontractaddress1),
+            bondToken: (req.body.securityLB === "B" ? req.body.smartcontractaddress1 : req.body.smartcontractaddress2),
+          };
+
+          console.log('Calling createTrade with:', tradeInput);
+
+          const contractTx = ERC20TokenRepoContract.methods.createTrade(tradeInput);
+          let gasFees;
+          try {
+            gasFees = await contractTx.estimateGas({ from: signer.address });
+          } catch (error) {
+            console.error("Error while estimating gas for createTrade: ", error);
+            gasFees = 2100000; // Default gas limit
+          }
+          console.log("Estimated gas fee for createTrade: ", gasFees);
+
+          const createTransaction = await web3.eth.accounts.signTransaction(
+            {
+              nonce: nonce,
+              from: signer.address,
+              to: newcontractaddress,
+              data: contractTx.encodeABI(),
+              gas: Math.floor(gasFees * 1.1),
+              gasPrice: await web3.eth.getGasPrice(),
+            },
+            signer.privateKey
+          );
+          console.log('Sending signed transaction...');
+
+          const createReceipt = await web3.eth.sendSignedTransaction(
+            createTransaction.rawTransaction, 
+            function (error1, hash) {
+              if (error1) {
+                  console.log("Error11a when submitting your signed createTrade transaction:", error1);
+                  if (!errorSent) {
+                    console.log("Sending error 400 back to client");
+                    res.status(400).send({ 
+                      message: error1.toString().replace('*', ''),
+                    });
+                    errorSent = true;
+                  }
+                  return false;
+              } else {
+                  console.log("Txn sent!, hash: ", hash);
+                  var timer = 1;
+                  const interval = setInterval(function() {
+                    console.log("Attempting to get transaction receipt for createTrade...");
+
+                    web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
+                      if (receipt) {
+                        console.log('>>>>>>>>>>>>>>>> GOT RECEIPT <<<<<<<<<<<<<<<<<<<<');
+                        clearInterval(interval);
+                        console.log('Receipt -->>: ', receipt);
+
+                        const trx = await web3.eth.getTransaction(hash);
+                        console.log('trx.status -->>: ', trx);
+
+                        return receipt.status;
+                      }
+                      if (error3) {
+                        console.log("!! getTransactionReceipt error: ", error3);
+                        clearInterval(interval);
+                        if (!errorSent) {
+                          console.log("Sending error 400 back to client");
+                          res.status(400).send({ 
+                            message: error3.toString().replace('*', ''),
+                          });
+                          errorSent = true;
+                        }
+                        return false;
+                      }
+                    });
+                    timer++;
+                  }, 1000);
+              }
+            })
+            .on("error", err => {
+                console.log("Err22 sentSignedTxn error: ", err);
+                if (!errorSent) {
+                  console.log("Sending error 400 back to client");
+                  res.status(400).send({ 
+                    message: err.toString().replace('*', ''),
+                  });
+                  errorSent = true;
+                }
+                return false;
+            });
+          console.log('**** Txn executed:', createReceipt);
+          return true;
+        } catch (err) {
+          console.error("Error creating trade:", err);
+          if (!errorSent) {
+            console.log("Sending error 400 back to client");
+            res.status(400).send({
+              message: err.toString().replace('*', ''),
+            });
+            errorSent = true;
+          }
+          return false;
+        }
+      }  // createTrade
+      */
+
+      // Deploy contract
       if (await deployContract()) {
         console.log('**** Contract deployed successfully');
+        //return(await createTrade());
         return(true);
       } else {
         console.log('**** Contract deployed failed!!!');
@@ -573,37 +737,47 @@ exports.approveDraftById = async (req, res) => {
         errorSent = true;
       }
       return false;
-    }
-  }
+    }  // try catch
+  } //dAppCreate
 
-  async function dAppUpdate() {
+  async function dAppUpdate() {  // update existing smart contract
     var errorSent = false;
     updatestatus = false;
 
+    // Readng ABI from JSON file
     fs = require("fs");
     ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.abi.json").toString());
 
+    // Creation of Web3 class
     Web3 = require("web3");
 
+    // Setting up a HttpProvider
     web3 = new Web3( 
       Web3.providers.HttpProvider(
         `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
       ) 
     );
+    //console.log("web3: =========>", web3);
 
     console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+    // Creating a signing account from a private key
     const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
+    // console.log("signer:", signer);  // contains private key
 
+    // Update contract
     const UpdateContract = async () => {
       try {
         console.log('Creating Repo contract with ABI');
         const ERC20TokenRepoContract = new web3.eth.Contract(ABI);
 
+        // https://github.com/web3/web3.js/issues/1001
+        // web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+        
         let setToTalSupply = (isNaN(+req.body.amount) ? req.body.amount : req.body.amount.toString()) + createStringWithZeros(adjustdecimals);
         console.log("Repo setToTalSupply = ", setToTalSupply);
 
         console.log('**** Signing update txn('+signer.address+','+req.body.amount );
-        const nonce = await web3.eth.getTransactionCount(signer.address, "latest"); // Store original nonce
+        const nonce = await web3.eth.getTransactionCount(signer.address, "latest");
         const contractTx = ERC20TokenRepoContract.methods.updateTotalSupply(web3.utils.toBN(setToTalSupply));
         let gasFees;
         try {
@@ -614,16 +788,13 @@ exports.approveDraftById = async (req, res) => {
         }
         console.log("Estimated gas fee for updateTotalSupply: ", gasFees);
 
-        let currentGas = Math.floor(gasFees * 1.1);
-        const maxGas = gasFees * 2; // 100% increase maximum
-
         const createTransaction = await web3.eth.accounts.signTransaction(
           {
             nonce: nonce,
             from: signer.address,
             to: req.body.smartcontractaddress,
             data: contractTx.encodeABI(),
-            gas: currentGas,
+            gas: Math.floor(gasFees * 1.1),
             gasPrice: await web3.eth.getGasPrice(),
           },
           SIGNER_PRIVATE_KEY
@@ -646,7 +817,7 @@ exports.approveDraftById = async (req, res) => {
             } else {
                 console.log("Txn sent!, hash: ", hash);
                 var timer = 1;
-                const interval = setInterval(async function() {
+                const interval = setInterval(function() {
                   console.log("Attempting to get transaction receipt...");
 
                   web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
@@ -661,8 +832,7 @@ exports.approveDraftById = async (req, res) => {
                       return receipt.status;
                     }
                     if (error3) {
-                      console.log("!! getTransactionReceipt error: ", error3);
-                      clearInterval(interval);
+                      console.log("!! getTransactionReceipt error3: ", error3);
                       if (!errorSent) {
                         console.log("Sending error 400 back to client");
                         res.status(400).send({ 
@@ -670,31 +840,11 @@ exports.approveDraftById = async (req, res) => {
                         });
                         errorSent = true;
                       }
+                      clearInterval(interval);
                       return false;
                     }
-                    // Increase gas by 10% every 15 seconds
-                    if (timer % 15 === 0 && currentGas < maxGas) {
-                      currentGas = Math.min(Math.floor(currentGas * 1.1), maxGas);
-                      console.log(`Increasing gas to: ${currentGas}`);
-                      try {
-                        const newTransaction = await web3.eth.accounts.signTransaction(
-                          {
-                            nonce: nonce, // Reuse original nonce
-                            from: signer.address,
-                            to: req.body.smartcontractaddress,
-                            data: contractTx.encodeABI(),
-                            gas: currentGas,
-                            gasPrice: await web3.eth.getGasPrice(),
-                          },
-                          SIGNER_PRIVATE_KEY
-                        );
-                        await web3.eth.sendSignedTransaction(newTransaction.rawTransaction);
-                      } catch (retryError) {
-                        console.log("Error retrying with increased gas: ", retryError);
-                      }
-                    }
-                    timer++;
                   });
+                  timer++;
                 }, 1000);
             }
           })
@@ -723,9 +873,9 @@ exports.approveDraftById = async (req, res) => {
         }
         return false;
       }
-    };
+    }; // UpdateContract()
 
-    return (await UpdateContract());
+    return ( await UpdateContract());
   } // dAppUpdate
 
   var ExecutionSucc = false;
@@ -938,8 +1088,7 @@ exports.approveDraftById = async (req, res) => {
   } // ExecutionSucc
 }; // approveDraftById
 
-// withdrawTokens function (modified section)
-exports.withdrawTokens = async (req, res) => {
+exports.withdrawTokens = async (req, res) => {      // withdrawTokens() is meant for manual recovery to transfer locked tokens out of the Repo smart contract
   const { tradeId, token, to, amount } = req.body;
   let errorSent = false;
 
@@ -969,10 +1118,8 @@ exports.withdrawTokens = async (req, res) => {
     const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY);
 
     const txData = contract.methods.withdrawTokens(tradeId, token, to, web3.utils.toWei(amount.toString(), 'ether')).encodeABI();
-    const nonce = await web3.eth.getTransactionCount(CONTRACT_OWNER_WALLET, "latest"); // Store original nonce
-    let gasEstimate = await contract.methods.withdrawTokens(tradeId, token, to, web3.utils.toWei(amount.toString(), 'ether')).estimateGas({ from: signer.address });
-    let currentGas = Math.floor(gasEstimate * 1.1);
-    const maxGas = gasEstimate * 2; // 100% increase maximum
+    const nonce = await web3.eth.getTransactionCount(CONTRACT_OWNER_WALLET, "latest");
+    const gasEstimate = await contract.methods.withdrawTokens(tradeId, token, to, web3.utils.toWei(amount.toString(), 'ether')).estimateGas({ from: signer.address });
 
     const signedTx = await web3.eth.accounts.signTransaction(
       {
@@ -980,80 +1127,22 @@ exports.withdrawTokens = async (req, res) => {
         from: signer.address,
         to: req.body.smartcontractaddress,
         data: txData,
-        gas: currentGas,
+        gas: Math.floor(gasEstimate * 1.1),
       },
       SIGNER_PRIVATE_KEY
     );
 
-    const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction, function (error1, hash) {
-      if (error1) {
-        console.log("Error in withdrawTokens transaction:", error1);
-        if (!errorSent) {
-          res.status(400).send({ message: error1.toString().replace('*', '') });
-          errorSent = true;
-        }
-        return false;
-      } else {
-        console.log("Txn sent!, hash: ", hash);
-        var timer = 1;
-        const interval = setInterval(async function() {
-          console.log("Attempting to get transaction receipt...");
-
-          web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
-            if (receipt) {
-              console.log('>>>>>>>>>>>>>>>> GOT RECEIPT <<<<<<<<<<<<<<<<<<');
-              clearInterval(interval);
-              console.log('Receipt -->>: ', receipt);
-
-              const trx = await web3.eth.getTransaction(hash);
-              console.log('trx.status -->>: ', trx);
-
-              return receipt.status;
-            }
-            if (error3) {
-              console.log("!! getTransactionReceipt error: ", error3);
-              clearInterval(interval);
-              if (!errorSent) {
-                res.status(400).send({ message: error3.toString().replace('*', '') });
-                errorSent = true;
-              }
-              return false;
-            }
-            // Increase gas by 10% every 15 seconds
-            if (timer % 15 === 0 && currentGas < maxGas) {
-              currentGas = Math.min(Math.floor(currentGas * 1.1), maxGas);
-              console.log(`Increasing gas to: ${currentGas}`);
-              try {
-                const newTransaction = await web3.eth.accounts.signTransaction(
-                  {
-                    nonce: nonce, // Reuse original nonce
-                    from: signer.address,
-                    to: req.body.smartcontractaddress,
-                    data: txData,
-                    gas: currentGas,
-                  },
-                  SIGNER_PRIVATE_KEY
-                );
-                await web3.eth.sendSignedTransaction(newTransaction.rawTransaction);
-              } catch (retryError) {
-                console.log("Error retrying with increased gas: ", retryError);
-              }
-            }
-            timer++;
-          });
-        }, 1000);
-      }
-    });
-
+    const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
     console.log("WithdrawTokens transaction successful:", receipt);
 
+    // Log to audit trail
     await AuditTrail.create({
       action: `Withdraw tokens for trade ${tradeId}`,
       tradeId: tradeId,
       token: token,
       to: to,
       amount: amount,
-      status: 4,
+      status: 4, // Adjust status as needed
       actionby: req.body.actionby,
     });
 
@@ -1067,8 +1156,7 @@ exports.withdrawTokens = async (req, res) => {
   }
 };
 
-exports.executeRepoById = async (req, res) => {
-
+exports.executeRepoById = async (req, res) => {  // 
   // Steps:
   // 1. Is this a new Repo creation or Edit? If approvedrepoid === '-1' then it is a new creation
   // 2. If new repo creation:
@@ -1172,7 +1260,7 @@ exports.executeRepoById = async (req, res) => {
     console.log("Startdate (unix time) = ", Number(new Date(req.body.startdate)));
     console.log("Enddate   (unix time) = ", Number(new Date(req.body.enddate)));
 
-    const createInstance = (abi1, contractaddr1) => { // zzzzzzzzz
+    const createInstance = (abi1, contractaddr1) => {
       const bscProvider = new Web3(
           new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`),
       );
@@ -1209,29 +1297,34 @@ exports.executeRepoById = async (req, res) => {
             return null
         }
       }
-      )();
+      )() ;
 
       async function exec_approve() {
         const tx = {
+          // this is the address responsible for this transaction
           from: CONTRACT_OWNER_WALLET,
+          // target address, this could be a smart contract address
           to: req.body.smartcontractaddress,
-          gas: 9700000,
-          data: await RepocontractInstance.contractz.methods.executeTrade().encodeABI(),
+          // gas fees for the transaction
+          gas: 9700000, //8700000,  // 2100000,
+          // this encodes the ABI of the method and the arguments
+          data: await RepocontractInstance.contractz.methods
+            .executeTrade()
+            .encodeABI(),
         };
         console.log("Create executeTrade() txn data: ", tx.data);
-
-        const nonce = await RepocontractInstance.web3BSC.eth.getTransactionCount(CONTRACT_OWNER_WALLET, "latest"); // Store original nonce
+                  
+        // sign the transaction with a private key. It'll return messageHash, v, r, s, rawTransaction, transactionHash
         const signPromise = await RepocontractInstance.web3BSC.eth.accounts.signTransaction(
             tx,
             SIGNER_PRIVATE_KEY,
-        );
+          );
         console.log("Create signPromise: ", signPromise);
 
+        // the rawTransaction here is already serialized so you don't need to serialize it again
+        // Send the signed txn
         var url1;
-        let currentGas = tx.gas;
-        const maxGas = tx.gas * 2; // 100% increase maximum
-
-        try {
+        try { // 6c sendSignedTransaction
           const sendTxn = await RepocontractInstance.web3BSC.eth.sendSignedTransaction(
               signPromise.rawTransaction,
               (error1c, hash) => {
@@ -1242,16 +1335,19 @@ exports.executeRepoById = async (req, res) => {
                 } else {
                     console.log("Signed Txn sent!, hash: ", hash);
                     var timer = 1;
-                    const interval = setInterval(async () => {
+                    // retry every second to chk for receipt
+                    const interval = setInterval(() => {
                         console.log("Attempting to get transaction receipt...");
 
-                        RepocontractInstance.web3BSC.eth.getTransactionReceipt(hash, async (error3, receipt) => {
+                        // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
+                        RepocontractInstance.web3BSC.eth.getTransactionReceipt(hash, (error3, receipt) => {
                           if (receipt) {
                             clearInterval(interval);
+
                             console.log('--> RECEIPT received <--');  
                             console.log('Receipt: ', receipt);
 
-                            if (receipt.status && !errorSent) {
+                            if (receipt.status && !errorSent) { //  === true
                               res.send({
                                 message: "executeTrade() successful. "
                               });
@@ -1262,46 +1358,30 @@ exports.executeRepoById = async (req, res) => {
                               });
                               errorSent = true;
                             }
+
                           }
                           if (error3) {
                               console.log("!! getTransactionReceipt error: ", error3)
                               clearInterval(interval);
                           }
-                          // Increase gas by 10% every 15 seconds
-                          if (timer % 15 === 0 && currentGas < maxGas) {
-                            currentGas = Math.min(Math.floor(currentGas * 1.1), maxGas);
-                            console.log(`Increasing gas to: ${currentGas}`);
-                            try {
-                              const newTransaction = await RepocontractInstance.web3BSC.eth.accounts.signTransaction(
-                                {
-                                  from: CONTRACT_OWNER_WALLET,
-                                  to: req.body.smartcontractaddress,
-                                  data: tx.data,
-                                  gas: currentGas,
-                                  nonce: nonce, // Reuse original nonce
-                                },
-                                SIGNER_PRIVATE_KEY
-                              );
-                              await RepocontractInstance.web3BSC.eth.sendSignedTransaction(newTransaction.rawTransaction);
-                            } catch (retryError) {
-                              console.log("Error retrying with increased gas: ", retryError);
-                            }
-                          }
-                          if (timer > 750) {
-                            clearInterval(interval);
-                          } else {
-                            timer++;
-                          }
-                    });
-                  }, 1000);
+                        });
+                        if (timer > 750) {
+                          // end loop and return
+                        
+                          clearInterval(interval);
+                        } else {
+                          timer++;
+                        }
+                    }, 1000);
                 }
             })
           .on("error", err => {
               console.log("sentSignedTxn error: ", err)
+              // do something on transaction error
           });
           console.log("sendSignedTxn: ", sendTxn);
           return Promise.resolve(sendTxn);
-        } catch(err6c) {
+        } catch(err6c) {  // try 6c
           console.error("Err 6c: ",err6c);
           console.log("Transaction failed, please check "+url1+" for the error.");
 
@@ -1313,7 +1393,8 @@ exports.executeRepoById = async (req, res) => {
           }
 
           return false;
-        }
+        } // try 6c
+
       } // exec_approve
 
       return(await exec_approve());
@@ -1321,7 +1402,8 @@ exports.executeRepoById = async (req, res) => {
     } catch(ee) { // try 3z
       console.log("Error:", ee)
     } // try 3z createInstance and exec
-  }  // repoExec()
+
+  } //repoExec
 
   var ExecutionSucc = false;
   ExecutionSucc = await repoExec();
@@ -1330,6 +1412,7 @@ exports.executeRepoById = async (req, res) => {
   ////////////////////////////// Blockchain ////////////////////////
 
   if (ExecutionSucc) {
+
         // write to audit
         AuditTrail.create(
           { 
@@ -1373,10 +1456,12 @@ exports.executeRepoById = async (req, res) => {
         )
         .then(auditres => {
           console.log("Data written to audittrail for executing repo request:", auditres);
+
         })
         .catch(err => {
           console.log("Error while logging to audittrail for executing repo request: "+err.message);
         });
+
   } // ExecutionSucc
 }; // executeRepoById
 

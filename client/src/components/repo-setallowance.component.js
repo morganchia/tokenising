@@ -33,6 +33,8 @@ export default class repocouponallowance extends Component {
       TokenBalanceLeg2: 0,
       TokenRequiredLeg1: 0,
       TokenRequiredLeg2: 0,
+      TokenAbiLeg2: "",
+      TokenAbiLeg1: "",
       symbolLeg1: "",
       symbolLeg2: "",
       deployedContract: "",
@@ -51,14 +53,16 @@ export default class repocouponallowance extends Component {
       Token1Addr: "",
       Token2Addr: "",
       TokenAddr: "",
+      TokenAddrLeg1: "",
+      TokenAddrLeg2: "",
       Token2Owner: "",
     };
 
     this.networkOptions = [
       { name: "Sepolia Testnet", chainId: "0xaa36a7" }, // 11155111
       { name: "Amoy Testnet", chainId: "0x13882" }, // 80002
-      { name: "Ethereum Mainnet", chainId: "0x1" }, // 1
-      { name: "Polygon Mainnet", chainId: "0x89" }, // 137
+//      { name: "Ethereum Mainnet", chainId: "0x1" }, // 1
+//      { name: "Polygon Mainnet", chainId: "0x89" }, // 137
     ];
   }
 
@@ -129,6 +133,10 @@ export default class repocouponallowance extends Component {
           TokenBalanceLeg2: 0,
           TokenRequiredLeg1: 0,
           TokenRequiredLeg2: 0,
+          TokenAbiLeg2: "",
+          TokenAbiLeg1: "",
+          TokenAddrLeg1: "",
+          TokenAddrLeg2: "",
           approve_token_amount1: "",
           approve_token_amount2: "",
         });
@@ -136,6 +144,27 @@ export default class repocouponallowance extends Component {
       }
     }
   };
+  
+  clearState(status) {
+    this.setState({
+      connectionStatus: status,
+      tradeDetails: null,
+      Token1Addr: "",
+      Token2Addr: "",
+      symbolLeg1: "",
+      symbolLeg2: "",
+      TokenBalanceLeg1: 0,
+      TokenBalanceLeg2: 0,
+      TokenRequiredLeg1: 0,
+      TokenRequiredLeg2: 0,
+      TokenAbiLeg2: "",
+      TokenAbiLeg1: "",
+      TokenAddrLeg1: "",
+      TokenAddrLeg2: "",
+      approve_token_amount1: "",
+      approve_token_amount2: "",
+    });
+  }
 
   refreshData = async () => {
     try {
@@ -150,6 +179,8 @@ export default class repocouponallowance extends Component {
       if (this.state.REPOsmartcontractaddress && Web3.utils.isAddress(this.state.REPOsmartcontractaddress)) {
         const code = await web3.eth.getCode(this.state.REPOsmartcontractaddress);
         if (code === '0x') {
+          this.clearState("No contract deployed at the specified address.");
+/*
           this.setState({
             connectionStatus: "No contract deployed at the specified address.",
             tradeDetails: null,
@@ -161,9 +192,14 @@ export default class repocouponallowance extends Component {
             TokenBalanceLeg2: 0,
             TokenRequiredLeg1: 0,
             TokenRequiredLeg2: 0,
+            TokenAbiLeg2: "",
+            TokenAbiLeg1: "",
+            TokenAddrLeg1: "",
+            TokenAddrLeg2: "",
             approve_token_amount1: "",
             approve_token_amount2: "",
           });
+*/
           return;
         }
 
@@ -172,6 +208,8 @@ export default class repocouponallowance extends Component {
 
         const tradeCount = await RepoContract.methods.tradeCount().call();
         if (tradeCount < 1) {
+          this.clearState("No trades exist in the smart contract.");
+/*
           this.setState({
             connectionStatus: "No trades exist in the smart contract.",
             tradeDetails: null,
@@ -183,9 +221,14 @@ export default class repocouponallowance extends Component {
             TokenBalanceLeg2: 0,
             TokenRequiredLeg1: 0,
             TokenRequiredLeg2: 0,
+            TokenAbiLeg2: "",
+            TokenAbiLeg1: "",
+            TokenAddrLeg1: "",
+            TokenAddrLeg2: "",
             approve_token_amount1: "",
             approve_token_amount2: "",
           });
+*/
           return;
         }
 
@@ -216,7 +259,7 @@ export default class repocouponallowance extends Component {
 
           const counterparty1 = tradeDetails.counterparty1;
           const counterparty2 = tradeDetails.counterparty2;
-          const repotype = tradeDetails.counterparty1RepoType === 0 ? "Repo" : "Reverse Repo";
+          const repotype = parseInt(tradeDetails.counterparty1RepoType) === 0 ? "Repo" : "Reverse Repo";
           const Token1Addr = repotype === "Repo" ? tradeDetails.bondToken : tradeDetails.cashToken;
           const Token2Addr = repotype === "Repo" ? tradeDetails.cashToken : tradeDetails.bondToken;
 
@@ -230,6 +273,8 @@ export default class repocouponallowance extends Component {
             symbol1 = await tokenInst1.methods.symbol().call();
           } catch (token1Err) {
             console.log(`Failed to fetch Token1 (${Token1Addr}) data: ${token1Err.message}`);
+            this.clearState(`Failed to fetch Token1 data: ${token1Err.message}`);
+/*
             this.setState({
               connectionStatus: `Failed to fetch Token1 data: ${token1Err.message}`,
               tradeDetails: null,
@@ -241,9 +286,14 @@ export default class repocouponallowance extends Component {
               TokenBalanceLeg2: 0,
               TokenRequiredLeg1: 0,
               TokenRequiredLeg2: 0,
+              TokenAbiLeg2: "",
+              TokenAbiLeg1: "",
+              TokenAddrLeg1: "",
+              TokenAddrLeg2: "",
               approve_token_amount1: "",
               approve_token_amount2: "",
             });
+*/
             return;
           }
 
@@ -253,6 +303,8 @@ export default class repocouponallowance extends Component {
             symbol2 = await tokenInst2.methods.symbol().call();
           } catch (token2Err) {
             console.log(`Failed to fetch Token2 (${Token2Addr}) data: ${token2Err.message}`);
+            this.clearState(`Failed to fetch Token2 data: ${token2Err.message}`);
+/*
             this.setState({
               connectionStatus: `Failed to fetch Token2 data: ${token2Err.message}`,
               tradeDetails: null,
@@ -264,9 +316,14 @@ export default class repocouponallowance extends Component {
               TokenBalanceLeg2: 0,
               TokenRequiredLeg1: 0,
               TokenRequiredLeg2: 0,
+              TokenAbiLeg2: "",
+              TokenAbiLeg1: "",
+              TokenAddrLeg1: "",
+              TokenAddrLeg2: "",
               approve_token_amount1: "",
               approve_token_amount2: "",
             });
+*/
             return;
           }
 
@@ -283,33 +340,77 @@ export default class repocouponallowance extends Component {
           };
 
           if (accounts[0].toUpperCase() === counterparty1.toUpperCase()) {
-            stateUpdate = {
-              ...stateUpdate,
-              TokenAddr: Token1Addr,
-              TokenBalanceLeg1: balance1 / 1e18,
-              TokenBalanceLeg2: balance2 / 1e18,
-              symbolLeg1: symbol1,
-              symbolLeg2: symbol2,
-              TokenRequiredLeg1: tradeDetails.bondAmount / 1e18,
-              TokenRequiredLeg2: tradeDetails.cashAmount / 1e18,
-              approve_token_amount1: tradeDetails.bondAmount / 1e18,
-              approve_token_amount2: ((tradeDetails.interestAmount / 1e18) + (tradeDetails.cashAmount / 1e18)).toFixed(2),
-              connectionStatus: `Connected to Counterparty1's wallet, with Token[${symbol1}]`,
-            };
+            if (repotype === "Repo") {
+              stateUpdate = {
+                ...stateUpdate,
+                TokenAddrLeg1: Token1Addr,
+                TokenAddrLeg2: Token2Addr,
+                TokenBalanceLeg1: balance1 / 1e18,
+                TokenBalanceLeg2: balance2 / 1e18,
+                symbolLeg1: symbol1,
+                symbolLeg2: symbol2,
+                TokenRequiredLeg1: tradeDetails.bondAmount / 1e18,
+                TokenRequiredLeg2: (tradeDetails.interestAmount / 1e18) + (tradeDetails.cashAmount / 1e18),
+                TokenAbiLeg1: cashToken_jsonData,
+                TokenAbiLeg2: bondToken_jsonData,
+                approve_token_amount1: tradeDetails.bondAmount / 1e18,
+                approve_token_amount2: ((tradeDetails.interestAmount / 1e18) + (tradeDetails.cashAmount / 1e18)).toFixed(2),
+                connectionStatus: `Connected to Counterparty1's wallet, with Token[${symbol1}]`,
+              };
+            } else {
+              stateUpdate = {  // Reverse Repo
+                ...stateUpdate,
+                TokenAddrLeg1: Token1Addr,
+                TokenAddrLeg2: Token2Addr,
+                TokenBalanceLeg1: balance1 / 1e18,
+                TokenBalanceLeg2: balance2 / 1e18,
+                symbolLeg1: symbol1,
+                symbolLeg2: symbol2,
+                TokenRequiredLeg1: tradeDetails.cashAmount / 1e18,
+                TokenRequiredLeg2: tradeDetails.bondAmount / 1e18,
+                TokenAbiLeg1: cashToken_jsonData,
+                TokenAbiLeg2: bondToken_jsonData,
+                approve_token_amount1: tradeDetails.cashAmount / 1e18,
+                approve_token_amount2: tradeDetails.bondAmount / 1e18,
+                connectionStatus: `Connected to Counterparty1's wallet, with Token[${symbol1}]`,
+              };
+            }
           } else if (accounts[0].toUpperCase() === counterparty2.toUpperCase()) {
-            stateUpdate = {
-              ...stateUpdate,
-              TokenAddr: Token2Addr,
-              TokenBalanceLeg1: balance2 / 1e18,
-              TokenBalanceLeg2: balance1 / 1e18,
-              symbolLeg1: symbol2,
-              symbolLeg2: symbol1,
-              TokenRequiredLeg1: tradeDetails.cashAmount / 1e18,
-              TokenRequiredLeg2: tradeDetails.bondAmount / 1e18,
-              approve_token_amount1: tradeDetails.cashAmount / 1e18,
-              approve_token_amount2: tradeDetails.bondAmount / 1e18,
-              connectionStatus: `Connected to Counterparty2's wallet, with Token[${symbol2}]`,
-            };
+            if (repotype === "Repo") {
+              stateUpdate = {
+                ...stateUpdate,
+                TokenAddrLeg1: Token2Addr,
+                TokenAddrLeg2: Token1Addr,
+                TokenBalanceLeg1: balance2 / 1e18,
+                TokenBalanceLeg2: balance1 / 1e18,
+                symbolLeg1: symbol2,
+                symbolLeg2: symbol1,
+                TokenRequiredLeg1: tradeDetails.cashAmount / 1e18,
+                TokenRequiredLeg2: tradeDetails.bondAmount / 1e18,
+                TokenAbiLeg2: cashToken_jsonData,
+                TokenAbiLeg1: bondToken_jsonData,
+                approve_token_amount1: tradeDetails.cashAmount / 1e18,
+                approve_token_amount2: tradeDetails.bondAmount / 1e18,
+                connectionStatus: `Connected to Counterparty2's wallet, with Token[${symbol2}]`,
+              };
+            } else {
+              stateUpdate = {  // Reverse Repo
+                ...stateUpdate,
+                TokenAddrLeg1: Token2Addr,
+                TokenAddrLeg2: Token1Addr,
+                TokenBalanceLeg1: balance2 / 1e18,
+                TokenBalanceLeg2: balance1 / 1e18,
+                symbolLeg1: symbol2,
+                symbolLeg2: symbol1,
+                TokenRequiredLeg1: tradeDetails.bondAmount / 1e18,
+                TokenRequiredLeg2: (tradeDetails.interestAmount / 1e18) + (tradeDetails.cashAmount / 1e18),
+                TokenAbiLeg2: cashToken_jsonData,
+                TokenAbiLeg1: bondToken_jsonData,
+                approve_token_amount1: tradeDetails.bondAmount / 1e18,
+                approve_token_amount2: ((tradeDetails.interestAmount / 1e18) + (tradeDetails.cashAmount / 1e18)).toFixed(2),
+                connectionStatus: `Connected to Counterparty2's wallet, with Token[${symbol2}]`,
+              };
+            }
           } else {
             stateUpdate = {
               ...stateUpdate,
@@ -320,6 +421,8 @@ export default class repocouponallowance extends Component {
           this.setState(stateUpdate);
         } catch (err) {
           console.log('Failed to fetch trade: ' + err.message);
+          this.clearState(`Failed to fetch trade details: ${err.message}. Please verify the contract address and trade ID.`);
+/*
           this.setState({
             connectionStatus: `Failed to fetch trade details: ${err.message}. Please verify the contract address and trade ID.`,
             tradeDetails: null,
@@ -331,9 +434,14 @@ export default class repocouponallowance extends Component {
             TokenBalanceLeg2: 0,
             TokenRequiredLeg1: 0,
             TokenRequiredLeg2: 0,
+            TokenAbiLeg2: "",
+            TokenAbiLeg1: "",
+            TokenAddrLeg1: "",
+            TokenAddrLeg2: "",
             approve_token_amount1: "",
             approve_token_amount2: "",
           });
+*/
         }
       }
     } catch (error) {
@@ -364,38 +472,126 @@ export default class repocouponallowance extends Component {
     }
   };
 
-  askUser2SignTxn = async (token_amount, symbol) => {
+  askUser2SignTxn = async (token_addr, token_amount, symbol, jsonData) => {
     const web3 = window.web3;
-    const Token1_abi = JSON.parse(JSON.stringify(Token1_jsonData));
-    const Token = new web3.eth.Contract(Token1_abi, this.state.TokenAddr);
+    const Token1_abi = JSON.parse(JSON.stringify(jsonData));
+    const Token = new web3.eth.Contract(Token1_abi, token_addr);
     const spenderAddr1 = this.state.REPOsmartcontractaddress;
     const connectedAccount = this.state.connectedAccount;
+
+    console.log("jsonData:", jsonData);
 
     const BN = require('bn.js');
     const amountToSend = new BN(Math.ceil(token_amount)).mul(new BN("1000000000000000000"));
 
+    console.log("Token Amount to Approve:", token_amount, "Converted Amount:", amountToSend.toString());
+
     try {
-      await Token.methods.approve(spenderAddr1, amountToSend.toString()).send({
-        from: connectedAccount
-      }, (err, result) => {
-        if (err) {
-          this.displayModal("Error encountered: " + err.message, null, null, null, "OK");
-          console.log("Error executing approve(): " + err);
-          return;
+    // Check account balance
+    const balance = await web3.eth.getBalance(connectedAccount);
+    if (web3.utils.fromWei(balance, 'ether') < 0.01) {
+      this.displayModal("Insufficient crypto for gas fees. Please fund your wallet.", null, null, null, "OK");
+      return;
+    }
+
+    // Simulate transaction to catch potential reverts
+    try {
+      await Token.methods.approve(spenderAddr1, amountToSend.toString()).call({ from: connectedAccount });
+      console.log("Transaction simulation successful");
+    } catch (err) {
+      console.error("Simulation failed:", err);
+      this.displayModal(`Transaction will fail: ${err.message}. Check token or contract address.`, null, null, null, "OK");
+      return;
+    }
+
+// Estimate gas limit with retry logic
+    let gasLimit;
+    const maxRetries = 3;
+    let retryCount = 0;
+    const baseDelay = 1000; // 1 second base delay for retries
+
+    while (retryCount < maxRetries) {
+      try {
+        gasLimit = await Token.methods.approve(spenderAddr1, amountToSend.toString()).estimateGas({
+          from: connectedAccount
+        });
+        // Add a 20% buffer to the estimated gas
+        gasLimit = Math.floor(gasLimit * 1.2);
+        console.log("Estimated Gas Limit (with 20% buffer):", gasLimit);
+        break; // Exit loop on success
+      } catch (err) {
+        retryCount++;
+        console.error(`Gas estimation attempt ${retryCount} failed:`, err.message);
+        if (err.message.includes("Request is being rate limited") && retryCount < maxRetries) {
+          const delay = baseDelay * Math.pow(2, retryCount); // Exponential backoff
+          console.log(`Rate limited, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         } else {
-          console.log("Transaction executed! Txn hash / Account address: " + result);
+          console.error("Gas estimation failed after retries:", err);
+          // Use fallback gas limit
+          gasLimit = 100000; // Reasonable default for ERC20 approve
+          console.log("Using fallback gas limit:", gasLimit);
+          this.displayModal(
+            `Gas estimation failed due to rate limiting or other error: ${err.message}. Using fallback gas limit of ${gasLimit}.`,
+            null, null, null, "OK"
+          );
+          break;
         }
-      }).on('receipt', async (data1) => {
-        console.log("Setting approve() for Holder(" + connectedAccount + "), Spender (" + spenderAddr1 + ") - Return values from Receipt of approve(): ", data1.events.Approval.returnValues);
-        try {
-          await Token.methods.allowance(connectedAccount, spenderAddr1).call().then(async (data2) => {
-            console.log("Checking allowance() for Holder(" + connectedAccount + "), \nSpender (" + spenderAddr1 + ") \n- Return values from Receipt of allowance(): ", data2);
-          });
-          this.displayModal(`You have successfully approved the Repo smart contract to pull ${token_amount} ${symbol} tokens from your wallet to transact with the other CounterParty.`, "OK", null, null, null);
-        } catch (err) {
-          console.log(err);
-          this.displayModal(err, null, null, null, "OK");
+      }
+    }
+
+    if (!gasLimit) {
+      this.displayModal("Failed to estimate gas after retries. Please try again later.", null, null, null, "OK");
+      return;
+    }
+
+    // Get dynamic gas price
+    let gasPrice;
+    try {
+      gasPrice = await web3.eth.getGasPrice();
+      console.log("Current Gas Price:", web3.utils.fromWei(gasPrice, 'gwei'), "Gwei");
+    } catch (err) {
+      console.error("Gas price fetch failed:", err);
+      gasPrice = web3.utils.toWei('30', 'gwei'); // Fallback gas price
+      console.log("Using fallback gas price:", web3.utils.fromWei(gasPrice, 'gwei'), "Gwei");
+      this.displayModal(
+        `Failed to fetch gas price: ${err.message}. Using fallback gas price of 30 Gwei.`,
+        null, null, null, "OK"
+      );
+    }
+
+    // Send the transaction
+    await Token.methods.approve(spenderAddr1, amountToSend.toString()).send({
+        from: connectedAccount,
+        gasLimit: gasLimit,
+        gasPrice: Math.max(gasPrice, web3.utils.toWei('30', 'gwei')) // Ensure minimum gas price
+      }).on('transactionHash', (hash) => {
+        console.log("Transaction Hash:", hash);
+        this.displayModal(`Transaction submitted: ${hash}. Waiting for confirmation...`, null, null, null, "OK");      
+      }).on('receipt', async (receipt) => {
+        console.log("Approval Receipt:", receipt);
+        await Token.methods.allowance(connectedAccount, spenderAddr1).call().then((allowance) => {
+          console.log("Allowance set:", allowance);
+          this.displayModal(
+            `Successfully approved ${parseFloat(token_amount).toLocaleString()} ${symbol} tokens for the Repo smart contract.`,
+            null, null, null, "OK"
+          );
+        });
+      }).on('error', (error) => {
+        console.error("Transaction Error:", error);
+        let errMsg = error.message;
+        if (errMsg.includes("not mined within 50 blocks")) {
+          errMsg = "Transaction was not mined within 50 blocks. Check the transaction status on the block explorer or try increasing the gas price.";
         }
+        if (errMsg.includes("User denied transaction signature")) {
+          errMsg = "You have denied the transaction signature in Metamask. Please try again.";
+        } else if (errMsg.includes("Execution prevented because the circuit breaker is open")) {
+          errMsg = "Execution prevented because Metamask internal error, please restart Metamask and try again later.";
+        } else if (errMsg.includes("Insufficient token")) {
+          errMsg = "You have insufficient tokens in your wallet.";
+        }
+
+        this.displayModal(`Transaction failed: ${errMsg}`, null, null, null, "OK");
       });
     } catch (err) {
       console.log("Error approving in Metamask: ", err);
@@ -526,14 +722,14 @@ export default class repocouponallowance extends Component {
                   onChange={this.onChangeApproveTokenAmount1}
                   disabled={this.state.REPOsmartcontractaddress === "" || !Web3.utils.isAddress(this.state.REPOsmartcontractaddress)}
                 />
-                <label><small>{this.state.Token1Addr}</small></label>
+                <label><small>{this.state.TokenAddrLeg1}</small></label>
               </div>
               <button
                 type="button"
                 className={(this.state.REPOsmartcontractaddress === "" || !Web3.utils.isAddress(this.state.REPOsmartcontractaddress) || this.state.approve_token_amount1 <= 0) ? "uniswapdisabled" : "uniswap"}
                 disabled={this.state.REPOsmartcontractaddress === "" || !Web3.utils.isAddress(this.state.REPOsmartcontractaddress) || this.state.approve_token_amount1 <= 0}
                 onClick={() => {
-                  if (this.state.approve_token_amount1 > 0) this.askUser2SignTxn(this.state.approve_token_amount1, this.state.symbolLeg1);
+                  if (this.state.approve_token_amount1 > 0) this.askUser2SignTxn(this.state.TokenAddrLeg1, this.state.approve_token_amount1, this.state.symbolLeg1, this.state.TokenAbiLeg1);
                 }}
               >
                 Approve {this.state.symbolLeg1} for Start Trade (1st Leg)
@@ -554,14 +750,14 @@ export default class repocouponallowance extends Component {
                   onChange={this.onChangeApproveTokenAmount2}
                   disabled={this.state.REPOsmartcontractaddress === "" || !Web3.utils.isAddress(this.state.REPOsmartcontractaddress)}
                 />
-                <label><small>{this.state.Token2Addr}</small></label>
+                <label><small>{this.state.TokenAddrLeg2}</small></label>
               </div>
               <button
                 type="button"
                 className={(this.state.REPOsmartcontractaddress === "" || !Web3.utils.isAddress(this.state.REPOsmartcontractaddress) || this.state.approve_token_amount2 <= 0) ? "uniswapdisabled" : "uniswap"}
                 disabled={this.state.REPOsmartcontractaddress === "" || !Web3.utils.isAddress(this.state.REPOsmartcontractaddress) || this.state.approve_token_amount2 <= 0}
                 onClick={() => {
-                  if (this.state.approve_token_amount2 > 0) this.askUser2SignTxn(this.state.approve_token_amount2, this.state.symbolLeg2);
+                  if (this.state.approve_token_amount2 > 0) this.askUser2SignTxn(this.state.TokenAddrLeg2, this.state.approve_token_amount2, this.state.symbolLeg2, this.state.TokenAbiLeg2);
                 }}
               >
                 Approve {this.state.symbolLeg2} for Mature Trade (2nd Leg)
