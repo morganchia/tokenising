@@ -1,7 +1,4 @@
 import React, { Component } from "react";
-import { withRouter } from '../common/with-router.js';
-import AuthService from "../services/auth.service.js";
-import { Link } from "react-router-dom";
 import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
@@ -115,19 +112,6 @@ class Repo extends Component {
   }
 
   componentDidMount() {
-    const user = AuthService.getCurrentUser();
-
-    if (!user) this.setState({ redirect: "/home" });
-    this.setState({ currentUser: user, userReady: true });
-
-    let ismaker = user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "MAKER");
-    this.setState({ isMaker: (ismaker === undefined ? false : true) });
-
-    let ischecker = user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "CHECKER");
-    this.setState({ isChecker: (ischecker === undefined ? false : true) });
-
-    let isapprover = user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "APPROVER");
-    this.setState({ isApprover: (isapprover === undefined ? false : true) });
 
     const loadWeb3 = async () => {
       if (window.ethereum) {
@@ -708,14 +692,13 @@ class Repo extends Component {
     try {
       return (
         <div className="container">
-          {(this.state.userReady) ?
-            <div>
-              <header className="jumbotron col-md-8">
-                <h3>
-                  <strong>Execute Repo</strong>
-                </h3>
-              </header>
-            </div> : null}
+          <div>
+            <header className="jumbotron col-md-8">
+              <h3>
+                <strong>Execute Repo</strong>
+              </h3>
+            </header>
+          </div> 
 
           <div className="edit-form list-row">
             <h4></h4>
@@ -1070,11 +1053,6 @@ class Repo extends Component {
               </form>
 
               <br/>
-              <Link to="/repotransact/9">
-                <button className="m-3 btn btn-sm btn-secondary">
-                  Close page
-                </button>
-              </Link>
 
               {this.state.isLoading ? <LoadingSpinner /> : null}
 
@@ -1104,4 +1082,4 @@ class Repo extends Component {
   }
 }
 
-export default withRouter(Repo);
+export default Repo;
