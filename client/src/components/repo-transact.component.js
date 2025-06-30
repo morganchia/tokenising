@@ -451,7 +451,7 @@ class Repo extends Component {
           } else {
               errorMessage = this.removeHex(error.message); // Fallback if no JSON found
           }
-      } if (error.message.includes("Execution prevented because the circuit breaker is open")) {
+      } else if (error.message.includes("Execution prevented because the circuit breaker is open")) {
         errorMessage = "Execution prevented due to MetaMask internal error. Please restart MetaMask and try again.";
       } else {
           errorMessage = this.removeHex(error.message); // Fallback for non-JSON-RPC errors
@@ -583,6 +583,8 @@ class Repo extends Component {
           } else {
               errorMessage = this.removeHex(error.message); // Fallback if no JSON found
           }
+      } else if (error.message.includes("Execution prevented because the circuit breaker is open")) {
+        errorMessage = "Execution prevented due to MetaMask internal error. Please restart MetaMask and try again.";
       } else {
           errorMessage = this.removeHex(error.message); // Fallback for non-JSON-RPC errors
       }
