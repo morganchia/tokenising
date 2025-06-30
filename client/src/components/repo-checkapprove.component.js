@@ -295,10 +295,15 @@ class Repo extends Component {
     console.log("isApprover:", (isapprover === undefined? false: true));
     this.setState({ isApprover: (isapprover === undefined? false: true),});
 
+    console.log("IsLoad=true"); this.show_loading();  // show progress
+
     this.getRepo(user, this.props.router.params.id);
     this.getAllUnderlyingAssets();
     this.getAllCounterpartys();
     this.retrieveAllMakersCheckersApprovers();
+
+    console.log("IsLoad=false"); this.hide_loading();  // hide progress
+
 /*
     const newBlockchain = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(this.state.underlying)).blockchain;
     this.setState({

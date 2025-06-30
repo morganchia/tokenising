@@ -442,118 +442,83 @@ exports.approveDraftById = async (req, res) => {
         };
 
         console.log('Attempting to deploy from account:', signer.address);
-        const nonce = await web3.eth.getTransactionCount(signer.address, "latest");
+        let nonce = await web3.eth.getTransactionCount(signer.address, "pending");
         const deployTx = ERC20TokenRepoContract.deploy({ data: bytecode, arguments: [tradeInput] });  
         let gasFees;
         try {
           gasFees = await deployTx.estimateGas({ from: signer.address });
         } catch (error2) {
           console.error("Error while estimating Gas fee: ", error2);
-          gasFees = 2100000; // Default gas limit
+          gasFees = 2100000;
         }
         console.log("Estimated gas fee for deploy: ", gasFees);
 
         let currentGas = Math.floor(gasFees * 1.1);
-        const maxGas = gasFees * 2; // 100% increase maximum
+        const maxGas = gasFees * 2;
+        let gasPrice = await web3.eth.getGasPrice();
+        gasPrice = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(12)).div(web3.utils.toBN(10)).toString(); // Increase gas price by 20%
 
         const createTransaction = await web3.eth.accounts.signTransaction(
           {
             from: signer.address,
             data: deployTx.encodeABI(),
             gas: currentGas,
-            gasPrice: await web3.eth.getGasPrice(),
-            nonce: nonce, // include original nonce
+            gasPrice: gasPrice,
+            nonce: nonce,
           },
           signer.privateKey
         );
         console.log('Sending signed Repo deploy txn...');
 
-        const createReceipt = await web3.eth.sendSignedTransaction(
-          createTransaction.rawTransaction, 
-          function (error1, hash) {
-            if (error1) {
-                console.log("Error11a when submitting your signed Repo deploy transaction:", error1);
+        const maxRetries = 5;
+        let attempt = 0;
+
+        while (attempt < maxRetries) {
+          try {
+            const createReceipt = await web3.eth.sendSignedTransaction(createTransaction.rawTransaction);
+            console.log('**** Txn executed:', createReceipt);
+            console.log('New Contract deployed at address', createReceipt.contractAddress);
+            newcontractaddress = createReceipt.contractAddress;
+            ERC20TokenRepoContract.options.address = newcontractaddress;
+            return true;
+          } catch (error) {
+            console.log(`Attempt ${attempt + 1} failed:`, error.message);
+            if (error.message.includes("nonce too low") || error.message.includes("replacement transaction underpriced")) {
+              attempt++;
+              if (attempt >= maxRetries) {
+                console.log("Max retries reached, deployment failed.");
                 if (!errorSent) {
-                  console.log("Sending error 400 back to client");
-                  res.status(400).send({ 
-                    message: error1.toString().replace('*', ''),
-                  });
+                  res.status(400).send({ message: "Max retries reached for transaction deployment." });
                   errorSent = true;
                 }
                 return false;
+              }
+              // Update nonce and increase gas price
+              nonce = await web3.eth.getTransactionCount(signer.address, "pending");
+              currentGas = Math.min(Math.floor(currentGas * 1.1), maxGas);
+              gasPrice = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(12)).div(web3.utils.toBN(10)).toString();
+              console.log(`Retrying with nonce: ${nonce}, gas: ${currentGas}, gasPrice: ${gasPrice}`);
+              const newTransaction = await web3.eth.accounts.signTransaction(
+                {
+                  from: signer.address,
+                  data: deployTx.encodeABI(),
+                  gas: currentGas,
+                  gasPrice: gasPrice,
+                  nonce: nonce,
+                },
+                signer.privateKey
+              );
+              createTransaction.rawTransaction = newTransaction.rawTransaction;
             } else {
-                console.log("Txn sent!, hash: ", hash);
-                var timer = 1;
-                // retry every second to chk for receipt
-                const interval = setInterval(async function() {
-                  console.log("Attempting to get transaction receipt...");
-
-                // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
-                  web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
-                    if (receipt) {
-                      console.log('>>>>>>>>>>>>>>>> GOT RECEIPT -->> ', receipt);
-                      clearInterval(interval);
-
-                      const trx = await web3.eth.getTransaction(hash);
-                      console.log('trx.status -->>: ',trx);
-
-                      return(receipt.status);
-                    }
-                    if (error3) {
-                      console.log("!! getTransactionReceipt error: ", error3)
-                      clearInterval(interval);
-                      if (!errorSent) {
-                        console.log("Sending error 400 back to client");
-                        res.status(400).send({ 
-                          message: error3.toString().replace('*', ''),
-                        });
-                        errorSent = true;
-                      }
-                      return false;
-                    }
-                    // Increase gas by 10% every 15 seconds
-                    if (timer % 15 === 0 && currentGas < maxGas) {
-                      currentGas = Math.min(Math.floor(currentGas * 1.1), maxGas);
-                      console.log(`Increasing gas to: ${currentGas}`);
-                      try {
-                        const newTransaction = await web3.eth.accounts.signTransaction(
-                          {
-                            from: signer.address,
-                            data: deployTx.encodeABI(),
-                            gas: currentGas,
-                            gasPrice: await web3.eth.getGasPrice(),
-                            nonce: nonce, // Reuse original nonce
-                          },
-                          signer.privateKey
-                        );
-                        await web3.eth.sendSignedTransaction(newTransaction.rawTransaction);
-                      } catch (retryError) {
-                        console.log("Error retrying with increased gas: ", retryError);
-                      }
-                    }
-                    timer++;
-                  });
-                }, 1000);
-            }
-          }) // sendSignedTransaction
-          .on("error", err => {
-              console.log("Err22 sentSignedTxn error: ", err)
+              console.log("Unexpected error during deployment:", error);
               if (!errorSent) {
-                console.log("Sending error 400 back to client");
-                res.status(400).send({ 
-                  message: err.toString().replace('*', ''),
-                });
+                res.status(400).send({ message: error.toString().replace('*', '') });
                 errorSent = true;
               }
               return false;
-          }); // sendSignedTransaction
-
-        console.log('**** Txn executed:', createReceipt);
-        console.log('New Contract deployed at address', createReceipt.contractAddress);
-        newcontractaddress = createReceipt.contractAddress;
-
-        ERC20TokenRepoContract.options.address = newcontractaddress;
-        return true;
+            }
+          }
+        }
       };
 
       if (await deployContract()) {
@@ -1287,7 +1252,7 @@ exports.executeRepoById = async (req, res) => {
                               console.log("Error retrying with increased gas: ", retryError);
                             }
                           }
-                          if (timer > 750) {
+                          if (timer > 700) {
                             clearInterval(interval);
                           } else {
                             timer++;
