@@ -16,7 +16,7 @@ import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
 
-export default class repocouponallowance extends Component {
+export default class reposetallowance extends Component {
   constructor(props) {
     super(props);
     this.onChangeApproveTokenAmount1     = this.onChangeApproveTokenAmount1.bind(this);
@@ -613,4 +613,4 @@ export default class repocouponallowance extends Component {
       </center>
     );  // return
   }  // render
-}  // class repocouponallowance
+}  // class reposetallowance

@@ -1,13 +1,7 @@
 import React, { Component } from "react";
-import RepoDataService from "../services/repo.service.js";
-import CampaignDataService from "../services/campaign.service.js";
-import BondDataService from "../services/bond.service.js";
-import RecipientDataService from "../services/recipient.service.js";
-import UserOpsRoleDataService from "../services/user_opsrole.service.js";
 import { withRouter } from '../common/with-router.js';
 import AuthService from "../services/auth.service.js";
 import { Link } from "react-router-dom";
-import validator from 'validator';
 import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
@@ -20,11 +14,6 @@ function getToday() {
   return moment(today).format('YYYY-MM-DD');
 }
 
-function getTodayTime() {
-  const today = new Date();
-  return moment(today).format('YYYY-MM-DD HH:mm:ss');
-}
-
 class Repo extends Component {
   constructor(props) {
     super(props);
@@ -35,15 +24,6 @@ class Repo extends Component {
     this.onChangeNetwork = this.onChangeNetwork.bind(this);
 
     this.state = {      
-      recipientList: {
-        id: null,
-        name: "",
-        walletaddress: "",
-        bank: "",
-        bankaccount: "",
-        type: ""
-      },
-
       adddatafield: false,
       hidedatafield1: true,
       hidedatafield2: true,  
@@ -104,53 +84,6 @@ class Repo extends Component {
         amount2_changed: 0,
       },
 
-      originalRepo: {
-        id: null,
-        name: "",
-        underlyingTokenID1: "",
-        underlyingTokenID2: "",
-        smartcontractaddress: "",
-        smartcontractaddress1: "",
-        smartcontractaddress2: "",
-        blockchain: "",
-        securityLB: "",
-        repotype: "",
-        nominal: "",
-        cleanprice: "",
-        dirtyprice: "",
-        haircut: "",
-        startamount: "",
-        reporate: "",
-        interestAmount: "",
-        daycountconvention: "",
-        currency: "",
-        bondisin: "",
-        counterpartyname: "",
-        counterparty1: "",
-        counterparty2: "",
-        amount1: "",
-        amount2: "",
-        tradedate: getToday(),
-        startdate: getToday(),
-        enddate: getToday(),
-        starttime: "00:00:00",
-        endtime: "00:00:00",
-        txntype: 0,
-        checker: "",
-        approver: "",
-        checkerComments: "",
-        approverComments: "",
-        approvedrepoid: null,
-        actionby: "",
-        name_original: "",
-        startdate_original: "",
-        enddate_original: "",
-        counterparty1_original: "",
-        counterparty2_original: "",
-        amount1_original: "",
-        amount2_original: "",
-      },
-
       connectedAccount: "",
       message: "",
       txnstatus: "",
@@ -176,6 +109,8 @@ class Repo extends Component {
     this.networkOptions = [
       { name: "Sepolia Ethereum Testnet", chainId: "0xaa36a7" }, // 11155111
       { name: "Amoy Polygon Testnet", chainId: "0x13882" }, // 80002
+//      { name: "Ethereum Mainnet", chainId: "0x1" }, // 1
+//      { name: "Polygon Mainnet", chainId: "0x89" }, // 137
     ];
   }
 
@@ -301,6 +236,38 @@ class Repo extends Component {
     return trimmed.toString();
   }
 
+  clearState(status) {
+    this.setState({
+      connectionStatus: status,
+      currentRepo: {
+        ...this.state.currentRepo,
+        name: "",
+        bondisin: "",
+        securityLB: "",
+        repotype: "",
+        nominal: "",
+        startamount: "",
+        interestAmount: "",
+        amount1: "",
+        amount2: "",
+        startdate: getToday(),
+        starttime: "00:00:00",
+        enddate: getToday(),
+        endtime: "00:00:00",
+        tradedate: getToday(),
+        currency: "",
+        counterparty1: "",
+        counterparty2: "",
+        underlyingTokenID1: "",
+        underlyingTokenID2: "",
+        smartcontractaddress1: "",
+        smartcontractaddress2: "",
+        blockchain: ""
+      },
+      showDetails: false
+    });
+  }
+
   onChangeSmartContract(e) {
     const address = e.target.value;
     console.log("Entered Smart Contract Address:", address);
@@ -316,35 +283,7 @@ class Repo extends Component {
           const web3 = window.web3;
           const code = await web3.eth.getCode(address);
           if (code === '0x') {
-            this.setState({
-              connectionStatus: "No contract deployed at the specified address.",
-              currentRepo: {
-                ...this.state.currentRepo,
-                name: "",
-                bondisin: "",
-                securityLB: "",
-                repotype: "",
-                nominal: "",
-                startamount: "",
-                interestAmount: "",
-                amount1: "",
-                amount2: "",
-                startdate: getToday(),
-                starttime: "00:00:00",
-                enddate: getToday(),
-                endtime: "00:00:00",
-                tradedate: getToday(),
-                currency: "",
-                counterparty1: "",
-                counterparty2: "",
-                underlyingTokenID1: "",
-                underlyingTokenID2: "",
-                smartcontractaddress1: "",
-                smartcontractaddress2: "",
-                blockchain: ""
-              },
-              showDetails: false
-            });
+            this.clearState("No contract deployed at the specified address.");
             return;
           }
 
@@ -353,35 +292,7 @@ class Repo extends Component {
 
           const tradeCount = await RepoContract.methods.tradeCount().call();
           if (tradeCount < 1) {
-            this.setState({
-              connectionStatus: "No trades exist in the smart contract.",
-              currentRepo: {
-                ...this.state.currentRepo,
-                name: "",
-                bondisin: "",
-                securityLB: "",
-                repotype: "",
-                nominal: "",
-                startamount: "",
-                interestAmount: "",
-                amount1: "",
-                amount2: "",
-                startdate: getToday(),
-                starttime: "00:00:00",
-                enddate: getToday(),
-                endtime: "00:00:00",
-                tradedate: getToday(),
-                currency: "",
-                counterparty1: "",
-                counterparty2: "",
-                underlyingTokenID1: "",
-                underlyingTokenID2: "",
-                smartcontractaddress1: "",
-                smartcontractaddress2: "",
-                blockchain: ""
-              },
-              showDetails: false
-            });
+            this.clearState("No trades exist in the smart contract.");
             return;
           }
 
@@ -437,67 +348,16 @@ class Repo extends Component {
             showDetails: true,
           });
         } catch (err) {
+          let errorMessage;
           console.log('Failed to fetch trade: ' + err.message);
-          this.setState({
-            connectionStatus: `Failed to fetch trade details: ${err.message}. Please verify the contract address and trade ID.`,
-            currentRepo: {
-              ...this.state.currentRepo,
-              name: "",
-              bondisin: "",
-              securityLB: "",
-              repotype: "",
-              nominal: "",
-              startamount: "",
-              interestAmount: "",
-              amount1: "",
-              amount2: "",
-              startdate: getToday(),
-              starttime: "00:00:00",
-              enddate: getToday(),
-              endtime: "00:00:00",
-              tradedate: getToday(),
-              currency: "",
-              counterparty1: "",
-              counterparty2: "",
-              underlyingTokenID1: "",
-              underlyingTokenID2: "",
-              smartcontractaddress1: "",
-              smartcontractaddress2: "",
-              blockchain: ""
-            },
-            showDetails: false
-          });
+          if (err.msg.includes("Execution prevented because the circuit breaker is open")) {
+            errorMessage = "Execution prevented due to MetaMask internal error. Please restart MetaMask and try again.";
+          }
+                    
+          this.clearState(`Failed to fetch trade details: ${errorMessage}. Please verify the contract address.`);
         }
       } else {
-        this.setState({
-          connectionStatus: "Invalid smart contract address. Please enter a valid Ethereum address.",
-          currentRepo: {
-            ...this.state.currentRepo,
-            name: "",
-            bondisin: "",
-            securityLB: "",
-            repotype: "",
-            nominal: "",
-            startamount: "",
-            interestAmount: "",
-            amount1: "",
-            amount2: "",
-            startdate: getToday(),
-            starttime: "00:00:00",
-            enddate: getToday(),
-            endtime: "00:00:00",
-            tradedate: getToday(),
-            currency: "",
-            counterparty1: "",
-            counterparty2: "",
-            underlyingTokenID1: "",
-            underlyingTokenID2: "",
-            smartcontractaddress1: "",
-            smartcontractaddress2: "",
-            blockchain: ""
-          },
-          showDetails: false
-        });
+        this.clearState("Invalid smart contract address. Please enter a valid Ethereum address.");
       }
     });
   }
@@ -527,150 +387,17 @@ class Repo extends Component {
         }
       } catch (error) {
         console.error("Error switching network:", error);
-        this.setState({
-          connectionStatus: `Failed to switch network: ${error.message}`,
-          currentRepo: {
-            ...this.state.currentRepo,
-            name: "",
-            bondisin: "",
-            securityLB: "",
-            repotype: "",
-            nominal: "",
-            startamount: "",
-            interestAmount: "",
-            amount1: "",
-            amount2: "",
-            startdate: getToday(),
-            starttime: "00:00:00",
-            enddate: getToday(),
-            endtime: "00:00:00",
-            tradedate: getToday(),
-            currency: "",
-            counterparty1: "",
-            counterparty2: "",
-            underlyingTokenID1: "",
-            underlyingTokenID2: "",
-            smartcontractaddress1: "",
-            smartcontractaddress2: "",
-            blockchain: ""
-          },
-          showDetails: false
-        });
+        this.clearState(`Failed to switch network: ${error.message}`);
+
         this.displayModal(`Failed to switch network: ${error.message}`, null, null, null, "OK");
       }
     }
   };
 
+/*
   componentDidUpdate(prevProps, prevState) {
-    /*
-    if (!this.state.status > 0) {
-      const { currentRepo } = this.state;
-
-      let new_startamount = null;
-
-      if (
-        currentRepo.nominal !== prevState.currentRepo.nominal ||
-        currentRepo.dirtyprice !== prevState.currentRepo.dirtyprice ||
-        currentRepo.haircut !== prevState.currentRepo.haircut
-      ) {
-        new_startamount = (currentRepo.nominal !== undefined && currentRepo.nominal !== "" && currentRepo.nominal !== null && currentRepo.nominal > 0 ?  
-          (currentRepo.haircut !== undefined && currentRepo.haircut !== "" && currentRepo.haircut !== null ?
-            (currentRepo.dirtyprice !== undefined && currentRepo.dirtyprice !== "" && currentRepo.dirtyprice !== null ?
-              (Math.round((((1-(currentRepo.haircut / 100))*currentRepo.dirtyprice)* (currentRepo.nominal/100))*100)/100).toFixed(2) : null) : null) : null);
-
-        console.log("componentDidUpdate(): new_startamount:", new_startamount);
-
-        this.setState(prevState => ({
-          currentRepo: {
-            ...prevState.currentRepo,
-            startamount: new_startamount
-          }
-        }));
-      }
-
-      if (
-        new_startamount != null ||
-        currentRepo.startamount !== prevState.currentRepo.startamount ||
-        currentRepo.startdate !== prevState.currentRepo.startdate ||
-        currentRepo.starttime !== prevState.currentRepo.starttime ||
-        currentRepo.enddate !== prevState.currentRepo.enddate ||
-        currentRepo.endtime !== prevState.currentRepo.endtime ||
-        currentRepo.reporate !== prevState.currentRepo.reporate ||
-        currentRepo.currency !== prevState.currentRepo.currency ||
-        currentRepo.daycountconvention !== prevState.currentRepo.daycountconvention
-      ) {
-        let startamount = (new_startamount !== undefined && new_startamount !== "" && new_startamount !== null && new_startamount > 0 ? new_startamount : currentRepo.startamount);
-
-        const startDateTime = new Date(`${currentRepo.startdate}T${currentRepo.starttime}`);
-        const endDateTime = new Date(`${currentRepo.enddate}T${currentRepo.endtime}`);
-
-        let interestAmount =
-          (validator.isDate(currentRepo.startdate) && validator.isDate(currentRepo.enddate) && this.isTime(currentRepo.starttime) && this.isTime(currentRepo.endtime) ?
-            (currentRepo.reporate !== undefined && currentRepo.reporate !== "" && currentRepo.reporate >= 0 ?
-              (startamount !== undefined && startamount !== "" && startamount > 0 ?
-                (currentRepo.daycountconvention !== undefined && currentRepo.daycountconvention !== "" && currentRepo.daycountconvention !== 0 ?
-                  (Math.round(((currentRepo.reporate/100)*startamount*(endDateTime - startDateTime)/(currentRepo.daycountconvention*60*60*24*1000))*100)/100).toFixed(2) : null) : null) : null) : null);
-
-        console.log("componentDidUpdate(): interestAmount:", interestAmount);
-
-        this.setState(prevState => ({
-          currentRepo: {
-            ...prevState.currentRepo,
-            interestAmount: interestAmount
-          }
-        }));
-      }
-
-      if (
-        currentRepo.currency !== prevState.currentRepo.currency ||
-        currentRepo.securityLB !== prevState.currentRepo.securityLB ||
-        currentRepo.nominal !== prevState.currentRepo.nominal
-      ) {
-        let startamount = (new_startamount !== undefined && new_startamount !== "" && new_startamount !== null && new_startamount > 0 ? new_startamount : currentRepo.startamount);
-        let lot = 0;
-        if (currentRepo.currency === "SGD" || currentRepo.currency === "AUD") {
-          lot = currentRepo.nominal;
-          if (currentRepo.securityLB === "B") {
-            this.setState(prevState => ({
-              currentRepo: {
-                ...prevState.currentRepo,
-                amount1: lot,
-                amount2: startamount
-              }
-            }));
-          } else {
-            this.setState(prevState => ({
-              currentRepo: {
-                ...prevState.currentRepo,
-                amount1: startamount,
-                amount2: lot
-              }
-            }));
-          }
-        } else if (currentRepo.currency !== "") {
-          lot = currentRepo.nominal;
-          if (currentRepo.securityLB === "B") {
-            this.setState(prevState => ({
-              currentRepo: {
-                ...prevState.currentRepo,
-                amount1: lot,
-                amount2: startamount
-              }
-            }));
-          } else {
-            this.setState(prevState => ({
-              currentRepo: {
-                ...prevState.currentRepo,
-                amount1: startamount,
-                amount2: lot
-              }
-            }));
-          }
-        }
-      }
-    }
-    */
   }
+*/
 
   displayModal(msg, b1text, b2text, b3text, b0text) {
     this.setState({
@@ -681,11 +408,6 @@ class Repo extends Component {
       button3text: b3text,
       button0text: b0text,
     });
-  }
-
-  isTime(time1) {
-    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
-    return timeRegex.test(time1);
   }
 
   show_loading() {
@@ -729,6 +451,7 @@ class Repo extends Component {
       console.log("startTrade would succeed");
     } catch (error) {
       let errorMessage;
+
       if (typeof error.message === 'string' && error.message.includes('Internal JSON-RPC error')) {
           // Extract the JSON part after "Internal JSON-RPC error.\n"
           const jsonStart = error.message.indexOf('{');
@@ -744,6 +467,8 @@ class Repo extends Component {
           } else {
               errorMessage = this.removeHex(error.message); // Fallback if no JSON found
           }
+      } if (error.message.includes("Execution prevented because the circuit breaker is open")) {
+        errorMessage = "Execution prevented due to MetaMask internal error. Please restart MetaMask and try again.";
       } else {
           errorMessage = this.removeHex(error.message); // Fallback for non-JSON-RPC errors
       }
@@ -753,9 +478,14 @@ class Repo extends Component {
       return;
     }
 
+
+    this.show_loading();
+
     try {
       // Execute the transaction
       const transaction = await repoContract.methods.startTrade(1).send({ from: connectedAccount });
+
+      this.hide_loading();
 
       // Log transaction details
       console.log("Transaction executed! Txn hash: ", transaction.transactionHash);
@@ -763,24 +493,15 @@ class Repo extends Component {
       // Check for TradeStarted event
       if (transaction.events && transaction.events.TradeStarted) {
         console.log("TradeStarted event:", transaction.events.TradeStarted.returnValues);
-        this.displayModal(
-          `Successfully started Repo trade! Transaction hash: ${transaction.transactionHash}`,
-          null,
-          null,
-          null,
-          "OK"
-        );
+        this.displayModal(`Successfully started Repo trade! Transaction hash: ${transaction.transactionHash}`, null, null, null, "OK");
       } else {
         console.log("No TradeStarted event found, but transaction was successful");
-        this.displayModal(
-          `Successfully started Repo trade! Transaction hash: ${transaction.transactionHash}`,
-          null,
-          null,
-          null,
-          "OK"
-        );
+        this.displayModal(`Successfully started Repo trade!`, null, null, null, "OK");
       }
     } catch (error) {
+
+      this.hide_loading();
+
       let errorMessage = error.message;
 
       // Handle JSON-RPC errors
@@ -827,6 +548,9 @@ class Repo extends Component {
       console.error("Error executing startTrade(1):", error);
       this.displayModal(`Failed to start trade: ${errorMessage.trim()}`, null, null, null, "OK");
     }
+            
+    this.hide_loading();
+
   };
 
   // Decode revert reason from hex
@@ -921,22 +645,10 @@ class Repo extends Component {
       // Check for TradeStarted event
       if (transaction.events && transaction.events.TradeStarted) {
         console.log("TradeMatured event:", transaction.events.TradeStarted.returnValues);
-        this.displayModal(
-          `Successfully matured Repo trade! Transaction hash: ${transaction.transactionHash}`,
-          null,
-          null,
-          null,
-          "OK"
-        );
+        this.displayModal(`Successfully matured Repo trade! Transaction hash: ${transaction.transactionHash}`, null, null, null, "OK");
       } else {
         console.log("No TradeMature event found, but transaction was successful");
-        this.displayModal(
-          `Successfully matured Repo trade! Transaction hash: ${transaction.transactionHash}`,
-          null,
-          null,
-          null,
-          "OK"
-        );
+        this.displayModal(`Successfully matured Repo trade!`, null, null, null, "OK");
       }
 
     } catch (error) {
@@ -989,10 +701,7 @@ class Repo extends Component {
   };
   
   render() {
-    const { underlyingDSGDList, BondList, recipientList, currentRepo, connectionStatus, selectedNetwork } = this.state;
-    console.log("Render underlyingDSGDList:", underlyingDSGDList);
-    console.log("Render BondList:", BondList);
-    console.log("Render recipientList:", recipientList);
+    const {  currentRepo, connectionStatus, selectedNetwork } = this.state;
     console.log("Render currentRepo:", currentRepo);
     console.log("networkId:", this.state.networkId);
 

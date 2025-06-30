@@ -10,7 +10,7 @@ import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
 
-export default class repocouponallowance extends Component {
+export default class reposetallowance extends Component {
   constructor(props) {
     super(props);
     this.onChangeApproveTokenAmount1 = this.onChangeApproveTokenAmount1.bind(this);
@@ -105,47 +105,6 @@ export default class repocouponallowance extends Component {
     }
   }
 
-  onChangeNetwork = async (e) => {
-    const networkName = e.target.value;
-    this.setState({ selectedNetwork: networkName });
-
-    const network = this.networkOptions.find(opt => opt.name === networkName);
-    if (network) {
-      try {
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: network.chainId }],
-        });
-        console.log(`Switched to ${networkName}`);
-        this.refreshData();
-      } catch (error) {
-        console.error("Error switching network:", error);
-        this.clearState(`Failed to switch network: ${error.message}`);
-        /*
-        this.setState({
-          connectionStatus: `Failed to switch network: ${error.message}`,
-          tradeDetails: null,
-          Token1Addr: "",
-          Token2Addr: "",
-          symbolLeg1: "",
-          symbolLeg2: "",
-          TokenBalanceLeg1: 0,
-          TokenBalanceLeg2: 0,
-          TokenRequiredLeg1: 0,
-          TokenRequiredLeg2: 0,
-          TokenAbiLeg2: "",
-          TokenAbiLeg1: "",
-          TokenAddrLeg1: "",
-          TokenAddrLeg2: "",
-          approve_token_amount1: "",
-          approve_token_amount2: "",
-        });
-        */
-        this.displayModal(`Failed to switch network: ${error.message}`, null, null, null, "OK");
-      }
-    }
-  };
-  
   clearState(status) {
     this.setState({
       connectionStatus: status,
@@ -517,6 +476,27 @@ export default class repocouponallowance extends Component {
     });
   }
 
+  onChangeNetwork = async (e) => {
+    const networkName = e.target.value;
+    this.setState({ selectedNetwork: networkName });
+
+    const network = this.networkOptions.find(opt => opt.name === networkName);
+    if (network) {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: network.chainId }],
+        });
+        console.log(`Switched to ${networkName}`);
+        this.refreshData();
+      } catch (error) {
+        console.error("Error switching network:", error);
+        this.clearState(`Failed to switch network: ${error.message}`);
+        this.displayModal(`Failed to switch network: ${error.message}`, null, null, null, "OK");
+      }
+    }
+  };
+  
   onChangeSmartContract(e) {
     const address = e.target.value;
     console.log("Entered Smart Contract Address:", address);
@@ -528,22 +508,6 @@ export default class repocouponallowance extends Component {
         this.refreshData();
       } else {
         this.clearState("Invalid smart contract address. Please enter a valid Ethereum address.");
-        /*
-        this.setState({
-          connectionStatus: "Invalid smart contract address. Please enter a valid Ethereum address.",
-          tradeDetails: null,
-          Token1Addr: "",
-          Token2Addr: "",
-          symbolLeg1: "",
-          symbolLeg2: "",
-          TokenBalanceLeg1: 0,
-          TokenBalanceLeg2: 0,
-          TokenRequiredLeg1: 0,
-          TokenRequiredLeg2: 0,
-          approve_token_amount1: "",
-          approve_token_amount2: "",
-        });
-        */
       }
     });
   }
