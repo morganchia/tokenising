@@ -390,6 +390,7 @@ refreshList() {
               : null
               }
               {
+    /*
               this.state.isMaker? 
                 <Link
                   to={"/repotrademanager/0"}
@@ -401,6 +402,8 @@ refreshList() {
                   </button>
                 </Link>
               : null
+
+    */
               }
 
               { 

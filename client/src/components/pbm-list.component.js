@@ -226,7 +226,7 @@ export default class PBMList extends Component {
             <div className="col-md-12">
 
               <table style={{ border:"1px solid"}}>
-                {(pbm.length > 0)?
+                {(pbm && pbm.length > 0)?
                 <tr>
                   <th>PBM Name</th>
                   <th>PBM Token Name</th>
@@ -258,8 +258,8 @@ export default class PBMList extends Component {
                         
                           }
                       </td>
-                      <td>{(() => {
-                          switch (pbm1.campaign.blockchain) {
+                      <td>{ (() => {
+                          switch (pbm1.campaign? pbm1.campaign.blockchain : null) {
                             case 80001:
                               return 'Polygon Testnet Mumbai (Deprecated)'
                             case 80002:
@@ -304,8 +304,8 @@ export default class PBMList extends Component {
                       </td>
                       <td>
                         <a href={"https://"+
-                        (() => {
-                          switch (pbm1.campaign.blockchain) {
+                        ( () => {
+                          switch (pbm1.campaign ? pbm1.campaign.blockchain : null) {
                             case 80001:
                               return 'mumbai.polygonscan.com/address/'
                             case 80002:

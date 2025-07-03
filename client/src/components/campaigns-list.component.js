@@ -193,7 +193,7 @@ export default class CampaignList extends Component {
           <div>
           <header className="jumbotron col-md-8">
             <h3>
-              <strong>Deployed Campaigns { (this.state.isMaker? "(Maker)" : (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null))) }</strong>
+              <strong>Deployed Cash Campaigns { (this.state.isMaker? "(Maker)" : (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null))) }</strong>
             </h3>
           </header>
 
@@ -237,6 +237,7 @@ export default class CampaignList extends Component {
                   <th>Sponsor</th>
                   <th>Amount</th>
                   <th>Smart Contract</th>
+                  <th>View</th>
                   <th>View Blockchain</th>
                   <th>Action</th>
                 </tr>
@@ -282,6 +283,18 @@ export default class CampaignList extends Component {
                       <td>{
                             (campaign1.smartcontractaddress !== undefined && typeof campaign1.smartcontractaddress === "string")? this.shorten(campaign1.smartcontractaddress): null
                           }
+                      </td>
+                      <td>
+                          <Link
+                            to={"/campaigncheckapprove/" + campaign1.draftcampaignid}
+                          >
+                            <button
+                              className="m-3 btn btn-sm btn-primary"
+                            >
+                              View
+                            </button>
+                          </Link>
+                        
                       </td>
                       <td>
                         {

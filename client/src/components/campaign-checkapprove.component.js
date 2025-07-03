@@ -819,9 +819,25 @@ async deleteCampaign() {
                         maxLength="45"
                         value={currentCampaign.name}
                         onChange={this.onChangeName}
-                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
+                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2 || currentCampaign.status > 0}
                         />
                     </div>
+                    { currentCampaign.smartcontractaddress !== "" && currentCampaign.smartcontractaddress !== null ?
+                      <div className="form-group">
+                        <label htmlFor="name">Smart Contract Address</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          id="smartcontractaddress"
+                          maxLength="45"
+                          value={currentCampaign.smartcontractaddress}
+                          required
+                          disabled={true}
+                          />
+                      </div> 
+                    : null 
+                    }
+
                 <div className="form-group">
                   <label htmlFor="description">Description</label>
                   <input
@@ -834,7 +850,7 @@ async deleteCampaign() {
                     onChange={this.onChangeDescription}
                     name="description"
                     autoComplete="off"
-                    disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
+                    disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2 || currentCampaign.status > 0}
                     />
                 </div>
 
@@ -850,7 +866,7 @@ async deleteCampaign() {
                     onChange={this.onChangeTokenName}
                     name="tokenname"
                     style={{textTransform : "uppercase"}}
-                    disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
+                    disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2 || currentCampaign.status > 0}
                     />
                 </div>
 
@@ -860,7 +876,7 @@ async deleteCampaign() {
                         onChange={this.onChangeBlockchain}                         
                         className="form-control"
                         id="blockchain"
-                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
+                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2 || currentCampaign.status > 0}
                         >
                         <option value=""             > </option>
                         <option value="80002"  selected={currentCampaign.blockchain === 80002}>Polygon   Testnet Amoy</option>
@@ -894,7 +910,7 @@ async deleteCampaign() {
                         id="startdate"
                         value={currentCampaign.startdate}
                         onChange={this.onChangeStartDate}
-                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
+                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2 || currentCampaign.status > 0}
                       />
                     </div>
                     <div className="form-group">
@@ -905,7 +921,7 @@ async deleteCampaign() {
                         id="enddate"
                         value={currentCampaign.enddate}
                         onChange={this.onChangeEndDate}
-                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
+                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2 || currentCampaign.status > 0}
                       />
                     </div>
                     <div className="form-group">
@@ -915,7 +931,7 @@ async deleteCampaign() {
                         onChange={this.onChangeSponsor}                         
                         className="form-control"
                         id="sponsor"
-                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
+                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2 || currentCampaign.status > 0}
                         >
                       {
                         Array.isArray(recipient) ?
@@ -936,7 +952,7 @@ async deleteCampaign() {
                         step="1"
                         value={currentCampaign.amount}
                         onChange={this.onChangeAmount}
-                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
+                        disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2 || currentCampaign.status > 0}
                         />
                     </div>
                     <div className="form-group">
@@ -946,7 +962,7 @@ async deleteCampaign() {
                             onChange={this.onChangeChecker}                         
                             className="form-control"
                             id="checker"
-                            disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
+                            disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2 || currentCampaign.status > 0}
                             >
                             {
                               Array.isArray(checkerList) ?
@@ -979,7 +995,7 @@ async deleteCampaign() {
                           onChange={this.onChangeApprover}                         
                           className="form-control"
                           id="approver"
-                          disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2}
+                          disabled={!this.state.isMaker || this.state.currentCampaign.txntype===2 || currentCampaign.status > 0}
                           >
                         {
                           Array.isArray(approverList) ?
@@ -1009,7 +1025,7 @@ async deleteCampaign() {
 
                   </form>
                   {
-                  this.state.isMaker?
+                  this.state.isMaker && currentCampaign.status <= 0 ?
                   <>
                     <button
                     type="submit"

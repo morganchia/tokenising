@@ -251,15 +251,15 @@ class App extends Component {
                 <li>
                   <Link to={"/campaign"} className="nav-link">
                     <i className='bx bx-atom' ></i>
-                    <span className="links_name">Campaigns (Tokens)</span>
-                    <span className="tooltip">Campaigns (Tokens)</span>
+                    <span className="links_name">Campaigns (Cash)</span>
+                    <span className="tooltip">Campaigns (Cash)</span>
                   </Link>
                 </li>
                 <li>
                   <Link to={"/bond"} className="nav-link">
                     <i className='bx bx-atom' ></i>
-                    <span className="links_name">Bond (Tokens)</span>
-                    <span className="tooltip">Bond (Tokens)</span>
+                    <span className="links_name">Bond</span>
+                    <span className="tooltip">Bond</span>
                   </Link>
                 </li>
                 <li>
@@ -272,9 +272,9 @@ class App extends Component {
                 <li>
                   <Link to={"/mint"} className="nav-link">
                     <i className='bx bx-atom' ></i>
-                    <span className="links_name">Mint (Tokens)</span>
+                    <span className="links_name">Mint</span>
                   </Link>
-                  <span className="tooltip">Mint (Tokens)</span>
+                  <span className="tooltip">Mint</span>
                 </li>
                 <li>
 {
@@ -282,9 +282,9 @@ class App extends Component {
 }
                   <Link to={"/transfer"} className="nav-link">
                     <i className='bx bx-transfer' ></i>
-                    <span className="links_name">Transfer (Tokens)</span>
+                    <span className="links_name">Transfer</span>
                   </Link>
-                  <span className="tooltip">Transfer (Tokens)</span>
+                  <span className="tooltip">Transfer</span>
                 </li>
                 <li>
                   <Link to={"/withdraw"} className="nav-link">
