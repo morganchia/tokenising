@@ -24,9 +24,7 @@ import RecipientCheckApprove from "./components/recipient-checkapprove.component
 import Withdraw from "./components/withdraw.component";
 
 import TransferList from "./components/transfers-list.component";
-//import TransferAdd from "./components/transfer-add.component";
 import TransferCheckApprove from "./components/transfer-checkapprove.component";
-//import TransferAddOld from "./components/transfer-add.component(withoutmakerchecker)";
 
 import Order from "./components/order.component";
 import AuditTrail from "./components/audittrail.component";
@@ -49,13 +47,11 @@ import BondCouponTrigger from "./components/bond-coupontrigger.component";
 import BondCheckApprove from "./components/bond-checkapprove.component";
 import BondList from "./components/bond-list.component";
 
-
 import PBMCheckApprove from "./components/pbm-checkapprove.component";
 import PBMAdd from "./components/pbm-add.component";
 import PBMList from "./components/pbm-list.component";
 
 import DvPCheckApprove from "./components/dvp-checkapprove.component";
-//import DvPAdd from "./components/dvp-add.component";
 import DvPList from "./components/dvp-list.component";
 import DvPAddAllowance from "./components/dvp-addallowance.component";
 import DvPTransact from "./components/dvp-transact.component";
@@ -65,7 +61,6 @@ import RepoCheckApprove from "./components/repo-checkapprove.component";
 import RepoSetAllowance from "./components/repo-setallowance.component";
 import RepoTradeManager from "./components/RepoTradeManager.component";
 import RepoTransact from "./components/repo-transact.component";
-
 
 import PBMWrapCheckApprove from "./components/pbmwrap-checkapprove.component";
 import PBMWrapAdd from "./components/pbmwrap-add.component";
@@ -83,11 +78,16 @@ class App extends Component {
   constructor(props) {
     super(props);
     this.logOut = this.logOut.bind(this);
+    this.toggleMenu = this.toggleMenu.bind(this);
 
     this.state = {
       showModeratorBoard: false,
       showAdminBoard: false,
       currentUser: undefined,
+      openMenus: {
+        pbm: false,
+        bonds: false,
+      },
     };
   }
 
@@ -121,8 +121,17 @@ class App extends Component {
     });
   }
 
+  toggleMenu(menu) {
+    this.setState(prevState => ({
+      openMenus: {
+        ...prevState.openMenus,
+        [menu]: !prevState.openMenus[menu],
+      },
+    }));
+  }
+
   render() {
-    const { currentUser, showModeratorBoard, showAdminBoard } = this.state;
+    const { currentUser, showModeratorBoard, showAdminBoard, openMenus } = this.state;
 
     return (
       <div>
@@ -182,7 +191,6 @@ class App extends Component {
                               ).format()
                               .replace('T', ' ')
                               .substring(0, currentUser.lastlogin.indexOf('.'))
-                              // remove T Z and trailing ".000"
                             }
                 </div>
               </li>
@@ -190,13 +198,6 @@ class App extends Component {
                 <div className="logo-details">
                   <i className='bx bxl-graphql'></i>
                     <div className="logo_name">BCDA DSGD and PBM Portal</div>
-                    {
-                      /*
-                      // hamburger menu
-                    <i className='bx bx-menu' id="btn" ></i>
-
-                    */
-                    }
                 </div>
                 <ul className="nav-list">
                   <li>
@@ -206,174 +207,191 @@ class App extends Component {
                     </Link>
                     <span className="tooltip">Dashboard</span>
                   </li>
-                <li>
-                  <a href="/inbox" className="nav-link">
-                    <i className='bx bx-task' ></i>
-                    <span className="links_name">Inbox</span>
-                  </a>
-                  <span className="tooltip">Inbox</span>
-                </li>
-                <li>
-                  <Link to={"/bridge"} className="nav-link">
-                    <i className='bx bx-atom' ></i>
-                    <span className="links_name">Bridge (Tokens)</span>
-                    <span className="tooltip">Bridge (Tokens)</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to={"/dvp"} className="nav-link">
-                    <i className='bx bx-atom' ></i>
-                    <span className="links_name">DvP Smart contracts</span>
-                  <span className="tooltip">DvP Smart Contracts</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to={"/pbm"} className="nav-link">
-                    <i className='bx bx-atom' ></i>
-                    <span className="links_name">PBMs</span>
-                  <span className="tooltip">PBMs</span>
-                  </Link>
-                    <li>
-                      <Link to={"/pbmtemplate"} className="nav-link">
-                        <i className='bx bx-atom' ></i>
-                        <span className="links_name">PBM Templates</span>
-                      <span className="tooltip">PBM Templates</span>
-                      </Link>
-                    </li>
-                </li>
-                <li>
-                  <Link to={"/pbmwraplist"} className="nav-link">
-                    <i className='bx bx-atom' ></i>
-                    <span className="links_name">Wrap Mint PBM</span>
-                    <span className="tooltip">Wrap Mint PBM</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to={"/campaign"} className="nav-link">
-                    <i className='bx bx-atom' ></i>
-                    <span className="links_name">Campaigns (Cash)</span>
-                    <span className="tooltip">Campaigns (Cash)</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to={"/bond"} className="nav-link">
-                    <i className='bx bx-atom' ></i>
-                    <span className="links_name">Bond</span>
-                    <span className="tooltip">Bond</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to={"/repo"} className="nav-link">
-                    <i className='bx bx-atom' ></i>
-                    <span className="links_name">Repo</span>
-                  <span className="tooltip">Repo</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to={"/mint"} className="nav-link">
-                    <i className='bx bx-atom' ></i>
-                    <span className="links_name">Mint</span>
-                  </Link>
-                  <span className="tooltip">Mint</span>
-                </li>
-                <li>
-{
-  //                <Link to={"/transferaddold"} className="nav-link">
-}
-                  <Link to={"/transfer"} className="nav-link">
-                    <i className='bx bx-transfer' ></i>
-                    <span className="links_name">Transfer</span>
-                  </Link>
-                  <span className="tooltip">Transfer</span>
-                </li>
-                <li>
-                  <Link to={"/withdraw"} className="nav-link">
-                    <i className='bx bx-money-withdraw' ></i>
-                    <span className="links_name">Withdraw (Off Ramp)</span>
-                  </Link>
-                  <span className="tooltip">Withdraw (Off Ramp)</span>
-                </li>
-                {
-                  /*
-                <li>
-                  <Link to={"/order"} className="nav-link">
-                    <i className='bx bx-cart-alt' ></i>
-                    <span className="links_name">Order</span>
-                  </Link>
-                  <span className="tooltip">Order</span>
-                </li>
-                */
-                }
-                <li>
-                <Link to={"/recipient"} className="nav-link">
-                    <i className='bx bx-atom' ></i>
-                    <span className="links_name">Recipients / Sponsors</span>
-                  <span className="tooltip">Recipients / Sponsors</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to={"/audittrail"} className="nav-link">
-                    <i className='bx bx-folder' ></i>
-                    <span className="links_name">Audit Trail</span>
-                  </Link>
-                  <span className="tooltip">Audit Trail</span>
-                </li>
+                  <li>
+                    <a href="/inbox" className="nav-link">
+                      <i className='bx bx-task' ></i>
+                      <span className="links_name">Inbox</span>
+                    </a>
+                    <span className="tooltip">Inbox</span>
+                  </li>
+                  <li>
+                    <a onClick={() => this.toggleMenu('cash')} className="nav-link">
+                      <i className='bx bx-atom'></i>
+                      <span className="links_name">Digital Cash</span>
+                      <i className={`bx ${openMenus.cash ? 'bx-chevron-up' : 'bx-chevron-down'}`}></i>
+                    </a>
+                    <span className="tooltip">Cash</span>
+                    {openMenus.cash && (
+                      <ul className="nav-list" style={{ paddingLeft: '20px' }}>
+                        <li>
+                          <Link to={"/campaign"} className="nav-link">
+                            <i className='bx bx-atom' ></i>
+                            <span className="links_name">Campaigns (Cash)</span>
+                          </Link>
+                          <span className="tooltip">Campaigns (Cash)</span>
+                        </li>
+                        <li>
+                          <Link to={"/mint"} className="nav-link">
+                            <i className='bx bx-atom' ></i>
+                            <span className="links_name">Mint</span>
+                          </Link>
+                          <span className="tooltip">Mint</span>
+                        </li>
+                        <li>
+                          <Link to={"/transfer"} className="nav-link">
+                            <i className='bx bx-transfer' ></i>
+                            <span className="links_name">Transfer</span>
+                          </Link>
+                          <span className="tooltip">Transfer</span>
+                        </li>
+                        <li>
+                          <Link to={"/withdraw"} className="nav-link">
+                            <i className='bx bx-money-withdraw' ></i>
+                            <span className="links_name">Withdraw (Off Ramp)</span>
+                          </Link>
+                          <span className="tooltip">Withdraw (Off Ramp)</span>
+                        </li>
+                      </ul>
+                    )}
+                  </li>
+                  <li>
+                    <a onClick={() => this.toggleMenu('bonds')} className="nav-link">
+                      <i className='bx bx-atom'></i>
+                      <span className="links_name">Bonds</span>
+                      <i className={`bx ${openMenus.bonds ? 'bx-chevron-up' : 'bx-chevron-down'}`}></i>
+                    </a>
+                    <span className="tooltip">Bonds</span>
+                    {openMenus.bonds && (
+                      <ul className="nav-list" style={{ paddingLeft: '20px' }}>
+                        <li>
+                          <Link to={"/bond"} className="nav-link">
+                            <i className='bx bx-atom'></i>
+                            <span className="links_name">Bond</span>
+                          </Link>
+                          <span className="tooltip">Bond</span>
+                        </li>
+                        <li>
+                          <Link to={"/repo"} className="nav-link">
+                            <i className='bx bx-atom'></i>
+                            <span className="links_name">Repo</span>
+                          </Link>
+                          <span className="tooltip">Repo</span>
+                        </li>
+                      </ul>
+                    )}
+                  </li>
+                  <li>
+                    <a onClick={() => this.toggleMenu('pbm')} className="nav-link">
+                      <i className='bx bx-atom'></i>
+                      <span className="links_name">PBMs</span>
+                      <i className={`bx ${openMenus.pbm ? 'bx-chevron-up' : 'bx-chevron-down'}`}></i>
+                    </a>
+                    <span className="tooltip">PBMs</span>
+                    {openMenus.pbm && (
+                      <ul className="nav-list" style={{ paddingLeft: '20px' }}>
+                        <li>
+                          <Link to={"/pbm"} className="nav-link">
+                            <i className='bx bx-atom'></i>
+                            <span className="links_name">PBM</span>
+                          </Link>
+                          <span className="tooltip">PBM</span>
+                        </li>
+                        <li>
+                          <Link to={"/pbmtemplate"} className="nav-link">
+                            <i className='bx bx-atom'></i>
+                            <span className="links_name">PBM Templates</span>
+                          </Link>
+                          <span className="tooltip">PBM Templates</span>
+                        </li>
+                        <li>
+                          <Link to={"/pbmwraplist"} className="nav-link">
+                            <i className='bx bx-atom'></i>
+                            <span className="links_name">Wrap Mint PBM</span>
+                          </Link>
+                          <span className="tooltip">Wrap Mint PBM</span>
+                        </li>
+                      </ul>
+                    )}
+                  </li>
+                  <li>
+                    <a onClick={() => this.toggleMenu('utilities')} className="nav-link">
+                      <i className='bx bx-atom'></i>
+                      <span className="links_name">Utilities</span>
+                      <i className={`bx ${openMenus.utilities ? 'bx-chevron-up' : 'bx-chevron-down'}`}></i>
+                    </a>
+                    <span className="tooltip">Utilities</span>
+                    {openMenus.utilities && (
+                      <ul className="nav-list" style={{ paddingLeft: '20px' }}>
+                        <li>
+                          <Link to={"/bridge"} className="nav-link">
+                            <i className='bx bx-atom' ></i>
+                            <span className="links_name">Bridge (Tokens)</span>
+                          </Link>
+                          <span className="tooltip">Bridge (Tokens)</span>
+                        </li>
+                        <li>
+                          <Link to={"/dvp"} className="nav-link">
+                            <i className='bx bx-atom' ></i>
+                            <span className="links_name">DvP</span>
+                          </Link>
+                          <span className="tooltip">DvP</span>
+                        </li>
+                      </ul>
+                    )}
+                  </li>
+                  <li>
+                    <a onClick={() => this.toggleMenu('admin')} className="nav-link">
+                      <i className='bx bx-atom'></i>
+                      <span className="links_name">Admin Functions</span>
+                      <i className={`bx ${openMenus.admin ? 'bx-chevron-up' : 'bx-chevron-down'}`}></i>
+                    </a>
+                    <span className="tooltip">Admin Functions</span>
+                    {openMenus.admin && (
+                      <ul className="nav-list" style={{ paddingLeft: '20px' }}>
+                        <li>
+                          <Link to={"/recipient"} className="nav-link">
+                            <i className='bx bx-atom' ></i>
+                            <span className="links_name">Recipients / Sponsors</span>
+                          </Link>
+                          <span className="tooltip">Recipients / Sponsors</span>
+                        </li>
+                        <li>
+                          <Link to={"/audittrail"} className="nav-link">
+                            <i className='bx bx-folder' ></i>
+                            <span className="links_name">Audit Trail</span>
+                          </Link>
+                          <span className="tooltip">Audit Trail</span>
+                        </li>
+                        <li>
+                          <Link to={"/userroles"} className="nav-link">
+                            <i className='bx bx-user' ></i>
+                            <span className="links_name">User Roles</span>
+                          </Link>
+                          <span className="tooltip">User Roles</span>
+                        </li>
+                        <li>
+                          <Link to={"/settings"} className="nav-link">
+                            <i className='bx bx-cog' ></i>
+                            <span className="links_name">Setting</span>
+                          </Link>
+                          <span className="tooltip">Setting</span>
+                        </li>
+                      </ul>
+                    )}
+                  </li>
 
-                <li>
-                  <Link to={"/userroles"} className="nav-link">
-                    <i className='bx bx-user' ></i>
-                    <span className="links_name">User Roles</span>
-                  </Link>
-                  <span className="tooltip">User Roles</span>
-                </li>
-                <li>
-                  <Link to={"/settings"} className="nav-link">
-                    <i className='bx bx-cog' ></i>
-                    <span className="links_name">Setting</span>
-                  </Link>
-                  <span className="tooltip">Setting</span>
-                </li>
-                <li >
-                {   
-                  /*                 
-                    <div className="profile-details">
-                      <div className="name_job">
-
-                          <div className="name">BCDA</div>
-                          <div className="job">Blockchain &amp; Digital Assets</div>
-                      </div>
-                    </div>
-                  */
-                }
-                  <a href="/login" onClick={this.logOut}>                   
-                    <i className='bx bx-log-out' id="log_out"></i>
-                    <span className="name_job">Logout</span>
-                  </a>
-                  <span className="tooltip">Logout</span>
-                </li>
+                  <li>
+                    <a href="/login" onClick={this.logOut}>                   
+                      <i className='bx bx-log-out' id="log_out"></i>
+                      <span className="name_job">Logout</span>
+                    </a>
+                    <span className="tooltip">Logout</span>
+                  </li>
                 </ul>
               </div>
-        </div> 
-            
-
-            
+            </div> 
           ) : (
-
             <div className="navbar-nav ml-auto">
-{
-  /*              <li className="nav-item">
-                <Link to={"/login"} className="nav-link">
-                  Login
-                </Link>
-              </li>
-
-              <li className="nav-item">
-                <Link to={"/register"} className="nav-link">
-                  Sign Up
-                </Link>
-              </li>
-  */
-}
             </div>
           )}
         </nav>
@@ -388,86 +406,59 @@ class App extends Component {
 
         <div className="container mt-3">
           <Routes>
-{
-/*
-            <Route path="/" element={<Home />} />
-            <Route path="/home" element={<Home />} />
-*/
-}
             <Route path="/" element={<Dashboard />} />
             <Route path="/home" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/inbox" element={<Inbox />} />
-
             <Route path="/recipient" element={<RecipientList />} />
             <Route path="/recipientadd" element={<RecipientAdd/>} />
             <Route path="/recipientcheckapprove/:id" element={<RecipientCheckApprove/>} />
-            
             <Route path="/withdraw" element={<Withdraw />} />
-
             <Route path="/transfer" element={<TransferList />} />
-          {/* 
-            <Route path="/transferadd" element={<TransferAdd />} />
-            <Route path="/transferaddold" element={<TransferAddOld />} />
-          */}
             <Route path="/transfercheckapprove/:id" element={<TransferCheckApprove/>} />
-
             <Route path="/audittrail" element={<AuditTrail />} />
             <Route path="/order" element={<Order />} />
             <Route path="/userroles" element={<UserRoles />} />
             <Route path="/settings" element={<Settings />} />
-
             <Route path="/profile" element={<Profile />} />
             <Route path="/user" element={<BoardUser />} />
             <Route path="/mod" element={<BoardModerator />} />
             <Route path="/admin" element={<BoardAdmin />} />
-
             <Route path="/mint" element={<MintList/>} />
             <Route path="/mintadd" element={<MintAdd/>} />
             <Route path="/mintcheckapprove/:id" element={<MintCheckApprove/>} />
-
             <Route path="/campaign" element={<CampaignsList/>} />
             <Route path="/campaignadd" element={<CampaignAdd/>} />
             <Route path="/campaigncheckapprove/:id" element={<CampaignCheckApprove/>} />
             <Route path="/campaignedit/:id" element={<CampaignEdit/>} />
-
             <Route path="/bridge" element={<BridgeList/>} />
-
             <Route path="/bond" element={<BondList/>} />
             <Route path="/bondcheckapprove/:id" element={<BondCheckApprove/>} />
             <Route path="/bondcouponallowance/:id" element={<BondCouponAllowance />} />
             <Route path="/bondcouponallowance" element={<BondCouponAllowance />} />
             <Route path="/bondcoupontrigger/:id" element={<BondCouponTrigger />} />
-
             <Route path="/dvp" element={<DvPList/>} />
             <Route path="/dvpcheckapprove/:id" element={<DvPCheckApprove/>} />
             <Route path="/dvptransact/:id" element={<DvPTransact/>} />
-
             <Route path="/repo" element={<RepoList/>} />
             <Route path="/repocheckapprove/:id" element={<RepoCheckApprove/>} />
             <Route path="/reposetallowance/:id" element={<RepoSetAllowance />} />
             <Route path="/repotrademanager/:id" element={<RepoTradeManager />} />
             <Route path="/repotransact/:id" element={<RepoTransact/>} />
-
             <Route path="/pbm" element={<PBMList/>} />
             <Route path="/pbmadd" element={<PBMAdd/>} />
             <Route path="/pbmcheckapprove/:id" element={<PBMCheckApprove/>} />
-
             <Route path="/pbmtemplate" element={<PBMTemplateList/>} />
             <Route path="/pbmtemplateadd" element={<PBMTemplateAdd/>} />
             <Route path="/pbmwrapadd/" element={<PBMWrapAdd/>} />
-
             <Route path="/pbmwrapcheckapprove/:id" element={<PBMWrapCheckApprove/>} />
             <Route path="/pbmwraplist" element={<PBMWrapList/>} />
-
           </Routes>
         </div>
 
         {
           <AuthVerify logOut={this.logOut}/>   
-          // check if access token has expired
         }
-
       </div>
     );
   }
