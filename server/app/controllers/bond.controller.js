@@ -84,7 +84,8 @@ exports.draftCreate = async (req, res) => {
     }, 
   )
   .then(data => {
-    console.log("Bond_draft create:", data);
+    console.log("Bond_draft create: ", data.map(item => item.dataValues));
+
     // write to audit
     AuditTrail.create(
       { 
@@ -938,7 +939,7 @@ exports.approveDraftById = async (req, res) => {  //
         }, 
       )
       .then(data => {
-        console.log("Bond create success:", data);
+        console.log("Bond create success:", data.map(item => item.dataValues));
         if (!errorSent) {
           res.send(data);
           errorSent = true;
@@ -989,7 +990,7 @@ exports.approveDraftById = async (req, res) => {  //
       { where:      { id: req.body.approvedbondid }},
       )
       .then(data => {
-        console.log("Bond update success:", data);
+        console.log("Bond update success:", data.map(item => item.dataValues));
         if (!errorSent) {
           res.send(data);
           errorSent = true;
@@ -1311,6 +1312,7 @@ exports.findDraftByNameExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
+      console.log("Bond_Draft.findAll: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1334,6 +1336,7 @@ exports.findDraftByApprovedId = (req, res) => {
     { where: condition },
     )
     .then(data => {
+      console.log("Bond_Draft.findAll: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1354,6 +1357,7 @@ exports.findExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
+      console.log("Bond.findAll: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1391,7 +1395,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     // Creation of Web3 class
     Web3 = require("web3");
 
-    console.log("In Bond.findAll:  ", data);
+    console.log("In Bond.findAll:  ", data.map(item => item.dataValues));
 
     require('dotenv').config();
     const ETHEREUM_NETWORK = (() => {switch (data[0].blockchain) {
@@ -1492,7 +1496,7 @@ exports.findByName = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond.findByName:", data)
+      console.log("Bond.findByName: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1535,7 +1539,8 @@ exports.getAllByBondId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond.findAll:", data)
+      console.log("Bond.findAll: ", data.map(item => item.dataValues));
+
       if (data.length === 0) {
         console.log("Data is empyty!!!");
         res.status(500).send({
@@ -1579,7 +1584,7 @@ exports.getAll = (req, res) => {
     ]
   },
   ).then(data => {
-    console.log(JSON.stringify(data, null, 2));
+    console.log("Bond.findAll: ", data.map(item => item.dataValues));
     res.send(data);
   }).catch(err => {
     res.status(500).send({
@@ -1645,12 +1650,11 @@ exports.getAllDraftsByUserId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond_Draft.findAll:", data)
+      console.log("Bond_Draft.findAll: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
       console.log("Error while retreiving bond6: "+err.message);
-
       res.status(500).send({
         message:
           err.message || "Some error occurred while retrieving bond."
@@ -1693,9 +1697,10 @@ exports.getAllDraftsByBondId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond_Draft.findAll:", data)
+      console.log("Bond_Draft.findAll: ", data.map(item => item.dataValues));
+
       if (data.length === 0) {
-        console.log("Data is empyty!!!");
+        console.log("Data is empty!!!");
         res.status(500).send({
           message: "No such record in the system" 
         });
@@ -1750,8 +1755,8 @@ exports.findOne = (req, res) => {
     include: db.campaigns,
   })
     .then(data => {
-      //console.log("Bond.findByPk:", data)
       if (data) {
+        console.log("Bond.findByPk: ", data.map(item => item.dataValues));
         res.send(data);
       } else {
         res.status(404).send({ 
@@ -1779,6 +1784,8 @@ exports.getAllInvestorsById = (req, res) => {
       res.status(404).send({ message: `Bond with id=${id} not found.` });
       return;
     }
+
+    console.log("Bond.findByPk: ", data.map(item => item.dataValues));
 
     // Load ABI
     const fs = require("fs");

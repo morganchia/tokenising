@@ -111,7 +111,7 @@ exports.draftCreate = async (req, res) => {
         console.log("Error while logging to audittrail for creating transfer request: "+err.message);
       });
 
-      console.log("Transfers_draft create:", data);
+      console.log("Transfers_draft create:", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1105,7 +1105,7 @@ exports.getAllDraftsByUserId = async (req, res) => {
     },
     )
     .then(tdata => {
-      console.log("Transfers_Draft.findAll:", tdata)
+      console.log("Transfers_Draft.findAll:", tdata.map(item => item.dataValues))
       campaignData = tdata;
       // res.send( tdata );
     })
@@ -1124,7 +1124,7 @@ exports.getAllDraftsByUserId = async (req, res) => {
     },
     )
     .then(tdata => {
-      console.log("Transfers_Draft.findAll:", tdata)
+      console.log("Transfers_Draft.findAll:", tdata.map(item => item.dataValues))
       bondData = tdata;
       // res.send( tdata );
     })
@@ -1143,7 +1143,7 @@ exports.getAllDraftsByUserId = async (req, res) => {
     },
     )
     .then(tdata => {
-      console.log("Transfers_Draft.findAll:", tdata)
+      console.log("Transfers_Draft.findAll:", tdata.map(item => item.dataValues))
       pbmData = tdata;
       // res.send( tdata );
     })
@@ -1181,7 +1181,7 @@ exports.getAllDraftsByTransferId = (req, res) => {
       },
     )
     .then(data => {
-      console.log("Transfers_Draft.findAll:", data)
+      console.log("Transfers_Draft.findAll:", data.map(item => item.dataValues))
       res.send(data);
     })
     .catch(err => {
@@ -1432,7 +1432,7 @@ exports.findAll = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      console.log("Transfer.findAll:", data)
+      console.log("Transfer.findAll:", data.map(item => item.dataValues))
       res.send(data);
     })
     .catch(err => {
@@ -1453,8 +1453,8 @@ exports.findOne = (req, res) => {
     include: db.campaigns
   })
     .then(data => {
-      //console.log("Transfer.findByPk:", data)
       if (data) {
+        console.log("Transfer.findByPk:", data.map(item => item.dataValues));
         res.send(data);
       } else {
         res.status(404).send({
@@ -1520,7 +1520,7 @@ await Transfer.findAll(
   },
   )
   .then(tdata => {
-    console.log("Transfer.findAll:", tdata)
+    console.log("Transfer.findAll:", tdata.map(item => item.dataValues));
     campaignData = tdata;
   })
   .catch(err => {
@@ -1540,7 +1540,7 @@ await Transfer.findAll(
   },
   )
   .then(tdata => {
-    console.log("Transfer.findAll:", tdata)
+    console.log("Transfer.findAll:", tdata.map(item => item.dataValues));
     bondData = tdata;
   })
   .catch(err => {
@@ -1560,7 +1560,7 @@ await Transfer.findAll(
   },
   )
   .then(tdata => {
-    console.log("Transfer.findAll:", tdata)
+    console.log("Transfer.findAll:", tdata.map(item => item.dataValues));
     pbmData = tdata;
   })
   .catch(err => {

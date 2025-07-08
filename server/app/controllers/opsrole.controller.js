@@ -64,8 +64,8 @@ exports.findByUserName = (req, res) => {
   var condition = username ? { username: { [Op.eq]: `${username}` } } : null;
   Opsrole.findAll(
     { 
-      raw: true,
-      nest: true,
+//      raw: true,
+//      nest: true,
       include: [{
         model: db.user,
         as: 'user',
@@ -86,7 +86,7 @@ exports.findByUserName = (req, res) => {
    // { where: condition },
   )
   .then(data => {
-    console.log("OpsRole.findByUserName:", data)
+    console.log("OpsRole.findByUserName:", data.map(item => item.dataValues));
     res.send(data);
   })
   .catch(err => {

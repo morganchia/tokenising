@@ -83,7 +83,8 @@ exports.draftCreate = async (req, res) => {
     }, 
   )
   .then(data => {
-    console.log("Campaign_draft create:", data);
+    console.log("Campaign_draft create:", data.map(item => item.dataValues));
+
     // write to audit
     AuditTrail.create(
       { 
@@ -752,7 +753,7 @@ exports.approveDraftById = async (req, res) => {
         }, 
       )
       .then(data => {
-        console.log("Campaign create success:", data);
+        console.log("Campaign create success: ", data.map(item => item.dataValues));
         res.send(data);
       })
       .catch(err => {
@@ -783,7 +784,7 @@ exports.approveDraftById = async (req, res) => {
       { where:      { id: req.body.approvedcampaignid }},
       )
       .then(data => {
-        console.log("Campaign update success:", data);
+        console.log("Campaign update success: ", data.map(item => item.dataValues));
         res.send(data);
       })
       .catch(err => {
@@ -812,6 +813,7 @@ exports.findDraftByNameExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
+      console.log("Campaigns_Draft.findAll: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -835,6 +837,7 @@ exports.findDraftByApprovedId = (req, res) => {
     { where: condition },
     )
     .then(data => {
+      console.log("Campaigns_Draft.findAll: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -856,6 +859,7 @@ exports.findExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
+      console.log("Campaigns_Draft.findAll: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -974,12 +978,12 @@ exports.findByName = (req, res) => {
   var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
 
   Campaigns.findAll(
-    { include: db.recipient,
+    { include: db.recipients,
       where: condition
     },
     )
     .then(data => {
-      console.log("Campaign.findByName:", data)
+      console.log("Campaign.findByName: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -999,14 +1003,14 @@ exports.getAll = (req, res) => {
 
   Campaigns.findAll(
     { 
-      raw: true,
-      nest: true,
+//      raw: true,
+//      nest: true,
       include: db.recipients
     },
     { where: condition },
     )
     .then(data => {
-      console.log("Campaign.findAll:", data)
+      console.log("Campaign.findAll: ", data.map(item => item.dataValues))
       res.send(data);
     })
     .catch(err => {
@@ -1054,14 +1058,14 @@ exports.getAllDraftsByUserId = (req, res) => {
 
   Campaigns_Draft.findAll(
     { 
-      raw: true,
-      nest: true,
+//      raw: true,
+//      nest: true,
       where: condition,
       include: db.recipients
     },
     )
     .then(data => {
-      console.log("Campaigns_Draft.findAll:", data)
+      console.log("Campaigns_Draft.findAll: ", data.map(item => item.dataValues))
       res.send(data);
     })
     .catch(err => {
@@ -1083,14 +1087,14 @@ exports.getAllDraftsByCampaignId = (req, res) => {
 
   Campaigns_Draft.findAll(
     { 
-      raw: true,
-      nest: true,
+//      raw: true,
+//      nest: true,
       where: condition
     },
-    { include: db.recipient},
+    { include: db.recipients},
     )
     .then(data => {
-      console.log("Campaigns_Draft.findAll:", data)
+      console.log("Campaigns_Draft.findAll: ", data.map(item => item.dataValues))
       res.send(data);
     })
     .catch(err => {
@@ -1108,11 +1112,11 @@ exports.findOne = (req, res) => {
   const id = req.params.id;
 
   Campaigns.findByPk(id, {
-    include: db.recipient
+    include: db.recipients
   })
     .then(data => {
-      //console.log("Campaign.findByPk:", data)
       if (data) {
+        console.log("Campaign.findByPk: ", data.map(item => item.dataValues));
         res.send(data);
       } else {
         res.status(404).send({

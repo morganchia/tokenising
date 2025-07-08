@@ -120,38 +120,16 @@ class Campaign extends Component {
     UserOpsRoleDataService.getAllMakersCheckersApprovers("campaign")
       .then(response => {
         console.log("Data received by getAllCheckerApprovers:", response.data);
-        let chkList = response.data.find((element) => {
-          //var el_id = element.id;                       console.log("typeof(el_id)", typeof(el_id));
-          //console.log("element.name:", element.name);   console.log("typeof(element.name)", typeof(element.name));
-          try {
-            if (element.name.toUpperCase() === "CHECKER") 
-              return element;
-          } catch(e) {
-            // do nothing, sometime when campaignList not loaded yet, element/el_id will be undefined, so need make sure it doesnt bomb
-          }
-          return null;
-        });
-        let apprList = response.data.find((element) => {
-          //var el_id = element.id;                       console.log("typeof(el_id)", typeof(el_id));
-          //console.log("element.name:", element.name);   console.log("typeof(element.name)", typeof(element.name));
-          try {
-            if (element.name.toUpperCase() === "APPROVER") 
-              return element;
-          } catch(e) {
-            // do nothing, sometime when campaignList not loaded yet, element/el_id will be undefined, so need make sure it doesnt bomb
-          }
-          return null;
-        });
+        let chkList = response.data.find(element => element.name.toUpperCase() === "CHECKER");
+        let apprList = response.data.find(element => element.name.toUpperCase() === "APPROVER");
 
-        var first_array_record = [  // add 1 empty record to front of array which is the option list
-          { }
-        ];
+        const first_array_record = [{}];
         this.setState({
-          checkerList: [first_array_record].concat(chkList.user),
-          approverList: [first_array_record].concat(apprList.user)
+          checkerList: [first_array_record].concat(chkList.user || []), // Fallback to empty array
+          approverList: [first_array_record].concat(apprList.user || []) // Fallback to empty array
         });
-        console.log("checkerList: ",chkList.user);
-        console.log("approverList: ",apprList.user);
+        console.log("checkerList: ", chkList.user);
+        console.log("approverList: ", apprList.user);      
       })
       .catch(e => {
         console.log(e);

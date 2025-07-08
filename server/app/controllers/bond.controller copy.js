@@ -79,7 +79,8 @@ exports.draftCreate = async (req, res) => {
     }, 
   )
   .then(data => {
-    console.log("Bond_draft create:", data);
+    console.log("Bond.findOne:", data.map(item => item.dataValues));
+
     // write to audit
     AuditTrail.create(
       { 
@@ -781,7 +782,7 @@ exports.approveDraftById = async (req, res) => {  //
         }, 
       )
       .then(data => {
-        console.log("Bond create success:", data);
+        console.log("Bond create success:", data.map(item => item.dataValues));
         if (!errorSent) {
           res.send(data);
           errorSent = true;
@@ -828,7 +829,7 @@ exports.approveDraftById = async (req, res) => {  //
       { where:      { id: req.body.approvedbondid }},
       )
       .then(data => {
-        console.log("Bond update success:", data);
+        console.log("Bond update success:", data.map(item => item.dataValues));
         if (!errorSent) {
           res.send(data);
           errorSent = true;
@@ -1136,7 +1137,7 @@ exports.findDraftByNameExact = (req, res) => {
     }
   )
     .then(data => {
-      console.log("findDraftByNameExact data: ", data);
+      console.log("findDraftByNameExact data: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1163,7 +1164,7 @@ exports.findDraftByApprovedId = (req, res) => {
     }
   )
     .then(data => {
-      console.log("findDraftByApprovedId data: ", data);
+      console.log("findDraftByApprovedId data: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1187,7 +1188,7 @@ exports.findExact = (req, res) => {
     }
   )
     .then(data => {
-      console.log("findExact data: ", data);
+      console.log("findExact data: ", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1225,7 +1226,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     // Creation of Web3 class
     Web3 = require("web3");
 
-    console.log("In Bond.findAll:  ", data);
+    console.log("In Bond.findAll:  ", data.map(item => item.dataValues));
 
     require('dotenv').config();
     const ETHEREUM_NETWORK = (() => {switch (data[0].blockchain) {
@@ -1328,7 +1329,7 @@ exports.findByName = (req, res) => {
     }
   )
     .then(data => {
-      console.log("Bond.findByName:", data)
+      console.log("Bond.findByName:", data.map(item => item.dataValues))
       res.send(data);
     })
     .catch(err => {
@@ -1372,7 +1373,7 @@ exports.getAllByBondId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond.findAll:", data)
+      console.log("Bond.findAll:", data.map(item => item.dataValues))
       if (data.length === 0) {
         console.log("Data is empyty!!!");
         res.status(500).send({
@@ -1417,7 +1418,7 @@ exports.getAll = (req, res) => {
     ]
   },
   ).then(data => {
-    console.log(JSON.stringify(data, null, 2));
+    console.log("Bond.findAll: ", data.map(item => item.dataValues));
     res.send(data);
   }).catch(err => {
     res.status(500).send({
@@ -1484,7 +1485,7 @@ exports.getAllDraftsByUserId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond_Draft.findAll:", data)
+      console.log("Bond_Draft.findAll:", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1533,7 +1534,7 @@ exports.getAllDraftsByBondId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond_Draft.findAll:", data)
+      console.log("Bond_Draft.findAll:", data.map(item => item.dataValues))
       if (data.length === 0) {
         console.log("Data is empyty!!!");
         res.status(500).send({
@@ -1591,8 +1592,8 @@ exports.findOne = (req, res) => {
     include: db.campaigns,
   })
     .then(data => {
-      console.log("Bond.findOne:", data)
       if (data) {
+        console.log("Bond.findOne:", data.map(item => item.dataValues));
         res.send(data);
       } else {
         res.status(404).send({ 
@@ -1626,7 +1627,7 @@ exports.getAllInvestorsById = (req, res) => {
     // Creation of Web3 class
     Web3 = require("web3");
 
-    console.log("In Bond.getAllInvestorsById:  ", data);
+    console.log("In Bond.getAllInvestorsById:  ", data.map(item => item.dataValues));
 
     require('dotenv').config();
     const ETHEREUM_NETWORK = (() => {switch (data.blockchain) {

@@ -1354,22 +1354,23 @@ exports.findDraftByNameExact = (req, res) => {
 
   Repo_Draft.findAll(
     { 
-      raw: true, // display only dataValues, not metadata
-      nest: true,
+//      raw: true, // display only dataValues, not metadata
+//      nest: true,
       where: condition,
     }
   )
   .then(data => {
+    console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
     res.send(data);
   })
   .catch(err => {
     console.log("Error while retreiving repo1 draft: "+err.message);
 
-      res.status(400).send({
-        message:
-          err.message || "Some error occurred while retrieving repo draft."
-      });
+    res.status(400).send({
+      message:
+        err.message || "Some error occurred while retrieving repo draft."
     });
+  });
 }; // findDraftByNameExact
 
 exports.findDraftByApprovedId = (req, res) => {
@@ -1381,12 +1382,13 @@ exports.findDraftByApprovedId = (req, res) => {
 
   Repo_Draft.findAll(
     { 
-      raw: true, // display only dataValues, not metadata
-      nest: true,
+//      raw: true, // display only dataValues, not metadata
+//      nest: true,
       where: condition 
     }
   )
   .then(data => {
+    console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
     res.send(data);
   })
   .catch(err => {
@@ -1405,12 +1407,13 @@ exports.findExact = (req, res) => {
 
   Repo.findAll(
     { 
-      raw: true, // display only dataValues, not metadata
-      nest: true,
+//      raw: true, // display only dataValues, not metadata
+//      nest: true,
       where: condition 
     }
   )
     .then(data => {
+      console.log("Repo.findAll:", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1433,13 +1436,13 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
   
   Repo.findAll(
   { 
-    raw: true, // display only dataValues, not metadata
-    nest: true,
+//    raw: true, // display only dataValues, not metadata
+//    nest: true,
     where: { id : Id },
   })
   .then(async data => {
 
-    //console.log("Qery result fo DATA:", data[0].id);
+    console.log("Repo.findAll:", data.map(item => item.dataValues));
 
     /// Query blockchain
     // Readng ABI from JSON file
@@ -1529,14 +1532,14 @@ exports.findByName = (req, res) => {
 
   Repo.findAll(
     { 
-      raw: true, // display only dataValues, not metadata
-      nest: true,
+//      raw: true, // display only dataValues, not metadata
+//      nest: true,
       include: db.recipients,
       where: condition
     },
     )
     .then(data => {
-      console.log("Repo.findByName:", data)
+      console.log("Repo.findByName:", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1563,8 +1566,8 @@ exports.getAll = (req, res) => {
       }
     },
     */
-    raw: true, // display only dataValues, not metadata
-    nest: true,
+//    raw: true, // display only dataValues, not metadata
+//    nest: true,
     include: [
       {
         model: db.recipients,
@@ -1583,7 +1586,7 @@ exports.getAll = (req, res) => {
     ]
   },
   ).then(data => {
-    console.log(JSON.stringify(data, null, 2));
+    console.log("Repo.findAll:", data.map(item => item.dataValues));
     res.send(data);
   }).catch(err => {
     res.status(500).send({
@@ -1628,8 +1631,8 @@ exports.getAllRepoDraftsByUserId = (req, res) => {
 
   Repo_Draft.findAll(
     { 
-      raw: true, // display only dataValues, not metadata
-      nest: true,
+//      raw: true, // display only dataValues, not metadata
+//      nest: true,
       where: condition,
       //include: db.recipients
       include: [
@@ -1653,7 +1656,7 @@ exports.getAllRepoDraftsByUserId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Repo_Draft.findAll:", data)
+      console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
       res.send(data);
     })
     .catch(err => {
@@ -1680,8 +1683,8 @@ exports.getAllDraftsByRepoId = (req, res) => {
     },
     { include: db.recipients},
 */
-      raw: true, // display only dataValues, not metadata
-      nest: true,
+//      raw: true, // display only dataValues, not metadata
+//      nest: true,
       where: condition,
       //include: db.recipients
       include: [
@@ -1703,7 +1706,8 @@ exports.getAllDraftsByRepoId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Repo_Draft.findAll:", data)
+      console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
+
       if (data.length === 0) {
         console.log("Data is empyty!!!");
         res.status(500).send({
@@ -1737,8 +1741,8 @@ exports.findOne = (req, res) => {
     },
     { include: db.recipients},
 */
-      raw: true, // display only dataValues, not metadata
-      nest: true,
+//      raw: true, // display only dataValues, not metadata
+//      nest: true,
       where: condition,
       //include: db.recipients
 /*
@@ -1762,9 +1766,10 @@ exports.findOne = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Repo_Draft.findAll:", data)
+      console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
+
       if (data.length === 0) {
-        console.log("Data is empyty!!!");
+        console.log("Data is empty!!!");
         res.status(500).send({
           message: "No such record in the system" 
         });
