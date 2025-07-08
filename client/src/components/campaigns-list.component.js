@@ -344,7 +344,7 @@ export default class CampaignList extends Component {
                   <button
                     className="m-3 btn btn-sm btn-primary"
                   >
-                    Create Campaign
+                    Create Campaign (Cash Token)
                   </button>
                 </Link>
               : null

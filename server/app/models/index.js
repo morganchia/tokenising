@@ -8,6 +8,10 @@ const sequelize = new Sequelize(
   {
     host: config.HOST,
     dialect: config.dialect,
+    dialectOptions: {
+      timezone: '+00:00', // Use +00:00 for UTC
+    },
+    timezone: '+08:00', // Convert retrieved dates to SGT    
     operatorsAliases: false,
     port: config.PORT,
     pool: {

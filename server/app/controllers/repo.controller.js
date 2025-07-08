@@ -29,8 +29,8 @@ exports.draftCreate = async (req, res) => {
       description           : req.body.description, 
       
       tradedate             : req.body.tradedate,
-      startdatetime         : req.body.startdatetime, 
-      enddatetime           : req.body.enddatetime, 
+      startdatetime         : req.body.startdatetime,   // sent in datetime in SGT, but this func auto convert and write in UTC
+      enddatetime           : req.body.enddatetime,     // sent in datetime in SGT, but this func auto convert and write in UTC
       bondisin              : req.body.bondisin,
       securityLB            : req.body.securityLB,
       nominal               : req.body.nominal,
@@ -1354,7 +1354,8 @@ exports.findDraftByNameExact = (req, res) => {
 
   Repo_Draft.findAll(
     { 
-      // raw: true, // display only dataValues, not metadata
+      raw: true, // display only dataValues, not metadata
+      nest: true,
       where: condition,
     }
   )
@@ -1380,7 +1381,8 @@ exports.findDraftByApprovedId = (req, res) => {
 
   Repo_Draft.findAll(
     { 
-      // raw: true, // display only dataValues, not metadata
+      raw: true, // display only dataValues, not metadata
+      nest: true,
       where: condition 
     }
   )
@@ -1403,7 +1405,8 @@ exports.findExact = (req, res) => {
 
   Repo.findAll(
     { 
-      // raw: true, // display only dataValues, not metadata
+      raw: true, // display only dataValues, not metadata
+      nest: true,
       where: condition 
     }
   )
@@ -1430,7 +1433,8 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
   
   Repo.findAll(
   { 
-    // raw: true, // display only dataValues, not metadata
+    raw: true, // display only dataValues, not metadata
+    nest: true,
     where: { id : Id },
   })
   .then(async data => {
@@ -1525,7 +1529,8 @@ exports.findByName = (req, res) => {
 
   Repo.findAll(
     { 
-      // raw: true, // display only dataValues, not metadata
+      raw: true, // display only dataValues, not metadata
+      nest: true,
       include: db.recipients,
       where: condition
     },
@@ -1558,7 +1563,8 @@ exports.getAll = (req, res) => {
       }
     },
     */
-    // raw: true, // display only dataValues, not metadata
+    raw: true, // display only dataValues, not metadata
+    nest: true,
     include: [
       {
         model: db.recipients,
@@ -1622,7 +1628,8 @@ exports.getAllRepoDraftsByUserId = (req, res) => {
 
   Repo_Draft.findAll(
     { 
-//      raw: true, // display only dataValues, not metadata
+      raw: true, // display only dataValues, not metadata
+      nest: true,
       where: condition,
       //include: db.recipients
       include: [
@@ -1673,7 +1680,8 @@ exports.getAllDraftsByRepoId = (req, res) => {
     },
     { include: db.recipients},
 */
-      // raw: true, // display only dataValues, not metadata
+      raw: true, // display only dataValues, not metadata
+      nest: true,
       where: condition,
       //include: db.recipients
       include: [
@@ -1729,7 +1737,8 @@ exports.findOne = (req, res) => {
     },
     { include: db.recipients},
 */
-      // raw: true, // display only dataValues, not metadata
+      raw: true, // display only dataValues, not metadata
+      nest: true,
       where: condition,
       //include: db.recipients
 /*

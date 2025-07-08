@@ -472,7 +472,7 @@ export default class CampaignEdit extends Component {
         <div>
         <header className="jumbotron col-md-8">
           <h3>
-            <strong>Add Campaign ({ (this.state.isMaker? "Maker" : (this.state.isChecker? "Checker": (this.state.isApprover? "Approver":null)) )})</strong>
+            <strong>Create Campaign (Cash Token) <small>[{ (this.state.isMaker? "Maker" : (this.state.isChecker? "Checker": (this.state.isApprover? "Approver":null)) )}]</small></strong>
           </h3>
         </header>
 
@@ -482,7 +482,7 @@ export default class CampaignEdit extends Component {
             <h4> </h4>
               <div className="col-md-8">
                 <div className="form-group">
-                  <label htmlFor="name">Campaign Name *</label>
+                  <label htmlFor="name">Campaign (Cash) Name *</label>
                   <input
                     type="text"
                     className="form-control"

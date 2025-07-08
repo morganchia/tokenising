@@ -325,9 +325,9 @@ class App extends Component {
                         <li>
                           <Link to={"/bridge"} className="nav-link">
                             <i className='bx bx-atom' ></i>
-                            <span className="links_name">Bridge (Tokens)</span>
+                            <span className="links_name">Bridge</span>
                           </Link>
-                          <span className="tooltip">Bridge (Tokens)</span>
+                          <span className="tooltip">Bridge</span>
                         </li>
                         <li>
                           <Link to={"/dvp"} className="nav-link">

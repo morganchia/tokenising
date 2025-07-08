@@ -487,7 +487,10 @@ exports.findAllRecipients = (req, res) => {
   const name = req.query.name;
 //  var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
 
-  Recipients.findAll(
+  Recipients.findAll({
+      raw: true,
+      nest: true,
+    }
     )
     .then(data => {
       console.log("Recipient.findAll:", data)

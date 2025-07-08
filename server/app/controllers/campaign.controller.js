@@ -998,7 +998,11 @@ exports.getAll = (req, res) => {
   var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
 
   Campaigns.findAll(
-    { include: db.recipients},
+    { 
+      raw: true,
+      nest: true,
+      include: db.recipients
+    },
     { where: condition },
     )
     .then(data => {
@@ -1050,6 +1054,8 @@ exports.getAllDraftsByUserId = (req, res) => {
 
   Campaigns_Draft.findAll(
     { 
+      raw: true,
+      nest: true,
       where: condition,
       include: db.recipients
     },
@@ -1077,6 +1083,8 @@ exports.getAllDraftsByCampaignId = (req, res) => {
 
   Campaigns_Draft.findAll(
     { 
+      raw: true,
+      nest: true,
       where: condition
     },
     { include: db.recipient},

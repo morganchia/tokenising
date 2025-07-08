@@ -799,7 +799,7 @@ async deleteCampaign() {
           <div>
           <header className="jumbotron col-md-8">
             <h3>
-              <strong>{this.state.currentCampaign.txntype===0?"Create ":(this.state.currentCampaign.txntype===1?"Update ":(this.state.currentCampaign.txntype===2?"Delete ":null))}Campaign { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
+              <strong>{this.state.currentCampaign.txntype===0?"Create ":(this.state.currentCampaign.txntype===1?"Update ":(this.state.currentCampaign.txntype===2?"Delete ":null))}Campaign <small>{ this.state.isMaker? "[Maker]": (this.state.isChecker? "[Checker]": (this.state.isApprover? "[Approver]":null) )}</small></strong>
             </h3>
           </header>
 
@@ -811,7 +811,7 @@ async deleteCampaign() {
 
                   <form autoComplete="off">
                     <div className="form-group">
-                      <label htmlFor="name">Name</label>
+                      <label htmlFor="name">Campaign (Cash) Name</label>
                       <input
                         type="text"
                         className="form-control"

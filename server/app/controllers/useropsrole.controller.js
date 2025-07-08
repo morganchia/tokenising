@@ -13,6 +13,8 @@ exports.findOpsRoleByID = (req, res) => {
   //var condition = username ? { username: { [Op.eq]: `${username}` } } : null;
   UserOpsRole.findAll(
     { 
+//      raw: true, 
+//      nest: true,
       include: db.opsrole,
       //attributes: ['id', 'name', 'transactionType'],
       where: {userId: id} ,
@@ -41,7 +43,10 @@ exports.getAllMakersCheckersApprovers = (req, res) => {
   console.log(`getAllMakersCheckersApprovers(${txnType})`);
   
   Opsrole.findAll(
-      { include:
+      { 
+//        raw: true, 
+//        nest: true,
+        include:
         [{
           model: db.user,
           as: 'user',
@@ -73,6 +78,8 @@ exports.findAll = (req, res) => {
     
     UserOpsRole.findAll(
           { 
+//            raw: true, 
+//            nest: true,
             include: db.opsrole,
             order: [
               ['transactionType'],
