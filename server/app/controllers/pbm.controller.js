@@ -5,6 +5,8 @@ const PBM_TEMPLATE = db.pbm_templates;
 const PBM_Draft = db.pbm_draft;
 const wrapMints_Draft = db.wrapmints_draft;
 const Op = db.Sequelize.Op;
+const { logDataValues } = require('../utils/logDataValues');
+
 var newcontractaddress = null;
 const adjustdecimals = 18;
 

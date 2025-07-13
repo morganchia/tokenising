@@ -1,11 +1,11 @@
 const db = require("../models");
 const AuditTrail = db.audittrail;
-
 const Transfer = db.transfers;
 const Transfers_Draft = db.transfers_draft;
 //const Recipient = db.recipient;
-
 const Op = db.Sequelize.Op;
+const { logDataValues } = require('../utils/logDataValues');
+
 const adjustdecimals = 18;
 
 // https://stackoverflow.com/questions/27082377/get-number-of-decimal-places-with-javascript
@@ -111,7 +111,7 @@ exports.draftCreate = async (req, res) => {
         console.log("Error while logging to audittrail for creating transfer request: "+err.message);
       });
 
-      console.log("Transfers_draft create:", data.map(item => item.dataValues));
+      logDataValues("Transfers_draft create: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1105,7 +1105,7 @@ exports.getAllDraftsByUserId = async (req, res) => {
     },
     )
     .then(tdata => {
-      console.log("Transfers_Draft.findAll:", tdata.map(item => item.dataValues))
+      logDataValues("OpsRole.findByUserName: ", tdata);
       campaignData = tdata;
       // res.send( tdata );
     })
@@ -1124,7 +1124,7 @@ exports.getAllDraftsByUserId = async (req, res) => {
     },
     )
     .then(tdata => {
-      console.log("Transfers_Draft.findAll:", tdata.map(item => item.dataValues))
+      logDataValues("Transfers_Draft.findAll: ", tdata);
       bondData = tdata;
       // res.send( tdata );
     })
@@ -1143,7 +1143,7 @@ exports.getAllDraftsByUserId = async (req, res) => {
     },
     )
     .then(tdata => {
-      console.log("Transfers_Draft.findAll:", tdata.map(item => item.dataValues))
+      logDataValues("Transfers_Draft.findAll: ", tdata);
       pbmData = tdata;
       // res.send( tdata );
     })
@@ -1181,7 +1181,7 @@ exports.getAllDraftsByTransferId = (req, res) => {
       },
     )
     .then(data => {
-      console.log("Transfers_Draft.findAll:", data.map(item => item.dataValues))
+      logDataValues("Transfers_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1432,7 +1432,7 @@ exports.findAll = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      console.log("Transfer.findAll:", data.map(item => item.dataValues))
+      logDataValues("Transfer.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1454,7 +1454,7 @@ exports.findOne = (req, res) => {
   })
     .then(data => {
       if (data) {
-        console.log("Transfer.findByPk:", data.map(item => item.dataValues));
+        logDataValues("Transfer.findByPk: ", data);
         res.send(data);
       } else {
         res.status(404).send({
@@ -1520,7 +1520,7 @@ await Transfer.findAll(
   },
   )
   .then(tdata => {
-    console.log("Transfer.findAll:", tdata.map(item => item.dataValues));
+    logDataValues("Transfer.findAll: ", tdata);
     campaignData = tdata;
   })
   .catch(err => {
@@ -1540,7 +1540,7 @@ await Transfer.findAll(
   },
   )
   .then(tdata => {
-    console.log("Transfer.findAll:", tdata.map(item => item.dataValues));
+    logDataValues("Transfer.findAll: ", tdata);
     bondData = tdata;
   })
   .catch(err => {
@@ -1560,7 +1560,7 @@ await Transfer.findAll(
   },
   )
   .then(tdata => {
-    console.log("Transfer.findAll:", tdata.map(item => item.dataValues));
+    logDataValues("Transfer.findAll: ", tdata);
     pbmData = tdata;
   })
   .catch(err => {
@@ -1579,30 +1579,6 @@ await Transfer.findAll(
 }; // findAllTransfers
 
 exports.findAllByCampaignId = (req, res) => {
-  /*
-  const Id = req.query.id;
-  var condition = Id ? { campaignId: Id } : null;
-
-  Transfer.findAll(
-  { 
-    attributes: ['campaignId', [db.transfer.sequelize.fn('sum', db.transfer.sequelize.col('transferAmount')), 'totalTransfered']],
-    where: { campaignId: Id },
-    group: ['campaignId'],
-//    { where: condition },
-  })
-    .then(data => {
-      res.send(data);
-    })
-    .catch(err => {
-      console.log("Error while retreiving campaigns10: "+err.message);
-
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving campaigns."
-      });
-    });
-    */
-
     // get token address from CampaignId
     const Id = req.query.id;
     var condition = Id ? { campaignId: Id } : null;
@@ -1829,18 +1805,4 @@ exports.deleteAll = (req, res) => {
 }; // deleteAll
 
 
-/*
-// find all published Transfer
-exports.findAllPublished = (req, res) => {
-  Transfer.findAll({ where: { published: true } })
-    .then(data => {
-      res.send(data);
-    })
-    .catch(err => {
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving transfers."
-      });
-    });
-};
-*/
+

@@ -4,6 +4,8 @@ const AuditTrail = db.audittrail;
 const Repo = db.repos;
 const Repo_Draft = db.repos_draft;
 const Op = db.Sequelize.Op;
+const { logDataValues } = require('../utils/logDataValues');
+
 var newcontractaddress = null;
 const adjustdecimals = 18;
 
@@ -122,13 +124,11 @@ exports.draftCreate = async (req, res) => {
       }, 
     )
     .then(auditres => {
-      console.log("Data written to audittrail for creating draft repo request.");
-
+      logDataValues("Data written to audittrail for creating draft repo request: ", auditres);
     })
     .catch(err => {
       console.log("Error while logging to audittrail for creating draft repo request: "+err.message);
     });
-  
     res.send(data);
   })
   .catch(err => {
@@ -766,8 +766,7 @@ exports.approveDraftById = async (req, res) => {
           }, 
         )
         .then(auditres => {
-          console.log("Data written to audittrail for approving repo request:", auditres);
-
+          logDataValues("Data written to audittrail for approving repo request: ", auditres);
         })
         .catch(err => {
           console.log("Error while logging to audittrail for approving repo request: "+err.message);
@@ -1337,7 +1336,7 @@ exports.executeRepoById = async (req, res) => {
           }, 
         )
         .then(auditres => {
-          console.log("Data written to audittrail for executing repo request:", auditres);
+          logDataValues("Data written to audittrail for executing repo request: ", auditres);
         })
         .catch(err => {
           console.log("Error while logging to audittrail for executing repo request: "+err.message);
@@ -1360,7 +1359,7 @@ exports.findDraftByNameExact = (req, res) => {
     }
   )
   .then(data => {
-    console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
+    logDataValues("Repo_Draft.findAll: ", data);
     res.send(data);
   })
   .catch(err => {
@@ -1388,7 +1387,7 @@ exports.findDraftByApprovedId = (req, res) => {
     }
   )
   .then(data => {
-    console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
+    logDataValues("Repo_Draft.findAll: ", data);
     res.send(data);
   })
   .catch(err => {
@@ -1413,7 +1412,7 @@ exports.findExact = (req, res) => {
     }
   )
     .then(data => {
-      console.log("Repo.findAll:", data.map(item => item.dataValues));
+      logDataValues("Repo.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1442,7 +1441,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
   })
   .then(async data => {
 
-    console.log("Repo.findAll:", data.map(item => item.dataValues));
+    logDataValues("Repo.findAll: ", data);
 
     /// Query blockchain
     // Readng ABI from JSON file
@@ -1539,7 +1538,7 @@ exports.findByName = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Repo.findByName:", data.map(item => item.dataValues));
+      logDataValues("Repo.findByName: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1586,7 +1585,7 @@ exports.getAll = (req, res) => {
     ]
   },
   ).then(data => {
-    console.log("Repo.findAll:", data.map(item => item.dataValues));
+    logDataValues("Repo.findAll: ", data);
     res.send(data);
   }).catch(err => {
     res.status(500).send({
@@ -1656,7 +1655,7 @@ exports.getAllRepoDraftsByUserId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
+      logDataValues("Repo_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1706,7 +1705,7 @@ exports.getAllDraftsByRepoId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
+      logDataValues("Repo_Draft.findAll: ", data);
 
       if (data.length === 0) {
         console.log("Data is empyty!!!");
@@ -1736,37 +1735,11 @@ exports.findOne = (req, res) => {
 
   Repo.findAll(
     { 
-/*
-      where: condition
-    },
-    { include: db.recipients},
-*/
-//      raw: true, // display only dataValues, not metadata
-//      nest: true,
       where: condition,
-      //include: db.recipients
-/*
-      include: [
-        {
-          model: db.recipients,
-          on: {
-            id: db.Sequelize.where(db.Sequelize.col("repos.counterparty1"), "=", db.Sequelize.col("recipient.id")),
-          },
-          attributes: ['id','name'],
-        },
-        {
-          model: db.campaigns,
-          on: {
-            id: db.Sequelize.where(db.Sequelize.col("repos.underlyingTokenID1"), "=", db.Sequelize.col("campaign.id")),
-          },
-          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
-        }
-      ]
-  */
     },
     )
     .then(data => {
-      console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
+      logDataValues("Repo_Draft.findAll: ", data);
 
       if (data.length === 0) {
         console.log("Data is empty!!!");
@@ -1889,13 +1862,11 @@ exports.submitDraftById = async (req, res) => {
         }, 
       )
       .then(auditres => {
-        console.log("Data written to audittrail for resubmitting repo request:", auditres);
-
+        logDataValues("Data written to audittrail for resubmitting repo request: ", auditres);
       })
       .catch(err => {
         console.log("Error while logging to audittrail for resubmitting repo request: "+err.message);
       });
-      
       res.send({
         message: "Repo resubmitted successfully."
       });
@@ -1980,13 +1951,11 @@ exports.acceptDraftById = async (req, res) => {
         }, 
       )
       .then(auditres => {
-        console.log("Data written to audittrail for accepting repo request:", auditres);
-
+        logDataValues("Data written to audittrail for accepting repo request: ", auditres);
       })
       .catch(err => {
         console.log("Error while logging to audittrail for accepting repo request: "+err.message);
       });
-      
       res.send({
         message: "Repo was accepted successfully."
       });
@@ -2071,13 +2040,11 @@ exports.rejectDraftById = async (req, res) => {
         }, 
       )
       .then(auditres => {
-        console.log("Data written to audittrail for rejecting repo request:", auditres);
-
+        logDataValues("Data written to audittrail for accepting repo request: ", auditres);
       })
       .catch(err => {
         console.log("Error while logging to audittrail for rejecting repo request: "+err.message);
       });
-      
       res.send({
         message: "Repo was rejected."
       });
@@ -2338,14 +2305,11 @@ exports.update = async (req, res) => {
             }, 
           )
           .then(auditres => {
-            console.log("Data written to audittrail for approving repo update request:", auditres);
-
+            logDataValues("Data written to audittrail for approving repo update request: ", auditres);
           })
           .catch(err => {
             console.log("Error while logging to audittrail for approving repo update request: "+err.message);
           });
-
-
           res.send({
             message: "Repo was updated successfully."
           });
@@ -2434,13 +2398,11 @@ exports.approveDeleteDraftById = async (req, res) => {
         }, 
       )
       .then(auditres => {
-        console.log("Data written to audittrail for repo delete request:", auditres);
-
+        logDataValues("Data written to audittrail for repo delete request: ", auditres);
       })
       .catch(err => {
         console.log("Error while logging to audittrail for repo delete request: "+err.message);
       });
-    
     }
     return true;
   })
@@ -2557,13 +2519,11 @@ exports.dropRequestById = async (req, res) => {
         }, 
       )
       .then(auditres => {
-        console.log("Data written to audittrail for dropping repo request:", auditres);
-
+        logDataValues("Data written to audittrail for dropping repo request: ", auditres);
       })
       .catch(err => {
         console.log("Error while logging to audittrail for dropping repo request: "+err.message);
       });
-      
       if (!msgSent) {
         console.log("Sending success repo request dropped to client");
         res.send({

@@ -3,6 +3,8 @@ const AuditTrail = db.audittrail;
 const Campaigns = db.campaigns;
 const Campaigns_Draft = db.campaigns_draft;
 const Op = db.Sequelize.Op;
+const { logDataValues } = require('../utils/logDataValues');
+
 var newcontractaddress = null;
 const adjustdecimals = 18;
 
@@ -83,7 +85,7 @@ exports.draftCreate = async (req, res) => {
     }, 
   )
   .then(data => {
-    console.log("Campaign_draft create:", data.map(item => item.dataValues));
+    logDataValues("Campaign_draft create: ", data);
 
     // write to audit
     AuditTrail.create(
@@ -753,7 +755,7 @@ exports.approveDraftById = async (req, res) => {
         }, 
       )
       .then(data => {
-        console.log("Campaign create success: ", data.map(item => item.dataValues));
+        logDataValues("Campaign create success: ", data);
         res.send(data);
       })
       .catch(err => {
@@ -784,7 +786,7 @@ exports.approveDraftById = async (req, res) => {
       { where:      { id: req.body.approvedcampaignid }},
       )
       .then(data => {
-        console.log("Campaign update success: ", data.map(item => item.dataValues));
+        logDataValues("Campaign update success: ", data);
         res.send(data);
       })
       .catch(err => {
@@ -813,7 +815,7 @@ exports.findDraftByNameExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      console.log("Campaigns_Draft.findAll: ", data.map(item => item.dataValues));
+      logDataValues("Campaigns_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -837,7 +839,7 @@ exports.findDraftByApprovedId = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      console.log("Campaigns_Draft.findAll: ", data.map(item => item.dataValues));
+      logDataValues("Campaigns_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -859,7 +861,7 @@ exports.findExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      console.log("Campaigns_Draft.findAll: ", data.map(item => item.dataValues));
+      logDataValues("Campaigns_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -983,7 +985,7 @@ exports.findByName = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Campaign.findByName: ", data.map(item => item.dataValues));
+      logDataValues("Campaign.findByName: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1003,14 +1005,12 @@ exports.getAll = (req, res) => {
 
   Campaigns.findAll(
     { 
-//      raw: true,
-//      nest: true,
       include: db.recipients
     },
     { where: condition },
     )
     .then(data => {
-      console.log("Campaign.findAll: ", data.map(item => item.dataValues))
+      logDataValues("Campaign.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1058,14 +1058,12 @@ exports.getAllDraftsByUserId = (req, res) => {
 
   Campaigns_Draft.findAll(
     { 
-//      raw: true,
-//      nest: true,
       where: condition,
       include: db.recipients
     },
     )
     .then(data => {
-      console.log("Campaigns_Draft.findAll: ", data.map(item => item.dataValues))
+      logDataValues("Campaigns_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1087,14 +1085,12 @@ exports.getAllDraftsByCampaignId = (req, res) => {
 
   Campaigns_Draft.findAll(
     { 
-//      raw: true,
-//      nest: true,
       where: condition
     },
     { include: db.recipients},
     )
     .then(data => {
-      console.log("Campaigns_Draft.findAll: ", data.map(item => item.dataValues))
+      logDataValues("Campaigns_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1116,7 +1112,7 @@ exports.findOne = (req, res) => {
   })
     .then(data => {
       if (data) {
-        console.log("Campaign.findByPk: ", data.map(item => item.dataValues));
+        logDataValues("Campaign.findByPk: ", data);
         res.send(data);
       } else {
         res.status(404).send({

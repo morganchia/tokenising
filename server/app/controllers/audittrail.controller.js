@@ -1,6 +1,7 @@
 const db = require("../models");
 const AuditTrail = db.audittrail;
 const Op = db.Sequelize.Op;
+const { logDataValues } = require('../utils/logDataValues');
 
 //exports.getdata = async (startdate0, enddate0) => {
 exports.getdata = async (req, res)  => {
@@ -31,7 +32,7 @@ exports.getdata = async (req, res)  => {
     },  
   })
   .then(data => {
-    console.log("Audittrail.findAll:", data)
+    logDataValues("Audittrail.findAll:", data);
     res.send(data);
   })
   .catch(err => {

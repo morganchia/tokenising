@@ -33,11 +33,11 @@ module.exports = (sequelize, Sequelize) => {
       defaultValue: 0
     },
     couponrate: {  
-      type: Sequelize.INTEGER,  
+      type: Sequelize.FLOAT,
       allowNull: false
     },
     facevalue: {  
-      type: Sequelize.INTEGER,  
+      type: Sequelize.FLOAT,
       allowNull: false
     },
     issuedate: {

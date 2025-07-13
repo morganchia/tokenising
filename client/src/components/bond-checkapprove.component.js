@@ -91,7 +91,7 @@ class Bond extends Component {
         tokenname: "",
         tokensymbol: "",
         couponinterval: "",
-        couponrate: "",
+        couponrate: "",  // couponrate is in basis pt e.g. 0.5% = 50, 2.655% = 265.5
         facevalue: 100,
 
         smartcontractaddress: "",
@@ -128,47 +128,6 @@ class Bond extends Component {
         couponinterval_changed: "",
         couponrate_changed: "",
         facevalue_changed: "",
-      },
-
-      originalBond: {
-        id: null,
-        name: "",
-        securityname: "",
-        ISIN: "",
-        tokenname: "",
-        tokensymbol: "",
-        couponinterval: "",
-        couponrate: "",
-        facevalue: "",
-
-        smartcontractaddress: "",
-        blockchain: "",
-        cashTokenID:"",      // cashTokenID
-        CashTokensmartcontractaddress: "",
-        issuedate: getToday(),
-        maturitydate: getToday(),
-        starttime: "00:00:00",
-        endtime: "23:59:00",
-        issuer: "",
-        totalsupply: "",
-        txntype: 0,
-        checker: "",
-        approver: "",
-        checkerComments: "",
-        approverComments: "",
-        approvedbondid: null,
-        actionby: "",
-        name_original: "",
-        ISIN_original: "",
-        issuedate_original: "",
-        maturitydate_original: "",
-        starttime_original: "",
-        endtime_original: "",
-        issuer_original: "",
-        totalsupply_original: "",
-        couponinterval_original: "",
-        couponrate_original: "",
-        facevalue_original: "",
       },
 
       checkerList: {
@@ -229,25 +188,20 @@ class Bond extends Component {
 
   componentDidMount() {
     const user = AuthService.getCurrentUser();
+    console.log("User: ", user);
 
     if (!user) this.setState({ redirect: "/login" });
     this.setState({ currentUser: user, actionby:user.username, userReady: true })
 
-    let ismaker= user.opsrole.find((el) => 
-      el.opsrole.name.toUpperCase() === "MAKER"
-    );
+    let ismaker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "MAKER");
     console.log("isMaker:", (ismaker === undefined? false: true));
     this.setState({ isMaker: (ismaker === undefined? false: true),});
 
-    let ischecker= user.opsrole.find((el) => 
-      el.opsrole.name.toUpperCase() === "CHECKER"
-    );
+    let ischecker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "CHECKER");
     console.log("isChecker:", (ischecker === undefined? false: true));
     this.setState({ isChecker: (ischecker === undefined? false: true),});
 
-    let isapprover= user.opsrole.find((el) => 
-    el.opsrole.name.toUpperCase() === "APPROVER"
-    );
+    let isapprover= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "APPROVER");
     console.log("isApprover:", (isapprover === undefined? false: true));
     this.setState({ isApprover: (isapprover === undefined? false: true),});
 
@@ -256,6 +210,18 @@ class Bond extends Component {
     this.getAllCashTokenAssets();
     this.getAllIssuers();
     this.retrieveAllMakersCheckersApprovers();
+  }
+
+  formatNumber2decimals(num) {
+    const trimmed = parseFloat(parseFloat(num).toFixed(10)); // remove floating point noise
+
+    // If it's a whole number, show exactly 2 decimal places
+    if (trimmed % 1 === 0) {
+      return trimmed.toFixed(2);
+    }
+
+    // Otherwise, trim to meaningful decimals (up to 10), removing trailing zeros
+    return trimmed.toString();
   }
 
   onChangeName(e) {
@@ -300,7 +266,8 @@ class Bond extends Component {
       return {
         currentBond: {
           ...prevState.currentBond,
-          tokenname: tokenname
+          tokenname: tokenname,
+          securityname: tokenname
         }
       };
     });
@@ -355,7 +322,7 @@ class Bond extends Component {
   }
 
   onChangeCouponRate(e) {
-    const couponrate = e.target.value;
+    const couponrate = e.target.value;  // couponrate is in basis pt e.g. 0.5% = 50, 2.655% = 265.5
 
     this.setState({
       datachanged: true
@@ -588,8 +555,11 @@ class Bond extends Component {
         .then(response => {
           response.data[0].actionby = user.username;
           this.setState({
-            currentBond: response.data[0],
-            originalBond: response.data[0],
+            currentBond: {
+              ...response.data[0],
+              facevalue: this.formatNumber2decimals(response.data[0].facevalue),
+              couponrate: this.formatNumber2decimals(response.data[0].couponrate),
+            },
           });
           console.log("Response from getAllDraftsByBondId(id):",response.data[0]);
 
@@ -735,11 +705,11 @@ class Bond extends Component {
         console.log("Creating Bond draft CashTokensmartcontractaddress= ", this.state.cashTokenList.find((e) => e.id === parseInt(this.state.currentBond.cashTokenID)).smartcontractaddress);
   
         var data = {
-          name              : this.state.currentBond.name,
-          securityname      : this.state.currentBond.securityname,
-          ISIN              : this.state.currentBond.ISIN,
-          tokenname         : this.state.currentBond.tokenname,
-          tokensymbol       : this.state.currentBond.tokensymbol,
+          name              : (this.state.currentBond.name).trim(),
+          securityname      : (this.state.currentBond.securityname).trim(),
+          ISIN              : (this.state.currentBond.ISIN).trim(),
+          tokenname         : (this.state.currentBond.tokenname).trim(),
+          tokensymbol       : (this.state.currentBond.tokensymbol).trim(),
 
           couponinterval    : this.state.currentBond.couponinterval,
           couponrate        : this.state.currentBond.couponrate,
@@ -777,11 +747,11 @@ class Bond extends Component {
     
           this.setState({
             id                  : response.data.id,
-            name                : response.data.name,
-            securityname        : response.data.securityname,
-            ISIN                : response.data.ISIN,
-            tokenname           : response.data.tokenname,
-            tokensymbol         : response.data.tokensymbol,
+            name                : (response.data.name).trim(),
+            securityname        : (response.data.securityname).trim(),
+            ISIN                : (response.data.ISIN).trim(),
+            tokenname           : (response.data.tokenname).trim(),
+            tokensymbol         : (response.data.tokensymbol).trim(),
 
             couponinterval      : response.data.couponinterval,
             couponrate          : response.data.couponrate,
@@ -798,7 +768,6 @@ class Bond extends Component {
             prospectusurl       : response.data.prospectusurl,
 
             submitted: true,
-
           });
 //          this.displayModal("Bond draft submitted for review" + (response.data.smartcontractaddress !==""? " with smart contract deployed at "+response.data.smartcontractaddress : "." ) ,
 //                              "OK", null, null);
@@ -1208,7 +1177,7 @@ class Bond extends Component {
                     />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="facevalue">Face Value * (only integers without decimals)</label>
+                  <label htmlFor="facevalue">Face Value *</label>
                   <input
                     type="number"
                     className="form-control"
@@ -1225,7 +1194,7 @@ class Bond extends Component {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="couponrate">Coupon Rate * (in basis point without decimals)</label>
+                  <label htmlFor="couponrate">Coupon Rate (in basis points)*</label>
                   <input
                     type="number"
                     className="form-control"
@@ -1409,7 +1378,7 @@ class Bond extends Component {
                 </div>
                 */}
                 <div className="form-group">
-                  <label htmlFor="prospectusurl">Prospectus URL *</label>
+                  <label htmlFor="prospectusurl">Bond URL *</label>
                   <input
                     type="url"
                     className="form-control"

@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+
+//import "@openzeppelin/contracts@5.0.2/token/ERC20/ERC20.sol";
+//import "@openzeppelin/contracts@5.0.2/token/ERC20/IERC20.sol";
+//import "@openzeppelin/contracts@5.0.2/access/Ownable.sol";
+//import "@openzeppelin/contracts@5.0.2/token/ERC20/extensions/ERC20Pausable.sol";
+//import "@openzeppelin/contracts@5.0.2/utils/Strings.sol";
+
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -13,7 +20,7 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
         string securityName;
         string isinNumber;
         uint256 faceValue; // Scaled by 10^18 (e.g., 100.5 * 10^18)
-        uint256 couponRate; // In 0.001% units (e.g., 262500 = 2.625%)
+        uint256 couponRate; // In basis points (e.g., 500 = 5%)
         uint256 couponInterval; // In seconds (e.g., 15768000 for semi-annual)
         uint256 issueDate; // Unix timestamp in seconds
         uint256 maturityDate; // Unix timestamp in seconds
@@ -111,7 +118,6 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
         require(_config.totalSupply > 0, "Bond: Total supply must be greater than zero");
         require(_config.issueDate <= 4102444800, "Bond: Issue date too far in future");
         require(_config.maturityDate <= 4102444800, "Bond: Maturity date too far in future");
-        require(_config.couponRate <= 10000000, "Bond: Coupon rate exceeds 100%"); // 100% = 10,000,000 in 0.001%
     }
 
     function mint(address account, uint256 amount) public onlyOwner {
@@ -206,9 +212,11 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
         for (uint256 i = 0; i < holderList.length; i++) {
             address holder = holderList[i];
             if (balanceOf(holder) > 0 && !_blacklist[holder]) {
-                // Calculate coupon: (amount * couponRate * couponInterval) / (31536000 * 1000000)
-                // couponRate is in 0.001% (10^6 units), so divide by 10^6
-                uint256 expectedAmount = (amounts[i] * config.couponRate * config.couponInterval) / (31536000 * 1000000);
+
+                // Correct formula expectedAmount = (amounts[i]) * (config.couponRate / 10000) * (config.couponInterval / 31536000);
+                // rearrange to avoid becoming decimals ==> 0
+
+                uint256 expectedAmount = (amounts[i] * config.couponRate * config.couponInterval) / (31536000 * 10000);
 
                 emit DebugUint("payCoupon(): balanceOf(holder)", balanceOf(holder));
                 emit DebugUint("payCoupon(): expectedAmount is:", expectedAmount);

@@ -106,7 +106,7 @@ class Repo extends Component {
         starttime: "00:00:00",
         endtime: "00:00:00",
         securityLB: "",
-        reportype: "",
+        repotype: "",
         nominal: "",
         cleanprice: "",
         dirtyprice: "",
@@ -551,10 +551,11 @@ class Repo extends Component {
   onChangeUnderlying1(e) {
     const underlyingTokenID = e.target.value;
     console.log("New underlying1=", underlyingTokenID);
-    let newBlockchain = null;
+    let newBlockchain = null; let newISIN = this.state.currentRepo.bondisin;
     if (this.state.currentRepo.securityLB === "B") {
       try {
         newBlockchain = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+        newISIN = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).ISIN;
       } catch (e) {
         console.log("Error finding underlyingTokenID in BondList:", e);
       }
@@ -611,6 +612,7 @@ class Repo extends Component {
           blockchain: newBlockchain,
           smartcontractaddress1: newUnderlyingDSGDsmartcontractaddress,
           campaign: newCampaign,
+          bondisin: newISIN,
         }
       };
     });
@@ -620,10 +622,11 @@ class Repo extends Component {
   onChangeUnderlying2(e) {
     const underlyingTokenID = e.target.value;
     console.log("New underlying2=", underlyingTokenID);
-    let newBlockchain = null;
+    let newBlockchain = null; let newISIN = this.state.currentRepo.bondisin;
     if (this.state.currentRepo.securityLB === "L") {
       try {
         newBlockchain = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+        newISIN = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).ISIN;
       } catch (e) {
         console.log("Error finding underlyingTokenID in BondList:", e);
       }
@@ -680,6 +683,7 @@ class Repo extends Component {
           blockchain: newBlockchain,
           smartcontractaddress2: newUnderlyingDSGDsmartcontractaddress,
           campaign: newCampaign,
+          bondisin: newISIN,
         }
       };
     });
@@ -787,6 +791,7 @@ class Repo extends Component {
       currentRepo: {
         ...prevState.currentRepo,
         startdate: startdate,
+        startdatetime : startdate+"T"+this.state.currentRepo.starttime,
       }
     }));
   }
@@ -801,6 +806,7 @@ class Repo extends Component {
       currentRepo: {
         ...prevState.currentRepo,
         starttime: starttime,
+        startdatetime : this.state.currentRepo.startdate+"T"+starttime,
       }
     }));
   }
@@ -814,6 +820,7 @@ class Repo extends Component {
       currentRepo: {
         ...prevState.currentRepo,
         enddate: enddate,
+        enddatetime : enddate+"T"+this.state.currentRepo.endtime,
       }
     }));
   }
@@ -828,6 +835,7 @@ class Repo extends Component {
       currentRepo: {
         ...prevState.currentRepo,
         endtime: endtime,
+        enddatetime : this.state.currentRepo.enddate+"T"+endtime,
       }
     }));
   }
@@ -857,6 +865,9 @@ class Repo extends Component {
         ...prevState.currentRepo,
         securityLB: securityLB,
         repotype: (securityLB === "B" ? "repo" : (securityLB === "L" ? "reverserepo" : "")),
+        bondisin: "",
+        underlyingTokenID1: "",   // clears token 1 selection
+        underlyingTokenID2: "",   // clears token 2 selection
       }
     }));
   }
@@ -1260,7 +1271,7 @@ class Repo extends Component {
       return true;
   }
 
-  async createRepoDraft() {  // for Maker
+  async createRepoDraft() {  // initial draft creation by Maker
 
     // Trade date   : 20250514
     // Start date   : 20250516
@@ -1280,8 +1291,7 @@ class Repo extends Component {
     // Day count convention: 365
 
     if (this.state.isMaker) {  // only for Makers
-      
-        if (await this.validateForm() === true) { 
+      if (await this.validateForm() === true) { 
 
         console.log("Creating Repo draft this.state.underlyingDSGDList= ", this.state.underlyingDSGDList);
         if (this.state.currentRepo.underlyingTokenID1 < 1000000000) { // DSGD 1 ~ 1000000000,   Bond > 1000000000
@@ -1297,7 +1307,6 @@ class Repo extends Component {
         }
 
         var data = {
-
           tradedate          : this.state.currentRepo.tradedate,
           startdatetime      : this.state.currentRepo.startdate+"T"+this.state.currentRepo.starttime,
           enddatetime        : this.state.currentRepo.enddate+"T"+this.state.currentRepo.endtime,
@@ -1413,7 +1422,7 @@ class Repo extends Component {
 
   }
 
-  async submitRepo() {
+  async submitRepo() { // Maker edit draft after rejection
     
     if (await this.validateForm()) { 
           console.log("Form Validation passed");
@@ -1848,20 +1857,6 @@ class Repo extends Component {
                     </table>
 
                   <div className="form-group">
-                    <label htmlFor="bondisin">Bond ISIN*</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      id="bondisin"
-                      required
-                      value={currentRepo.bondisin}
-                      onChange={this.onChangeBondISIN}
-                      name="bondisin"
-                      autoComplete="off"
-                      disabled={!this.state.isMaker || currentRepo.txntype===2 || currentRepo.status > 0}
-                      />
-                  </div>
-                  <div className="form-group">
                     <label htmlFor="securityLB">Security L/B*</label>
                     <select
                           onChange={this.onChangeSecurityLB}                         
@@ -2159,6 +2154,20 @@ class Repo extends Component {
                                 : null)
                           }
                     </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="bondisin">Bond ISIN*</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      id="bondisin"
+                      required
+                      value={currentRepo.bondisin}
+                      onChange={this.onChangeBondISIN}
+                      name="bondisin"
+                      autoComplete="off"
+                      disabled={true}
+                      />
                   </div>
                   <div className="form-group">
                     <label htmlFor="blockchain">Repo to transact on Blockchain where Bond is Deployed</label>

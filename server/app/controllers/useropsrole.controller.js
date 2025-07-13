@@ -3,6 +3,8 @@ const UserOpsRole = db.useropsrole;
 const UserRole = db.userrole;
 const Op = db.Sequelize.Op;
 const Opsrole = db.opsrole;
+const { logDataValues } = require('../utils/logDataValues');
+
 
 // Find a single Opsrole with a ID
 exports.findOpsRoleByID = (req, res) => {
@@ -21,7 +23,7 @@ exports.findOpsRoleByID = (req, res) => {
     }
     )
   .then(data => {
-    console.log("UserOpsRole.findOpsRoleByID:", data.map(item => item.dataValues));
+    logDataValues("UserOpsRole.findOpsRoleByID: ", data);
     res.send(data);
   })
   .catch(err => {
@@ -59,7 +61,7 @@ exports.getAllMakersCheckersApprovers = (req, res) => {
       },
     )
     .then(data => {
-      console.log("OpsRole.getAllMakersCheckersApprovers2:", data.map(item => item.dataValues));
+      logDataValues("OpsRole.getAllMakersCheckersApprovers2: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -95,7 +97,7 @@ exports.findAll = (req, res) => {
           },
       )
       .then(data => {
-        console.log("UserOpsRole.findAll:", data.map(item => item.dataValues));
+        logDataValues("UserOpsRole.findAll: ", data);
         res.send(data);
       })
       .catch(err => {

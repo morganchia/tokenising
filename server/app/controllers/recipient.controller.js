@@ -3,6 +3,8 @@ const AuditTrail = db.audittrail;
 const Recipients = db.recipients;
 const Recipients_Draft = db.recipients_draft;
 const Op = db.Sequelize.Op;
+const { logDataValues } = require('../utils/logDataValues');
+
 var newcontractaddress = null;
 const adjustdecimals = 18;
 
@@ -12,40 +14,15 @@ function createStringWithZeros(num) { return ("0".repeat(num)); }
 exports.draftCreate = async (req, res) => {
 
   console.log("Received for Recipient draftCreate:");
-  console.log(req.body.name);
-  console.log(req.body.walletaddress);
-  console.log(req.body.bank);
-  console.log(req.body.bankaccount);
-  console.log(req.body.type);
-  console.log(req.body.status);
-  console.log(req.body.maker);
-  console.log(req.body.checker);
-  console.log(req.body.approver);
-  console.log(req.body.actionby);
+  console.log(req.body);
 
-  console.log(req.body.name_changed);
-  console.log(req.body.walletaddress_changed);
-  console.log(req.body.bank_changed);
-  console.log(req.body.bankaccount_changed);
-  console.log(req.body.type_changed);
-  console.log(req.body.status_changed);
-
-  console.log(req.body.name_original);
-  console.log(req.body.walletaddress_original);
-  console.log(req.body.bank_original);
-  console.log(req.body.bankaccount_original);
-  console.log(req.body.type_original);
-  console.log(req.body.status_original);
-
-
-    // Validate request
-    if (!req.body.name) {
-      res.status(400).send({
-        message: "Content can not be empty!"
-      }); 
-      return;
-    }
-  
+  // Validate request
+  if (!req.body.name) {
+    res.status(400).send({
+      message: "Content can not be empty!"
+    }); 
+    return;
+  }
 
   // Save Recipient in the database
   await Recipients_Draft.create(
@@ -64,7 +41,8 @@ exports.draftCreate = async (req, res) => {
     }, 
   )
   .then(data => {
-    console.log("Recipient_draft create:", data.map(item => item.dataValues));
+    logDataValues("Recipient_draft create: ", data);
+
     // write to audit
     AuditTrail.create(
       { 
@@ -270,7 +248,7 @@ exports.approveDraftById = async (req, res) => {
         }, 
       )
       .then(data => {
-        console.log("Recipient create success:", data.map(item => item.dataValues));
+        logDataValues("Recipient create success: ", data);
         res.send(data);
       })
       .catch(err => {
@@ -297,7 +275,7 @@ exports.approveDraftById = async (req, res) => {
       { where:      { id: req.body.approvedrecipientid }},
       )
       .then(data => {
-        console.log("Recipient update success:", data.map(item => item.dataValues));
+        logDataValues("Recipient update success: ", data);
         res.send(data);
       })
       .catch(err => {
@@ -326,7 +304,7 @@ exports.findDraftByNameExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      console.log("Recipient_Draft.findAll:", data.map(item => item.dataValues));
+      logDataValues("Recipient_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -350,7 +328,7 @@ exports.findDraftByApprovedId = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      console.log("Recipient_Draft.findAll:", data.map(item => item.dataValues));
+      logDataValues("Recipient_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -372,7 +350,7 @@ exports.findExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      console.log("Recipients.findAll:", data.map(item => item.dataValues));
+      logDataValues("Recipient.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -472,7 +450,7 @@ exports.findByName = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Recipient.findByName:", data.map(item => item.dataValues));
+      logDataValues("Recipient.findByName: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -491,13 +469,9 @@ exports.findAllRecipients = (req, res) => {
 //  var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
 
   Recipients.findAll(
-//    {
-//      raw: true,
-//      nest: true,
-//    }
     )
     .then(data => {
-      console.log("Recipient.findAll:", data.map(item => item.dataValues))
+      logDataValues("Recipient.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -551,7 +525,7 @@ exports.getAllDraftsByUserId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Recipients_Draft.findAll:", data.map(item => item.dataValues));
+      logDataValues("Recipients_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -578,7 +552,7 @@ exports.getAllDraftsByRecipientId = (req, res) => {
     { include: db.recipients},
     )
     .then(data => {
-      console.log("Recipients_Draft.findAll:", data.map(item => item.dataValues));
+      logDataValues("Recipients_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -600,7 +574,7 @@ exports.findOne = (req, res) => {
   })
     .then(data => {
       if (data) {      
-        console.log("Recipient.findByPk:", data.map(item => item.dataValues));
+        logDataValues("Recipient.findByPk: ", data);
         res.send(data);
       } else {
         res.status(404).send({

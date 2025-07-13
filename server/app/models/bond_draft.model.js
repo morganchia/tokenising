@@ -29,11 +29,11 @@ module.exports = (sequelize, Sequelize) => {
       allowNull: false
     },
     facevalue: {  
-      type: Sequelize.INTEGER,  
+      type: Sequelize.FLOAT,
       allowNull: false
     },
     couponrate: {  
-      type: Sequelize.INTEGER,  
+      type: Sequelize.FLOAT,
       allowNull: false
     },
     couponinterval: {  

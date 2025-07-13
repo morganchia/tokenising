@@ -3,6 +3,8 @@ const AuditTrail = db.audittrail;
 const Bond = db.bonds;
 const Bond_Draft = db.bonds_draft;
 const Op = db.Sequelize.Op;
+const { logDataValues } = require('../utils/logDataValues');
+
 var newcontractaddress = null;
 const adjustdecimals = 18;
 const TIMEOUT = 60;
@@ -79,7 +81,7 @@ exports.draftCreate = async (req, res) => {
     }, 
   )
   .then(data => {
-    console.log("Bond.findOne:", data.map(item => item.dataValues));
+    logDataValues("Bond.findOne: ", data);
 
     // write to audit
     AuditTrail.create(
@@ -782,7 +784,7 @@ exports.approveDraftById = async (req, res) => {  //
         }, 
       )
       .then(data => {
-        console.log("Bond create success:", data.map(item => item.dataValues));
+        logDataValues("Bond create success: ", data);
         if (!errorSent) {
           res.send(data);
           errorSent = true;
@@ -829,7 +831,7 @@ exports.approveDraftById = async (req, res) => {  //
       { where:      { id: req.body.approvedbondid }},
       )
       .then(data => {
-        console.log("Bond update success:", data.map(item => item.dataValues));
+        logDataValues("Bond update success: ", data);
         if (!errorSent) {
           res.send(data);
           errorSent = true;
@@ -1137,12 +1139,11 @@ exports.findDraftByNameExact = (req, res) => {
     }
   )
     .then(data => {
-      console.log("findDraftByNameExact data: ", data.map(item => item.dataValues));
+      logDataValues("findDraftByNameExact data: ", data);
       res.send(data);
     })
     .catch(err => {
       console.log("Error while retreiving bond1 draft: "+err.message);
-
       res.status(400).send({
         message:
           err.message || "Some error occurred while retrieving bond draft."
@@ -1164,7 +1165,7 @@ exports.findDraftByApprovedId = (req, res) => {
     }
   )
     .then(data => {
-      console.log("findDraftByApprovedId data: ", data.map(item => item.dataValues));
+      logDataValues("findDraftByApprovedId data: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1183,17 +1184,15 @@ exports.findExact = (req, res) => {
 
   Bond.findAll(
     { 
-      // raw: true, // display only dataValues, not metadata
       where: condition 
     }
   )
     .then(data => {
-      console.log("findExact data: ", data.map(item => item.dataValues));
+      logDataValues("findExact data: ", data);
       res.send(data);
     })
     .catch(err => {
       console.log("Error while retreiving bond1: "+err.message);
-
       res.status(500).send({
         message:
           err.message || "Some error occurred while retrieving bond."
@@ -1226,7 +1225,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     // Creation of Web3 class
     Web3 = require("web3");
 
-    console.log("In Bond.findAll:  ", data.map(item => item.dataValues));
+    logDataValues("In Bond.findAll: ", data);
 
     require('dotenv').config();
     const ETHEREUM_NETWORK = (() => {switch (data[0].blockchain) {
@@ -1323,13 +1322,12 @@ exports.findByName = (req, res) => {
 
   Bond.findAll(
     { 
-      // raw: true, // display only dataValues, not metadata
       include: db.recipients,
       where: condition
     }
   )
     .then(data => {
-      console.log("Bond.findByName:", data.map(item => item.dataValues))
+      logDataValues("Bond.findByName: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1373,7 +1371,7 @@ exports.getAllByBondId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond.findAll:", data.map(item => item.dataValues))
+      logDataValues("Bond.findAll: ", data);
       if (data.length === 0) {
         console.log("Data is empyty!!!");
         res.status(500).send({
@@ -1384,7 +1382,6 @@ exports.getAllByBondId = (req, res) => {
     })
     .catch(err => {
       console.log("Error while retreiving bond5a: "+err.message);
-
       res.status(500).send({
         message:
           err.message || "Some error occurred while retrieving bond."
@@ -1418,7 +1415,7 @@ exports.getAll = (req, res) => {
     ]
   },
   ).then(data => {
-    console.log("Bond.findAll: ", data.map(item => item.dataValues));
+    logDataValues("Bond.findAll: ", data);
     res.send(data);
   }).catch(err => {
     res.status(500).send({
@@ -1485,12 +1482,11 @@ exports.getAllDraftsByUserId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond_Draft.findAll:", data.map(item => item.dataValues));
+      logDataValues("Bond_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
       console.log("Error while retreiving bond6: "+err.message);
-
       res.status(500).send({
         message:
           err.message || "Some error occurred while retrieving bond."
@@ -1534,7 +1530,7 @@ exports.getAllDraftsByBondId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond_Draft.findAll:", data.map(item => item.dataValues))
+      logDataValues("Bond_Draft.findAll: ", data);
       if (data.length === 0) {
         console.log("Data is empyty!!!");
         res.status(500).send({
@@ -1545,7 +1541,6 @@ exports.getAllDraftsByBondId = (req, res) => {
     })
     .catch(err => {
       console.log("Error while retreiving bond5: "+err.message);
-
       res.status(500).send({
         message:
           err.message || "Some error occurred while retrieving bond."
@@ -1587,13 +1582,12 @@ exports.findOne = (req, res) => {
   const id = req.params.id;
 
   Bond.findByPk(id, {
-    // raw: true, // display only dataValues, not metadata
     include: db.recipients,
     include: db.campaigns,
   })
     .then(data => {
       if (data) {
-        console.log("Bond.findOne:", data.map(item => item.dataValues));
+        logDataValues("Bond.findOne: ", data);
         res.send(data);
       } else {
         res.status(404).send({ 
@@ -1627,7 +1621,7 @@ exports.getAllInvestorsById = (req, res) => {
     // Creation of Web3 class
     Web3 = require("web3");
 
-    console.log("In Bond.getAllInvestorsById:  ", data.map(item => item.dataValues));
+    logDataValues("In Bond.getAllInvestorsById: ", data);
 
     require('dotenv').config();
     const ETHEREUM_NETWORK = (() => {switch (data.blockchain) {

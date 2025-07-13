@@ -745,10 +745,14 @@ async deletePBMWrapMint() {
     
     if (this.state.PBMList.length>0 && this.state.currentPBM.id !== null && this.state.currentPBM.PBMsmartcontractaddress === null) { // wait for loading... 
       // if didnt check currentPBM.smartcontractaddress === null, and we keep updating, it will cause infinite re-render
-      const PBMsmartcontractaddress1 = this.state.PBMList.find((ee) => ee.id === parseInt(this.state.currentPBM.pbm_id)).smartcontractaddress
-      console.log("Render ----- PBMsmartcontractaddress:", PBMsmartcontractaddress1);
+      try {
+        const PBMsmartcontractaddress1 = this.state.PBMList.find((ee) => ee.id === parseInt(this.state.currentPBM.pbm_id)).smartcontractaddress
+        console.log("Render ----- PBMsmartcontractaddress:", PBMsmartcontractaddress1);
 
-      this.updateCurrentPBM(PBMsmartcontractaddress1);
+        this.updateCurrentPBM(PBMsmartcontractaddress1);
+      } catch (e) {
+        console.log("Error when getting PBM smart contract address: ", e);
+      }
     }
 
     try {

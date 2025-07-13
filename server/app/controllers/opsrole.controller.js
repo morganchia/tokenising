@@ -2,6 +2,8 @@ const db = require("../models");
 const Opsrole = db.opsrole;
 const User_Opsrole = db.useropsrole;
 const Op = db.Sequelize.Op;
+const { logDataValues } = require('../utils/logDataValues');
+
 
 /*
 // Create and Save a new Opsrole
@@ -64,8 +66,6 @@ exports.findByUserName = (req, res) => {
   var condition = username ? { username: { [Op.eq]: `${username}` } } : null;
   Opsrole.findAll(
     { 
-//      raw: true,
-//      nest: true,
       include: [{
         model: db.user,
         as: 'user',
@@ -74,19 +74,11 @@ exports.findByUserName = (req, res) => {
           where: {username: username}
         }
       }],
-    
-      /*
-      include:
-      [{
-        model: db.user,
-        as: 'user',
-      }],
-      */
     },
    // { where: condition },
   )
   .then(data => {
-    console.log("OpsRole.findByUserName:", data.map(item => item.dataValues));
+    logDataValues("OpsRole.findByUserName: ", data);
     res.send(data);
   })
   .catch(err => {

@@ -4,11 +4,53 @@ const Recipients = db.recipients;
 const Bond = db.bonds;
 const Bond_Draft = db.bonds_draft;
 const Op = db.Sequelize.Op;
+const { logDataValues } = require('../utils/logDataValues');
+
 var newcontractaddress = null;
 const adjustdecimals = 18;
 const TIMEOUT = 60;
 
 function createStringWithZeros(num) { return ("0".repeat(num)); }
+
+retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000, shouldRetry = () => true) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!shouldRetry(err) || attempt === maxRetries) throw err;
+      const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 100;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      console.warn(`Retry attempt ${attempt} after ${delay}ms: ${err.message}`);
+    }
+  }
+};
+
+// Function to scale a number with up to 3 decimal places to a BigNumber with 18 decimal places
+function scaleToWei(value) {
+    const parsed = parseFloat(value);
+    if (isNaN(parsed)) {
+        throw new Error('Invalid number input for scaling');
+    }
+    // Convert to string with 3 decimal places and scale to wei (10^18)
+    return web3.utils.toWei(parsed.toFixed(3), 'ether');
+}
+
+// Function to scale coupon rate to 0.001% units
+function scaleCouponRate(value) {
+    let parsed = parseFloat(value);
+    if (isNaN(parsed)) {
+        throw new Error('Coupon rate must be a valid number');
+    }
+    // If couponrate > 100, assume it's in basis points (e.g., 262.5 = 2.625%) and convert to percentage
+    if (parsed > 100) {
+        parsed = parsed / 100; // Convert basis points to percentage (e.g., 262.5 → 2.625)
+    }
+    if (parsed < 0 || parsed > 100) {
+        throw new Error('Coupon rate must be a valid percentage between 0 and 100');
+    }
+    // Multiply by 1,000,000 to convert percentage to 0.001% units (e.g., 2.625% → 2625000)
+    return Math.round(parsed * 1000000);
+}
 
 // Create and Save a new Bond draft
 exports.draftCreate = async (req, res) => {
@@ -38,18 +80,11 @@ exports.draftCreate = async (req, res) => {
       tokensymbol           : req.body.tokensymbol, 
       blockchain            : req.body.blockchain,
 
-//      datafield1_name       : req.body.datafield1_name,
-//      datafield1_name       : req.body.datafield1_name,
-//      datafield1_value      : req.body.datafield1_value,
-//      operator1             : req.body.operator1,
-//      datafield2_name       : req.body.datafield2_name,
-//      datafield2_value      : req.body.datafield2_value,
-
       smartcontractaddress  : req.body.smartcontractaddress,
 
-      facevalue             : req.body.facevalue,
-      couponrate            : req.body.couponrate,
-      couponinterval        : req.body.couponinterval,
+      facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+      couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+      couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
       
       cashTokenID           : req.body.cashTokenID,
       CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,
@@ -84,56 +119,51 @@ exports.draftCreate = async (req, res) => {
     }, 
   )
   .then(data => {
-    console.log("Bond_draft create: ", data.map(item => item.dataValues));
+    try {
+      logDataValues("Bond_draft create: ", data);
+    
+      // write to audit
+      AuditTrail.create(
+        { 
+          action                : "Bond draft "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - created",
+          name                  : req.body.name,
+          securityname          : req.body.securityname, 
+          ISIN                  : req.body.ISIN, 
+          tokenname             : req.body.tokenname, 
+          tokensymbol           : req.body.tokensymbol, 
+          blockchain            : req.body.blockchain,
+          smartcontractaddress  : req.body.smartcontractaddress,
+          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
+          cashTokenID           : req.body.cashTokenID,
+          CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,  
+          startdate             : req.body.startdate, 
+          enddate               : req.body.enddate, 
+          issuer                : req.body.issuer, 
+          totalsupply           : req.body.totalsupply,
+          prospectusurl         : req.body.prospectusurl, // new
 
-    // write to audit
-    AuditTrail.create(
-      { 
-        action                : "Bond draft "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - created",
-        name                  : req.body.name,
-        securityname          : req.body.securityname, 
-        ISIN                  : req.body.ISIN, 
-        tokenname             : req.body.tokenname, 
-        tokensymbol           : req.body.tokensymbol, 
-        blockchain            : req.body.blockchain,
+          txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
 
-//        datafield1_name       : req.body.datafield1_name,
-//        datafield1_name       : req.body.datafield1_name,
-//        datafield1_value      : req.body.datafield1_value,
-//        operator1             : req.body.operator1,
-//        datafield2_name       : req.body.datafield2_name,
-//        datafield2_value      : req.body.datafield2_value,  
+          maker                 : req.body.maker,
+          checker               : req.body.checker,
+          approver              : req.body.approver,
+          actionby              : req.body.actionby,
+          bondid                : req.body.approvedbondid,
+          status                : 1,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+        }, 
+      )
+      .then(auditres => {
+        console.log("Data written to audittrail for creating draft bond request.");
 
-        smartcontractaddress  : req.body.smartcontractaddress,
-        facevalue             : req.body.facevalue,
-        couponrate            : req.body.couponrate,
-        couponinterval        : req.body.couponinterval,
-        cashTokenID           : req.body.cashTokenID,
-        CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,  
-        startdate             : req.body.startdate, 
-        enddate               : req.body.enddate, 
-        issuer                : req.body.issuer, 
-        totalsupply           : req.body.totalsupply,
-        prospectusurl         : req.body.prospectusurl, // new
-
-        txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
-
-        maker                 : req.body.maker,
-        checker               : req.body.checker,
-        approver              : req.body.approver,
-        actionby              : req.body.actionby,
-        bondid                : req.body.approvedbondid,
-        status                : 1,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
-      }, 
-    )
-    .then(auditres => {
-      console.log("Data written to audittrail for creating draft bond request.");
-
-    })
-    .catch(err => {
-      console.log("Error while logging to audittrail for creating draft bond request: "+err.message);
-    });
-  
+      })
+      .catch(err => {
+        console.log("Error while logging to audittrail for creating draft bond request: "+err.message);
+      });
+    } catch (e) {
+      console.log("Error:", e);
+    }
     res.send(data);
   })
   .catch(err => {
@@ -421,8 +451,9 @@ exports.approveDraftById = async (req, res) => {  //
 //        console.log("setToTalSupply = ", setToTalSupply);
 
         // convert totalsupply to big number
-        const BN = require('bn.js');
-        const totalsupply = new BN(req.body.totalsupply).mul(new BN("1000000000000000000")); 
+        // const BN = require('bn.js');
+        // const totalsupply = new BN(req.body.totalsupply).mul(new BN("1000000000000000000")); 
+        const totalSupply = (typeof req.body.totalsupply === 'string' || req.body.totalsupply instanceof String) ? req.body.totalsupply : req.body.totalsupply.toString();
 
         web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
 
@@ -456,9 +487,9 @@ exports.approveDraftById = async (req, res) => {  //
                   tokensymbol: req.body.tokensymbol,
                   securityname: req.body.securityname,
                   ISIN: req.body.ISIN,
-                  facevalue: req.body.facevalue,
-                  couponrate: req.body.couponrate,
-                  couponinterval: req.body.couponinterval,
+                  facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+                  couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+                  couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
                   issuedate: req.body.issuedate,
                   maturitydate: req.body.maturitydate,
                   issuer: recipient.name,
@@ -545,13 +576,13 @@ exports.approveDraftById = async (req, res) => {  //
               const bondConfig = [
                   req.body.securityname,
                   req.body.ISIN,
-                  req.body.facevalue,
-                  req.body.couponrate,
-                  req.body.couponinterval,
-                  Number(new Date(req.body.issuedate)) / 1000,    // Convert to seconds from milliseconds
-                  Number(new Date(req.body.maturitydate)) / 1000, // Convert to seconds from milliseconds
+                  scaleToWei(req.body.facevalue), // Scale faceValue to 10^18
+                  scaleCouponRate(req.body.couponrate), // Scale couponrate to 0.001% units
+                  (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
+                  Math.floor(Number(new Date(req.body.issuedate)) / 1000),    // Convert to seconds from milliseconds
+                  Math.floor(Number(new Date(req.body.maturitydate)) / 1000), // Convert to seconds from milliseconds
                   recipient.name,
-                  totalsupply.toString(), // Ensure totalsupply is a string or number
+                  scaleToWei(totalSupply), // Scale totalSupply to 10^18
                   req.body.CashTokensmartcontractaddress,
                   req.body.prospectusurl,
               ];
@@ -559,25 +590,26 @@ exports.approveDraftById = async (req, res) => {  //
               console.log('BondConfig:', bondConfig);
 
               // Estimate gas fee
-              const gasFees = await ERC20TokenisedBondcontract.deploy({
+              const gasFees = await retryWithBackoff( () => ERC20TokenisedBondcontract.deploy({
                   data: bytecode,
                   arguments: [
                       req.body.tokenname,
                       req.body.tokensymbol,
                       bondConfig,
                   ],
-              })
-              .estimateGas({
-                  from: signer.address,
-              })
-              .then((gasAmount) => {
-                  console.log("Estimated gas amount for signTransaction: ", gasAmount);
-                  return gasAmount;
-              })
-              .catch((error2) => {
-                  console.log("Error while estimating Gas fee: ", error2);
-                  return 2100000; // Default gas limit
-              });
+                })
+                .estimateGas({
+                    from: signer.address,
+                })
+                .then((gasAmount) => {
+                    console.log("Estimated gas amount for signTransaction: ", gasAmount);
+                    return gasAmount;
+                })
+                .catch((error2) => {
+                    console.log("Error while estimating Gas fee: ", error2);
+                    return 2100000; // Default gas limit
+                })
+              );
               console.log("Estimated gas fee for transfer: ", gasFees);
 
               const balance = await web3.eth.getBalance(signer.address);
@@ -587,18 +619,19 @@ exports.approveDraftById = async (req, res) => {  //
                 return false;
               }
 
-              const contractTx = await ERC20TokenisedBondcontract.deploy({
+              const contractTx = await retryWithBackoff( () => ERC20TokenisedBondcontract.deploy({
                   data: bytecode,
                   arguments: [
                       req.body.tokenname,
                       req.body.tokensymbol,
                       bondConfig,
                   ],
-              });
+                })
+              );
 
               const nonce = await web3.eth.getTransactionCount(signer.address, "pending");
               console.log("Using nonce:", nonce);
-              const createTransaction = await web3.eth.accounts.signTransaction(
+              const createTransaction = await retryWithBackoff( () => web3.eth.accounts.signTransaction(
                   {
                       from: signer.address,
                       data: contractTx.encodeABI(),
@@ -606,6 +639,7 @@ exports.approveDraftById = async (req, res) => {  //
                       nonce: nonce
                   },
                   signer.privateKey
+                )
               );
               console.log('Sending signed txn 1...');
 
@@ -921,9 +955,9 @@ exports.approveDraftById = async (req, res) => {  //
 //          datafield2_name       : req.body.datafield2_name,
 //          datafield2_value      : req.body.datafield2_value,
 
-          facevalue             : req.body.facevalue,
-          couponrate            : req.body.couponrate,
-          couponinterval        : req.body.couponinterval,
+          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
 
           issuedate             : req.body.issuedate, 
           maturitydate          : req.body.maturitydate, 
@@ -939,7 +973,8 @@ exports.approveDraftById = async (req, res) => {  //
         }, 
       )
       .then(data => {
-        console.log("Bond create success:", data.map(item => item.dataValues));
+        logDataValues("Bond create success: ", data);
+
         if (!errorSent) {
           res.send(data);
           errorSent = true;
@@ -972,9 +1007,9 @@ exports.approveDraftById = async (req, res) => {  //
 //        datafield2_name       : req.body.datafield2_name,
 //        datafield2_value      : req.body.datafield2_value,
 
-        facevalue             : req.body.facevalue,
-        couponrate            : req.body.couponrate,
-        couponinterval        : req.body.couponinterval,
+        facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+        couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+        couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
 
         cashTokenID           : req.body.cashTokenID,
         CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,  
@@ -990,7 +1025,8 @@ exports.approveDraftById = async (req, res) => {  //
       { where:      { id: req.body.approvedbondid }},
       )
       .then(data => {
-        console.log("Bond update success:", data.map(item => item.dataValues));
+        logDataValues("Bond update success: ", data);
+
         if (!errorSent) {
           res.send(data);
           errorSent = true;
@@ -1312,7 +1348,7 @@ exports.findDraftByNameExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      console.log("Bond_Draft.findAll: ", data.map(item => item.dataValues));
+      logDataValues("Bond_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1336,7 +1372,7 @@ exports.findDraftByApprovedId = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      console.log("Bond_Draft.findAll: ", data.map(item => item.dataValues));
+      logDataValues("Bond_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1357,7 +1393,7 @@ exports.findExact = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      console.log("Bond.findAll: ", data.map(item => item.dataValues));
+      logDataValues("Bond.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1395,7 +1431,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     // Creation of Web3 class
     Web3 = require("web3");
 
-    console.log("In Bond.findAll:  ", data.map(item => item.dataValues));
+    logDataValues("In Bond.findAll: ", data);
 
     require('dotenv').config();
     const ETHEREUM_NETWORK = (() => {switch (data[0].blockchain) {
@@ -1496,7 +1532,7 @@ exports.findByName = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond.findByName: ", data.map(item => item.dataValues));
+      logDataValues("Bond.findByName: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1539,7 +1575,7 @@ exports.getAllByBondId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond.findAll: ", data.map(item => item.dataValues));
+      logDataValues("Bond.findAll: ", data);
 
       if (data.length === 0) {
         console.log("Data is empyty!!!");
@@ -1584,7 +1620,7 @@ exports.getAll = (req, res) => {
     ]
   },
   ).then(data => {
-    console.log("Bond.findAll: ", data.map(item => item.dataValues));
+    logDataValues("Bond.findAll: ", data);
     res.send(data);
   }).catch(err => {
     res.status(500).send({
@@ -1650,7 +1686,7 @@ exports.getAllDraftsByUserId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond_Draft.findAll: ", data.map(item => item.dataValues));
+      logDataValues("Bond_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1697,7 +1733,7 @@ exports.getAllDraftsByBondId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Bond_Draft.findAll: ", data.map(item => item.dataValues));
+      logDataValues("Bond_Draft.findAll: ", data);
 
       if (data.length === 0) {
         console.log("Data is empty!!!");
@@ -1756,7 +1792,7 @@ exports.findOne = (req, res) => {
   })
     .then(data => {
       if (data) {
-        console.log("Bond.findByPk: ", data.map(item => item.dataValues));
+        logDataValues("Bond.findByPk: ", data);
         res.send(data);
       } else {
         res.status(404).send({ 
@@ -1785,7 +1821,7 @@ exports.getAllInvestorsById = (req, res) => {
       return;
     }
 
-    console.log("Bond.findByPk: ", data.map(item => item.dataValues));
+    logDataValues("Bond.findByPk: ", data);
 
     // Load ABI
     const fs = require("fs");
@@ -2034,8 +2070,8 @@ exports.submitDraftById = async (req, res) => {
 //    datafield2_name       : req.body.datafield2_name,
 //    datafield2_value      : req.body.datafield2_value,
 
-    facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseInt(req.body.facevalue): req.body.facevalue,
-    couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseInt(req.body.couponrate): req.body.couponrate,
+    facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+    couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
     couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
 
     issuedate             : req.body.issuedate, 
@@ -2077,9 +2113,9 @@ exports.submitDraftById = async (req, res) => {
 //          datafield2_name       : req.body.datafield2_name,
 //          datafield2_value      : req.body.datafield2_value,
 
-          facevalue             : req.body.facevalue,
-          couponrate            : req.body.couponrate,
-          couponinterval        : req.body.couponinterval,
+          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
 
           cashTokenID           : req.body.cashTokenID,
           CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,    
@@ -2163,9 +2199,9 @@ exports.acceptDraftById = async (req, res) => {
 //          datafield2_name       : req.body.datafield2_name,
 //          datafield2_value      : req.body.datafield2_value,
 
-          facevalue             : req.body.facevalue,
-          couponrate            : req.body.couponrate,
-          couponinterval        : req.body.couponinterval,
+          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
 
           cashTokenID           : req.body.cashTokenID,
           CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,    
@@ -2249,9 +2285,9 @@ exports.rejectDraftById = async (req, res) => {
 //          datafield2_name       : req.body.datafield2_name,
 //          datafield2_value      : req.body.datafield2_value,
 
-          facevalue             : req.body.facevalue,
-          couponrate            : req.body.couponrate,
-          couponinterval        : req.body.couponinterval,
+          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
 
           cashTokenID           : req.body.cashTokenID,
           CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,    
@@ -2499,9 +2535,9 @@ exports.update = async (req, res) => {
 //        datafield2_name       : req.body.datafield2_name,
 //        datafield2_value      : req.body.datafield2_value,
 
-        facevalue             : req.body.facevalue,
-        couponrate            : req.body.couponrate,
-        couponinterval        : req.body.couponinterval,
+        facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+        couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+        couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
 
         cashTokenID           : req.body.cashTokenID,
         CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,  
@@ -2533,9 +2569,9 @@ exports.update = async (req, res) => {
 //              datafield2_name       : req.body.datafield2_name,
 //              datafield2_value      : req.body.datafield2_value,
     
-              facevalue             : req.body.facevalue,
-              couponrate            : req.body.couponrate,
-              couponinterval        : req.body.couponinterval,
+              facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+              couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+              couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
 
               cashTokenID           : req.body.cashTokenID,
               CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,
@@ -2637,9 +2673,9 @@ exports.approveDeleteDraftById = async (req, res) => {
 //          datafield2_name       : req.body.datafield2_name,
 //          datafield2_value      : req.body.datafield2_value,
 
-          facevalue             : req.body.facevalue,
-          couponrate            : req.body.couponrate,
-          couponinterval        : req.body.couponinterval,
+          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
 
           cashTokenID           : req.body.cashTokenID,
           CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,    
@@ -2755,9 +2791,9 @@ exports.dropRequestById = async (req, res) => {
 //          datafield2_name       : req.body.datafield2_name,
 //          datafield2_value      : req.body.datafield2_value,
 
-          facevalue             : req.body.facevalue,
-          couponrate            : req.body.couponrate,
-          couponinterval        : req.body.couponinterval,
+          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
 
           cashTokenID           : req.body.cashTokenID,
           CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,    

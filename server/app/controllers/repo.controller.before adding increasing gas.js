@@ -4,6 +4,8 @@ const AuditTrail = db.audittrail;
 const Repo = db.repos;
 const Repo_Draft = db.repos_draft;
 const Op = db.Sequelize.Op;
+const { logDataValues } = require('../utils/logDataValues');
+
 var newcontractaddress = null;
 const adjustdecimals = 18;
 
@@ -1479,7 +1481,7 @@ exports.findDraftByNameExact = (req, res) => {
     }
   )
   .then(data => {
-    console.log("Repo_Draft.findAll: ", data.map(item => item.dataValues));
+    logDataValues("Repo_Draft.findAll: ", data);
     res.send(data);
   })
   .catch(err => {
@@ -1506,7 +1508,7 @@ exports.findDraftByApprovedId = (req, res) => {
     }
   )
   .then(data => {
-    console.log("Repo_Draft.findAll: ", data.map(item => item.dataValues));
+    logDataValues("Repo_Draft.findAll: ", data);
     res.send(data);
   })
   .catch(err => {
@@ -1530,7 +1532,7 @@ exports.findExact = (req, res) => {
     }
   )
     .then(data => {
-      console.log("Repo.findAll: ", data.map(item => item.dataValues));
+      logDataValues("Repo.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1558,7 +1560,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
   })
   .then(async data => {
 
-    console.log("[getInWalletMintedTotalSupply] Repo.findAll: ", data.map(item => item.dataValues));
+    logDataValues("[getInWalletMintedTotalSupply] Repo.findAll: ", data);
 
     /// Query blockchain
     // Readng ABI from JSON file
@@ -1654,7 +1656,7 @@ exports.findByName = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Repo.findByName:", data.map(item => item.dataValues))
+      logDataValues("Repo.findByName: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1700,7 +1702,7 @@ exports.getAll = (req, res) => {
     ]
   },
   ).then(data => {
-    console.log("Repo.findAll:", data.map(item => item.dataValues));
+    logDataValues("Repo.findAll: ", data);
     res.send(data);
   }).catch(err => {
     res.status(500).send({
@@ -1769,7 +1771,7 @@ exports.getAllRepoDraftsByUserId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
+      logDataValues("Repo_Draft.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1818,7 +1820,8 @@ exports.getAllDraftsByRepoId = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
+      logDataValues("Repo_Draft.findAll: ", data);
+
       if (data.length === 0) {
         console.log("Data is empty!!!");
         res.status(500).send({
@@ -1876,7 +1879,7 @@ exports.findOne = (req, res) => {
     },
     )
     .then(data => {
-      console.log("Repo_Draft.findAll:", data.map(item => item.dataValues));
+      logDataValues("Repo_Draft.findAll: ", data);
 
       if (data.length === 0) {
         console.log("Data is empyty!!!");
