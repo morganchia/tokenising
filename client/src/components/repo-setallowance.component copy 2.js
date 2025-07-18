@@ -1,7 +1,6 @@
 import React, { Component } from "react";
 import Web3 from 'web3';
 import './uniswap.css';
-import { withRouter } from '../common/with-router.js';
 
 import repoContract_jsonData from '../abis/ERC20TokenRepo.abi.json';
 import cashToken_jsonData from '../abis/ERC20TokenDSGD.abi.json';
@@ -11,7 +10,7 @@ import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
 
-class reposetallowance extends Component {
+export default class reposetallowance extends Component {
   constructor(props) {
     super(props);
     this.onChangeApproveTokenAmount1 = this.onChangeApproveTokenAmount1.bind(this);
@@ -66,16 +65,6 @@ class reposetallowance extends Component {
   }
 
   componentDidMount() {
-
-    console.log("Param address: " , this.props.router.params.address);
-
-    if (this.props.router.params.address && Web3.utils.isAddress(this.props.router.params.address)) {
-      this.setState({
-        REPOsmartcontractaddress: this.props.router.params.address,
-        datachanged: true
-      });
-    }
-
     const loadWeb3 = async () => {
       if (window.ethereum) {
         window.web3 = new Web3(window.ethereum);
@@ -240,11 +229,11 @@ class reposetallowance extends Component {
                 TokenBalanceLeg2: balance2 / 1e18,
                 symbolLeg1: symbol1,
                 symbolLeg2: symbol2,
-                TokenRequiredLeg1: (tradeDetails.bondAmount / 1e18).toFixed(2),
-                TokenRequiredLeg2: ((tradeDetails.interestAmount / 1e18) + (tradeDetails.cashAmount / 1e18)).toFixed(2),
+                TokenRequiredLeg1: tradeDetails.bondAmount / 1e18,
+                TokenRequiredLeg2: (tradeDetails.interestAmount / 1e18) + (tradeDetails.cashAmount / 1e18),
                 TokenAbiLeg1: cashToken_jsonData,
                 TokenAbiLeg2: bondToken_jsonData,
-                approve_token_amount1: (tradeDetails.bondAmount / 1e18).toFixed(2),
+                approve_token_amount1: tradeDetails.bondAmount / 1e18,
                 approve_token_amount2: ((tradeDetails.interestAmount / 1e18) + (tradeDetails.cashAmount / 1e18)).toFixed(2),
                 connectionStatus: `Connected to Counterparty1's wallet, with Token[${symbol1}]`,
               };
@@ -257,12 +246,12 @@ class reposetallowance extends Component {
                 TokenBalanceLeg2: balance2 / 1e18,
                 symbolLeg1: symbol1,
                 symbolLeg2: symbol2,
-                TokenRequiredLeg1: (tradeDetails.cashAmount / 1e18).toFixed(2),
-                TokenRequiredLeg2: (tradeDetails.bondAmount / 1e18).toFixed(2),
+                TokenRequiredLeg1: tradeDetails.cashAmount / 1e18,
+                TokenRequiredLeg2: tradeDetails.bondAmount / 1e18,
                 TokenAbiLeg1: cashToken_jsonData,
                 TokenAbiLeg2: bondToken_jsonData,
-                approve_token_amount1: (tradeDetails.cashAmount / 1e18).toFixed(2),
-                approve_token_amount2: (tradeDetails.bondAmount / 1e18).toFixed(2),
+                approve_token_amount1: tradeDetails.cashAmount / 1e18,
+                approve_token_amount2: tradeDetails.bondAmount / 1e18,
                 connectionStatus: `Connected to Counterparty1's wallet, with Token[${symbol1}]`,
               };
             }
@@ -276,12 +265,12 @@ class reposetallowance extends Component {
                 TokenBalanceLeg2: balance1 / 1e18,
                 symbolLeg1: symbol2,
                 symbolLeg2: symbol1,
-                TokenRequiredLeg1: (tradeDetails.cashAmount / 1e18).toFixed(2),
-                TokenRequiredLeg2: (tradeDetails.bondAmount / 1e18).toFixed(2),
+                TokenRequiredLeg1: tradeDetails.cashAmount / 1e18,
+                TokenRequiredLeg2: tradeDetails.bondAmount / 1e18,
                 TokenAbiLeg2: cashToken_jsonData,
                 TokenAbiLeg1: bondToken_jsonData,
-                approve_token_amount1: (tradeDetails.cashAmount / 1e18).toFixed(2),
-                approve_token_amount2: (tradeDetails.bondAmount / 1e18).toFixed(2),
+                approve_token_amount1: tradeDetails.cashAmount / 1e18,
+                approve_token_amount2: tradeDetails.bondAmount / 1e18,
                 connectionStatus: `Connected to Counterparty2's wallet, with Token[${symbol2}]`,
               };
             } else {
@@ -293,11 +282,11 @@ class reposetallowance extends Component {
                 TokenBalanceLeg2: balance1 / 1e18,
                 symbolLeg1: symbol2,
                 symbolLeg2: symbol1,
-                TokenRequiredLeg1: (tradeDetails.bondAmount / 1e18).toFixed(2),
-                TokenRequiredLeg2: ((tradeDetails.interestAmount / 1e18) + (tradeDetails.cashAmount / 1e18)).toFixed(2),
+                TokenRequiredLeg1: tradeDetails.bondAmount / 1e18,
+                TokenRequiredLeg2: (tradeDetails.interestAmount / 1e18) + (tradeDetails.cashAmount / 1e18),
                 TokenAbiLeg2: cashToken_jsonData,
                 TokenAbiLeg1: bondToken_jsonData,
-                approve_token_amount1: (tradeDetails.bondAmount / 1e18).toFixed(2),
+                approve_token_amount1: tradeDetails.bondAmount / 1e18,
                 approve_token_amount2: ((tradeDetails.interestAmount / 1e18) + (tradeDetails.cashAmount / 1e18)).toFixed(2),
                 connectionStatus: `Connected to Counterparty2's wallet, with Token[${symbol2}]`,
               };
@@ -675,5 +664,3 @@ class reposetallowance extends Component {
     );
   }
 }
-
-export default withRouter(reposetallowance);

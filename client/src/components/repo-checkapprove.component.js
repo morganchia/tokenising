@@ -95,7 +95,7 @@ class Repo extends Component {
         smartcontractaddress:"",
         smartcontractaddress1:"",
         smartcontractaddress2:"",
-        counterpartyname: "",
+        counterpartyname: "abc",
         counterparty1: "",
         counterparty2: "",
         amount1: "",
@@ -165,7 +165,7 @@ class Repo extends Component {
         daycountconvention: "",
         currency: "",
         bondisin: "",
-        counterpartyname: "",
+        counterpartyname: "abc",
         counterparty1: "",
         counterparty2: "",
         amount1: "",
@@ -461,93 +461,7 @@ class Repo extends Component {
       };
     });
   }
-/*
-  onChangeDescription(e) {
-    const description = e.target.value;
 
-    this.setState({
-      datachanged: true
-    });
-    this.setState(function(prevState) {
-      return {
-        currentRepo: {
-          ...prevState.currentRepo,
-          description: description
-        }
-      };
-    });
-  }
-
-  onChangeUnderlying1(e) {
-    const underlyingTokenID = e.target.value;
-    console.log("New underlying=", underlyingTokenID);
-    let newBlockchain = null;
-    try {
-      newBlockchain = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
-    } catch (e) {
-      console.log("Error finding underlyingTokenID in underlyingDSGDList:", e);
-      try {
-        newBlockchain = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
-      } catch (e) {
-        console.log("Error finding underlyingTokenID in BondList:", e);
-      }
-    }
-    console.log("New blockchain=", newBlockchain);
-    let newSmartContractAddress = null;
-    try {
-      newSmartContractAddress = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).smartcontractaddress
-    } catch (e) {
-      console.log("Error finding underlyingTokenID in underlyingDSGDList:", e);
-      try {
-        newSmartContractAddress = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).smartcontractaddress
-      } catch (e) {
-        console.log("Error finding underlyingTokenID in BondList:", e);
-      }
-    }
-    console.log("New smart contract address=", newSmartContractAddress);
-    let newUnderlyingDSGDsmartcontractaddress = null
-    try {
-      newUnderlyingDSGDsmartcontractaddress = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
-    } catch (e) {
-      console.log("Error finding underlyingTokenID in underlyingDSGDList:", e);
-      try {
-        newUnderlyingDSGDsmartcontractaddress = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
-      } catch (e) {
-        console.log("Error finding underlyingTokenID in BondList:", e);
-      }
-    }
-    console.log("New underlyingDSGDsmartcontractaddress=", newUnderlyingDSGDsmartcontractaddress);
-    let newCampaign = 0;
-    try {
-      newCampaign = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).campaign;
-    } catch (e) {
-      console.log("Error finding underlyingTokenID in underlyingDSGDList:", e);
-      try {
-        newCampaign = this.state.BondList.find((ee) => ee.id === parseInt(underlyingTokenID)).campaign;
-      } catch (e) {
-        console.log("Error finding underlyingTokenID in BondList:", e);
-      }
-    }
-    console.log("New campaign=", newCampaign);
-    
-    // when underlying changes, blockchain might change also bccos underlying could be in different blockchain
-    this.setState({
-      datachanged: true
-    });
-    this.setState(function(prevState) {
-      return {
-        currentRepo: {
-          ...prevState.currentRepo,
-          underlyingTokenID1: underlyingTokenID,
-          blockchain: newBlockchain,
-          smartcontractaddress1: newUnderlyingDSGDsmartcontractaddress,
-          campaign: newCampaign,
-        }
-      };
-    });
-    console.log("New currentRepo=", this.state.currentRepo);
-  }
-*/
   onChangeUnderlying1(e) {
     const underlyingTokenID = e.target.value;
     console.log("New underlying1=", underlyingTokenID);
@@ -1195,7 +1109,7 @@ class Repo extends Component {
         });
       }
 
-          if (! validator.isDate(this.state.currentRepo.tradedate)) {
+      if (! validator.isDate(this.state.currentRepo.tradedate)) {
         err += "- Trade Date is invalid\n";
         console.log("tradedate is invalid");
         console.log("this.state.currentRepo.tradedate:", this.state.currentRepo.tradedate);
@@ -1211,7 +1125,7 @@ class Repo extends Component {
         console.log("this.state.currentRepo.enddate:", this.state.currentRepo.enddate);
       }
       
-      if (validator.isDate(this.state.currentRepo.startdate) && validator.isDate(this.state.currentRepo.enddate) && this.state.currentRepo.startdate > this.state.currentRepo.enddate) err += "- Start date cannot be later than End date\n";
+      //if (validator.isDate(this.state.currentRepo.startdate) && validator.isDate(this.state.currentRepo.enddate) && this.state.currentRepo.startdate > this.state.currentRepo.enddate) err += "- Start date cannot be later than End date\n";
 
       if (!this.isTime(this.state.currentRepo.starttime)) {
         err += "- Start Time is invalid\n";
@@ -1232,7 +1146,7 @@ class Repo extends Component {
       console.log("Start > End? "+ (this.state.currentRepo.startdate > this.state.currentRepo.enddate));
           
       // dont need t check description, it can be empty
-      if (this.state.currentRepo.counterpartyname === "") err += "- Counterparty 2 name cannot be empty\n";
+      if (this.state.currentRepo.counterpartyname === "") err += "- Counterparty name cannot be empty\n";
       if (this.state.currentRepo.underlyingTokenID1 === "") err += "- Counterparty 1 "+ (this.state.currentRepo.securityLB !== "" && this.state.currentRepo.securityLB === 'B'?'Bond ' : this.state.currentRepo.securityLB === 'L'?'Cash ' : " ") +"token cannot be empty\n";
       if (this.state.currentRepo.underlyingTokenID2 === "") err += "- Counterparty 2 "+ (this.state.currentRepo.securityLB !== "" && this.state.currentRepo.securityLB === 'B'?'Cash ' : this.state.currentRepo.securityLB === 'L'?'Bond ' : " ") + "token cannot be empty\n";
 
@@ -2020,20 +1934,6 @@ class Repo extends Component {
                         disabled={true}
                         />
                     </div>
-                    <div className="form-group">
-                      <label htmlFor="counterpartyname">Counterparty Name*</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        id="counterpartyname"
-                        required
-                        value={currentRepo.counterpartyname}
-                        onChange={this.onChangeCounterpartyName}
-                        name="counterpartyname"
-                        autoComplete="off"
-                        disabled={!this.state.isMaker || currentRepo.txntype===2 || currentRepo.status > 0}
-                        />
-                    </div>
 
 {/*  Block chain portion */}
 
@@ -2367,14 +2267,12 @@ class Repo extends Component {
                     className="m-3 btn btn-sm btn-primary"
                     onClick={currentRepo.txntype===2? this.deleteDraft: this.approveRepo}
                     >
-                      Approve
+                      Approve and
                       {
-                        (currentRepo.txntype===0? " Create ":
-                        (currentRepo.txntype===1? " Update ":
-                        (currentRepo.txntype===2? " Delete ":null)))
+                        (currentRepo.txntype===0? " Deploy":
+                        (currentRepo.txntype===1? " Update":
+                        (currentRepo.txntype===2? " Delete":null)))
                       }
-                      Request
-
                     </button> 
                 
               }

@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 import BondDataService from "../services/bond.service";
 import CampaignDataService from "../services/campaign.service";
+import TransferDataService from "../services/transfer.service";
 import PBMDataService from "../services/pbm.service";
 import RecipientDataService from "../services/recipient.service";
 import UserOpsRoleDataService from "../services/user_opsrole.service";
@@ -12,8 +13,9 @@ import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner";
 import "../LoadingSpinner.css";
 
-class Bond extends Component {
+const BOND_UNITS = 2500;
 
+class Bond extends Component {
   constructor(props) {
     super(props);
 
@@ -32,9 +34,12 @@ class Bond extends Component {
         bankaccount: "",
         type: ""
       },
-      adddatafield: false,
-      hidedatafield1: true,
-      hidedatafield2: true,  
+
+      adddatafield : false,
+      hidedatafield1 : true,
+      hidedatafield2 : true,  
+
+
       currentBond: {
         id: null,
         name: "",
@@ -42,15 +47,16 @@ class Bond extends Component {
         underlyingTokenID1: "",
         underlyingTokenID2: "",
         blockchain: "",
-        smartcontractaddress: "",
-        smartcontractaddress1: "",
-        smartcontractaddress2: "",
+        smartcontractaddress:"",
+        smartcontractaddress1:"",
+        smartcontractaddress2:"",
         counterparty1: "",
         counterparty2: "",
         amount1: "",
         amount2: "",
         issuedate: "",
         maturitydate: "",
+
         txntype: 0,
         checker: "",
         approver: "",
@@ -67,15 +73,16 @@ class Bond extends Component {
         amount1_changed: 0,
         amount2_changed: 0,
       },
+
       originalBond: {
         id: null,
         name: "",
         description: "",
         underlyingTokenID1: "",
         underlyingTokenID2: "",
-        smartcontractaddress: "",
-        smartcontractaddress1: "",
-        smartcontractaddress2: "",
+        smartcontractaddress:"",
+        smartcontractaddress1:"",
+        smartcontractaddress2:"",
         blockchain: "",
         counterparty1: "",
         counterparty2: "",
@@ -83,6 +90,7 @@ class Bond extends Component {
         amount2: "",
         issuedate: "",
         maturitydate: "",
+  
         txntype: 0,
         checker: "",
         approver: "",
@@ -99,6 +107,7 @@ class Bond extends Component {
         amount1_original: "",
         amount2_original: "",
       },
+
       checkerList: {
         id: null,
         username: "",
@@ -107,18 +116,20 @@ class Bond extends Component {
         id: null,
         username: "",
       },
-      option1: undefined,
+
+      option1 : undefined,
       currentUser: undefined,
       isMaker: false,
       isChecker: false,
       isApprover: false,
       isNewBond: null,
+      
       err: "",
       datachanged: false,
       message: "",
       txnstatus: "",
       isLoading: false,
-      isBondLoading: false, // New state for BondDataService.findOne loading
+
       modal: {
         showm: false,
         modalmsg: "",
@@ -160,7 +171,6 @@ class Bond extends Component {
     this.setState({ currentUser: user, userReady: true })
 
     this.getBond(user, this.props.router.params.id);
-
 //    this.getAllUnderlyingAssets();
 //    this.getAllCounterpartys();
 //    this.retrieveAllMakersCheckersApprovers();
@@ -171,16 +181,13 @@ class Bond extends Component {
       console.log("getAllInvestorsById ID :", id);
 
       try {
-        this.setState({ isBondLoading: true }); // Set loading state to true
         BondDataService.getAllInvestorsById(id)
           .then(response => {
             console.log("response.data :", response.data);
 
             this.setState({
               bondHolders: response.data,
-              isBondLoading: false, // Set loading state to false
             });
-
   /*
             console.log("Response from findOne(id):",response.data);
             console.log("totalsupply: ", response.data.totalsupply);
@@ -193,98 +200,106 @@ class Bond extends Component {
           })
           .catch(e => {
             console.log("Error from getAllInvestorsById(id):", e);
-            this.setState({ isBondLoading: false }); // Set loading state to false
-
+            //alert("Error: " + e.response.data.message);
           });
       } catch(e) {
         console.log("Error9:"+ e);
-        this.setState({ isBondLoading: false }); // Set loading state to false
       }
     }
   }
 
+
   getBond(user, id) {
-      console.log("+++ findOne(id):", id);
+    console.log("+++ findOne(id):", id);
 
-      if (id !== undefined) {
-        this.setState({ isBondLoading: true }); // Set loading state to true
-        BondDataService.findOne(id)
-          .then(response => {
-            response.data.actionby = user.username;
-            console.log("response.data :", response.data);
-            
-            const couponFreq = (() => {
-              switch (response.data.couponinterval.toString()) {
-                case '31536000':
-                  return 'Yearly';
-                case '15768000':
-                  return 'Half-yearly';
-                case '7884000':
-                  return 'Quarterly';
-                case '2628000':
-                  return 'Monthly';
-                default:
-                  return null;
+    if (id !== undefined) {
+      BondDataService.findOne(id)
+        .then(response => {
+          response.data.actionby = user.username;
+          console.log("response.data :", response.data);
+          
+          const couponFreq = (() => {
+            switch (response.data.couponinterval.toString()) {
+              case '31536000':
+                return 'Yearly'
+              case '15768000':
+                return 'Half-yearly'
+              case '7884000':
+                return 'Quarterly'
+              case '2628000':
+                return 'Monthly'
+              default:
+                return null
               }
-            })();
-
+            }
+            )();
+  
             const couponAdjustment = (() => {
               switch (response.data.couponinterval.toString()) {
                 case '31536000':
-                  return 1;
+                  return 1
                 case '15768000':
-                  return 0.5;
+                  return 0.5
                 case '7884000':
-                  return 0.25;
+                  return 0.25
                 case '2628000':
-                  return 1/12;
+                  return 1/12
                 default:
-                  return null;
+                  return null
+                }
               }
-            })();
-
-            this.setState({
-              currentBond: {
-                ...response.data,
-                couponFreq: couponFreq,
-                couponToPay: response.data.totalsupply * (response.data.couponinterval / 31536000) * (response.data.couponrate / 10000),
-                originalBond: response.data,
-                couponRate: parseFloat(response.data.couponrate),
-                couponAdjustment: parseFloat(couponAdjustment),
-              },
-              isBondLoading: false // Set loading state to false
-            });
-
-            console.log("Response from findOne(id):", response.data);
-            console.log("totalsupply: ", response.data.totalsupply);
-            console.log("couponrate: ", response.data.couponrate);
-            console.log("couponFreq: ", response.data.couponFreq);
-            console.log("couponAdjustment: ", couponAdjustment);
-            console.log("couponinterval: ", response.data.couponinterval);
-            console.log("couponToPay: ", response.data.totalsupply * (response.data.couponinterval / 31536000) * (response.data.couponrate / 10000));
-
-            this.getAllInvestorsById(id);
-
-            let ismaker = user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "MAKER" && user.id === response.data.maker);
-            console.log("isMaker:", (ismaker === undefined ? false : true));
-            this.setState({ isMaker: (ismaker === undefined ? false : true) });
-
-            let ischecker = user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "CHECKER" && user.id === response.data.checker);
-            console.log("isChecker:", (ischecker === undefined ? false : true));
-            this.setState({ isChecker: (ischecker === undefined ? false : true) });
-
-            let isapprover = user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "APPROVER" && user.id === response.data.approver);
-            console.log("isApprover:", (isapprover === undefined ? false : true));
-            this.setState({ isApprover: (isapprover === undefined ? false : true) });
-
-            this.setState({ isNewBond: (response.data.smartcontractaddress === "" || response.data.smartcontractaddress === null) });
-          })
-          .catch(e => {
-            console.log("Error from findOne(id):", e);
-            this.setState({ isBondLoading: false }); // Set loading state to false on error
+              )();
+    
+          this.setState({
+            currentBond: {
+              ...response.data,
+              couponFreq: couponFreq,
+              couponToPay: response.data.totalsupply * (response.data.couponinterval/31536000) * (response.data.couponrate / 10000), // couponrate is in basis points, so divide by 10000
+              originalBond: response.data,
+              couponRate: parseFloat(response.data.couponrate),
+              couponAdjustment: parseFloat(couponAdjustment),
+            }
           });
-      }
+          
+          console.log("Response from findOne(id):",response.data);
+          console.log("totalsupply: ", response.data.totalsupply);
+          console.log("couponrate: ", response.data.couponrate);
+          console.log("couponFreq: ", response.data.couponFreq);
+          console.log("couponAdjustment: ", couponAdjustment);
+          console.log("couponinterval: ", response.data.couponinterval);
+          console.log("couponToPay: ", response.data.totalsupply * (response.data.couponinterval/31536000) * (response.data.couponrate / 10000));
+
+          this.getAllInvestorsById(id);
+
+
+          let ismaker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "MAKER" && user.id === response.data.maker);
+          console.log("isMaker:", (ismaker === undefined? false: true));
+          this.setState({ isMaker: (ismaker === undefined? false: true),});
+      
+          let ischecker= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "CHECKER" && user.id === response.data.checker);
+          console.log("isChecker:", (ischecker === undefined? false: true));
+          this.setState({ isChecker: (ischecker === undefined? false: true),});
+          //if (ischecker !== undefined) {  // clears the checkers comments
+          //  this.setState({ isChecker: true, currentBond: {checkerComments: ""}, });
+          //}
+          
+          let isapprover= user.opsrole.find((el) => el.opsrole.name.toUpperCase() === "APPROVER" && user.id === response.data.approver);
+          console.log("isApprover:", (isapprover === undefined? false: true));
+          this.setState({ isApprover: (isapprover === undefined? false: true),});
+          /*
+          if (isapprover !== undefined) {
+            this.setState({ isApprover: true, currentBond: {approverComments: ""}, });
+          }
+          */
+
+          this.setState({ isNewBond : (response.data.smartcontractaddress === "" || response.data.smartcontractaddress === null) });
+        })
+        .catch(e => {
+          console.log("Error from findOne(id):", e);
+          //alert("Error: " + e.response.data.message);
+        });
     }
+  }
 
   getAllUnderlyingAssets() {
     CampaignDataService.getAll()
@@ -337,66 +352,66 @@ class Bond extends Component {
         console.log(e);
         //return(null);
       });
-  }
+}
 
-  displayModal(msg, b1text, b2text, b3text, b0text) {
-    this.setState({
-      showm: true, 
-      modalmsg: msg, 
-      button1text: b1text,
-      button2text: b2text,
-      button3text: b3text,
-      button0text: b0text,
-    });
-  }
+displayModal(msg, b1text, b2text, b3text, b0text) {
+  this.setState({
+    showm: true, 
+    modalmsg: msg, 
+    button1text: b1text,
+    button2text: b2text,
+    button3text: b3text,
+    button0text: b0text,
+  });
+}
 
-  async validateForm() {    
-      var err = "";
-          
-        // dont need t check description, it can be empty
-      if (this.state.currentBond.amount1 === "") err += "- Amount 1 cannot be empty\n";
-      if (parseInt(this.state.currentBond.amount1) <=  0) err += "- Amount 1 must be more than zero\n";
-      if (! validator.isDate(this.state.currentBond.issuedate)) err += "- Start Date is invalid\n";
-      if (! validator.isDate(this.state.currentBond.maturitydate)) err += "- End Date is invalid\n";
-      if (this.state.currentBond.issuedate.trim() !== "" && this.state.currentBond.maturitydate.trim() !== "" && this.state.currentBond.issuedate > this.state.currentBond.maturitydate) err += "- Start date cannot be later than End date\n";    
+async validateForm() {    
+    var err = "";
+        
+      // dont need t check description, it can be empty
+    if (this.state.currentBond.amount1 === "") err += "- Amount 1 cannot be empty\n";
+    if (parseInt(this.state.currentBond.amount1) <=  0) err += "- Amount 1 must be more than zero\n";
+    if (! validator.isDate(this.state.currentBond.issuedate)) err += "- Start Date is invalid\n";
+    if (! validator.isDate(this.state.currentBond.maturitydate)) err += "- End Date is invalid\n";
+    if (this.state.currentBond.issuedate.trim() !== "" && this.state.currentBond.maturitydate.trim() !== "" && this.state.currentBond.issuedate > this.state.currentBond.maturitydate) err += "- Start date cannot be later than End date\n";    
 
-      console.log("start date:'"+this.state.currentBond.issuedate+"'");
-      console.log("end date:'"+this.state.currentBond.maturitydate+"'");
-      console.log("Start > End? "+ (this.state.currentBond.issuedate > this.state.currentBond.maturitydate));
-  /*
-      if (this.state.currentBond.checker === "" || this.state.currentBond.checker === null) err += "- Checker cannot be empty\n";
-      if (this.state.currentBond.approver === "" || this.state.currentBond.approver === null) err += "- Approver cannot be empty\n";
-      if (this.state.currentBond.checker === this.state.currentUser.id.toString() 
-          && this.state.currentBond.approver === this.state.currentUser.id.toString()) {
-        err += "- Maker, Checker and Approver cannot be the same person\n";
-      } else {
-        if (this.state.currentBond.checker === this.state.currentUser.id.toString()) err += "- Maker and Checker cannot be the same person (yourself)\n";
-        if (this.state.currentBond.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
-        if (this.state.currentBond.checker!==null && this.state.currentBond.checker!=="" 
-              && this.state.currentBond.checker === this.state.currentBond.approver) err += "- Checker and Approver cannot be the same person\n";
-      }
-  */
-      if (err !=="" ) {
-        err = "Form validation issues found:\n"+err;
-        //alert(err);
-        this.displayModal(err, null, null, null, "OK");
-        err = ""; // clear var
-        return false;
-      }
-      return true;
+    console.log("start date:'"+this.state.currentBond.issuedate+"'");
+    console.log("end date:'"+this.state.currentBond.maturitydate+"'");
+    console.log("Start > End? "+ (this.state.currentBond.issuedate > this.state.currentBond.maturitydate));
+/*
+    if (this.state.currentBond.checker === "" || this.state.currentBond.checker === null) err += "- Checker cannot be empty\n";
+    if (this.state.currentBond.approver === "" || this.state.currentBond.approver === null) err += "- Approver cannot be empty\n";
+    if (this.state.currentBond.checker === this.state.currentUser.id.toString() 
+        && this.state.currentBond.approver === this.state.currentUser.id.toString()) {
+      err += "- Maker, Checker and Approver cannot be the same person\n";
+    } else {
+      if (this.state.currentBond.checker === this.state.currentUser.id.toString()) err += "- Maker and Checker cannot be the same person (yourself)\n";
+      if (this.state.currentBond.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
+      if (this.state.currentBond.checker!==null && this.state.currentBond.checker!=="" 
+            && this.state.currentBond.checker === this.state.currentBond.approver) err += "- Checker and Approver cannot be the same person\n";
     }
+*/
+    if (err !=="" ) {
+      err = "Form validation issues found:\n"+err;
+      //alert(err);
+      this.displayModal(err, null, null, null, "OK");
+      err = ""; // clear var
+      return false;
+    }
+    return true;
+  }
 
   async triggerBondCouponPayment() {
-
+  
     if (await this.validateForm()) { 
         console.log("Form Validation passed");
-
+  
         console.log("this.state.bondHolders.length = ", this.state.bondHolders.holders.length);
         this.show_loading();
         var error1 = false;
         var transferData = null;
         var index = 0;
-        // for (index = 0; index<this.state.bondHolders.holders.length && !error1; index++) {
+       // for (index = 0; index<this.state.bondHolders.holders.length && !error1; index++) {
           for (index = 0; index<1 && !error1; index++) {
 
           console.log("this.state.bondHolders.balances)", this.state.bondHolders.balances);
@@ -407,8 +422,10 @@ class Bond extends Component {
           console.log("this.state.currentBond.couponRate", this.state.currentBond.couponRate);
           console.log("this.state.currentBond.couponAdjustment", this.state.currentBond.couponAdjustment);
 
-  //          var amountToPay = (this.state.bondHolders.balances[index]/1e18) * (this.state.currentBond.couponRate/10000) * this.state.currentBond.couponAdjustment;
-  //          console.log("amountToPay", amountToPay);
+          var recipientwallet1 = this.state.bondHolders.holders[index];
+
+//          var amountToPay = (this.state.bondHolders.balances[index]/1e18) * (this.state.currentBond.couponRate/10000) * this.state.currentBond.couponAdjustment;
+//          console.log("amountToPay", amountToPay);
 
           transferData = {
               lowestUnpaidCouponIndex: this.state.bondHolders.lowestUnpaidCouponIndex,
@@ -418,13 +435,13 @@ class Bond extends Component {
 
           console.log("transferData: ", transferData);
 
-  //          await TransferDataService.transferToWallet(
+//          await TransferDataService.transferToWallet(
           await BondDataService.triggerBondCouponPaymentById(
             this.state.currentBond.id,
             transferData,
           ) // BondDataService.transferToWallet
           .then(response => {
-  //            this.hide_loading();
+//            this.hide_loading();
     
             console.log("Response: ", response);
             console.log("IsLoad=false");
@@ -432,11 +449,11 @@ class Bond extends Component {
             this.setState({  
               datachanged: false,
             });
-  //            this.displayModal("Bond coupon payment of "+amountToPay.toLocaleString()+" "+this.state.currentBond.campaign.tokenname+" to "+recipientwallet1+" transferred successfully.", "OK", null, null, null);
-  //            if (index === this.state.bondHolders.holders.length) {
+//            this.displayModal("Bond coupon payment of "+amountToPay.toLocaleString()+" "+this.state.currentBond.campaign.tokenname+" to "+recipientwallet1+" transferred successfully.", "OK", null, null, null);
+//            if (index === this.state.bondHolders.holders.length) {
               this.hide_loading();
               this.displayModal("Bond coupon payment completed successfully.", "OK", null, null, null);
-  //            }
+//            }
           }) // BondDataService.transferToWallet
           .catch(e => {
             this.hide_loading();
@@ -446,7 +463,7 @@ class Bond extends Component {
               console.log("e->response->data->msg:  ", e.response.data.message);
               console.log(e.message);
               this.displayModal("Bond coupon payment submit failed.\n"+e.response.data.message, null, null, null, "OK");
-  //              window.alert("Bond coupon payment submit failed. "+e.response.data.message, null, null, null, "OK");
+//              window.alert("Bond coupon payment submit failed. "+e.response.data.message, null, null, null, "OK");
                   // Need to check draft and approved bond names
   //            if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
   //              this.displayModal("The Bond submit failed. The new bond name is already used, please use another name.", null, null, null, "OK");
@@ -471,6 +488,7 @@ class Bond extends Component {
     } // if
   } // triggerBondCouponPayment()
   
+
   show_loading() {
     this.setState({isLoading: true});
   }
@@ -500,7 +518,7 @@ class Bond extends Component {
   }
 
   render() {
-    const { underlyingDSGDList, bondHolders, recipientList, currentBond } = this.state;
+    const { underlyingDSGDList, bondHolders, PBMList, recipientList, currentBond, checkerList, approverList } = this.state;
     console.log("Render underlyingDSGDList:", underlyingDSGDList);
     console.log("Render recipientList:", recipientList);
     console.log("Render currentBond:", currentBond);
@@ -520,6 +538,7 @@ class Bond extends Component {
                 </h3>
               </header>
               <div className="edit-form list-row">
+                <h4></h4>
                 <div className="col-md-8">
                   <form autoComplete="off">
                     <div className="form-group">
@@ -580,7 +599,7 @@ class Bond extends Component {
                         id="couponamount"
                         maxLength="255"
                         required
-                        value={(this.state.currentBond.couponToPay ? (this.state.currentBond.couponToPay).toLocaleString() || "" : "")}
+                        value={(this.state.currentBond.couponToPay).toLocaleString() || ""}
                         name="couponamount"
                         autoComplete="off"
                         disabled="true"
@@ -620,9 +639,7 @@ class Bond extends Component {
                     </div>
                     <div className="form-group">
                       <label htmlFor="investors">Investors</label>
-                      {this.state.isBondLoading ? (
-                        <p><i>Loading in progress...</i></p>
-                      ) : Array.isArray(this.state.bondHolders?.holders) && Array.isArray(this.state.bondHolders?.balances) ? (
+                      {Array.isArray(this.state.bondHolders?.holders) && Array.isArray(this.state.bondHolders?.balances) ? (
                         <>
                           <table style={{ border: '1px solid', width: '100%' }}>
                             <thead>
@@ -653,9 +670,7 @@ class Bond extends Component {
                     </div>
                     <div className="form-group">
                       <label htmlFor="couponDates">Coupon Dates</label>
-                      {this.state.isBondLoading ? (
-                        <p><i>Loading in progress...</i></p>
-                      ) : Array.isArray(this.state.bondHolders?.couponDates) ? (
+                      {Array.isArray(this.state.bondHolders?.couponDates) ? (
                         <>
                           <table style={{ border: '1px solid', width: '100%' }}>
                             <thead>

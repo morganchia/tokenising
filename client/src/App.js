@@ -442,9 +442,9 @@ class App extends Component {
             <Route path="/dvptransact/:id" element={<DvPTransact/>} />
             <Route path="/repo" element={<RepoList/>} />
             <Route path="/repocheckapprove/:id" element={<RepoCheckApprove/>} />
-            <Route path="/reposetallowance/:id" element={<RepoSetAllowance />} />
+            <Route path="/reposetallowance/:address" element={<RepoSetAllowance />} />
             <Route path="/repotrademanager/:id" element={<RepoTradeManager />} />
-            <Route path="/repotransact/:id" element={<RepoTransact/>} />
+            <Route path="/repotransact/:address" element={<RepoTransact/>} />
             <Route path="/pbm" element={<PBMList/>} />
             <Route path="/pbmadd" element={<PBMAdd/>} />
             <Route path="/pbmcheckapprove/:id" element={<PBMCheckApprove/>} />

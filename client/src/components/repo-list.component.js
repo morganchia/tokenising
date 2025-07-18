@@ -359,11 +359,11 @@ refreshList() {
                         +repo1.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
                       </td>
                       <td>
-                        <a href={window.location.origin + "/reposetallowance/" + repo1.id} target="_blank" rel="noreferrer">Set Allowance <i className='bx bx-link-external'></i></a>
+                        <a href={window.location.origin + "/reposetallowance/" + repo1.smartcontractaddress} target="_blank" rel="noreferrer">Set Allowance <i className='bx bx-link-external'></i></a>
                       </td>
                       <td>
                         <Link
-                          to={"/repotransact/" + repo1.draftrepoid}
+                          to={"/repotransact/" + repo1.smartcontractaddress}
                           className="badge badge-warning"
                         >
                            {

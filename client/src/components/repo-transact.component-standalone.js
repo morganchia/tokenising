@@ -1077,7 +1077,7 @@ class Repo extends Component {
       );
     } catch (e) {
       console.error("Render error:", e);
-      return <div>Error rendering component: {e.message}</div>;
+      return null;
     }
   }
 }

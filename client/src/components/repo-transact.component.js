@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
+import { withRouter } from '../common/with-router.js';
 import moment from 'moment';
 import Web3 from 'web3';
 import repoContract_jsonData from '../abis/ERC20TokenRepo.abi.json';
@@ -11,7 +12,7 @@ function getToday() {
   return moment(today).format('YYYY-MM-DD');
 }
 
-class Repo extends Component {
+class RepoTransact extends Component {
   constructor(props) {
     super(props);
     this.showModal_Leave = this.showModal_Leave.bind(this);
@@ -112,6 +113,18 @@ class Repo extends Component {
   }
 
   componentDidMount() {
+
+    console.log("Param address: " , this.props.router.params.address);
+
+    if (this.props.router.params.address && Web3.utils.isAddress(this.props.router.params.address)) {
+      this.setState({
+        currentRepo: {
+          ...this.state.currentRepo,
+          smartcontractaddress: this.props.router.params.address
+        },
+        datachanged: true
+      });
+    }
 
     const loadWeb3 = async () => {
       if (window.ethereum) {
@@ -1079,9 +1092,9 @@ class Repo extends Component {
       );
     } catch (e) {
       console.error("Render error:", e);
-      return <div>Error rendering component: {e.message}</div>;
+      return null;
     }
   }
 }
 
-export default Repo;
+export default withRouter(RepoTransact);
