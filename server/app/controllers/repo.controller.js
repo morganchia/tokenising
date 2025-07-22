@@ -199,9 +199,42 @@ exports.create_review = async (req, res) => {
   console.log("Received for Repo Review:");
   console.log(req.body);
 
-  // Convert SGT to UTC for startdatetime and enddatetime
-  const startdatetimeUTC = moment.tz(req.body.startdatetime, 'Asia/Singapore').utc().toDate();
-  const enddatetimeUTC = moment.tz(req.body.enddatetime, 'Asia/Singapore').utc().toDate();
+  // Validate and convert SGT to UTC for startdatetime and enddatetime
+  let startdatetimeUTC, enddatetimeUTC;
+  try {
+    // Log raw input for debugging
+    console.log("Raw startdatetime:", req.body.startdatetime);
+    console.log("Raw enddatetime:", req.body.enddatetime);
+
+    // Ensure inputs are strings and valid
+    if (!req.body.startdatetime || !req.body.enddatetime) {
+      throw new Error("startdatetime or enddatetime is missing");
+    }
+
+    // Parse inputs as SGT and convert to UTC ISO string
+    const startMoment = moment.tz(req.body.startdatetime, 'Asia/Singapore').utc();
+    const endMoment = moment.tz(req.body.enddatetime, 'Asia/Singapore').utc();
+
+    // Validate parsed dates
+    if (!startMoment.isValid() || !endMoment.isValid()) {
+      throw new Error("Invalid date format for startdatetime or enddatetime");
+    }
+
+    // Format as UTC ISO strings for Sequelize
+    startdatetimeUTC = startMoment.format('YYYY-MM-DD HH:mm:ss');
+    enddatetimeUTC = endMoment.format('YYYY-MM-DD HH:mm:ss');
+
+    // Log converted UTC strings for debugging
+    console.log("Converted startdatetimeUTC (string):", startdatetimeUTC);
+    console.log("Converted enddatetimeUTC (string):", enddatetimeUTC);
+  } catch (error) {
+    console.error("Date conversion error:", error.message);
+    res.status(400).send({
+      message: `Invalid date format: ${error.message}`
+    });
+    return;
+  }
+
 
   await Repo_Draft.update(
     { 
