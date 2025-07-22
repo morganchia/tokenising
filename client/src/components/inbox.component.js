@@ -1,4 +1,5 @@
 import React, { Component } from "react";
+import BridgeDataService from "../services/bridge.service";
 import BondDataService from "../services/bond.service";
 import DvPDataService from "../services/dvp.service";
 import RepoDataService from "../services/repo.service";
@@ -17,6 +18,7 @@ export default class CampaignList extends Component {
     super(props);
 //    this.onChangeSearchName = this.onChangeSearchName.bind(this);
 //    this.searchName = this.searchName.bind(this);
+    this.retrieveBridge = this.retrieveBridge.bind(this);
     this.retrieveBond = this.retrieveBond.bind(this);
     this.retrieveDvP = this.retrieveDvP.bind(this);
     this.retrieveRepo = this.retrieveRepo.bind(this);
@@ -31,6 +33,7 @@ export default class CampaignList extends Component {
 
     this.state = {
       bond: [],
+      bridge: [],
       dvp: [],
       repo: [],
       pbm: [],
@@ -74,6 +77,21 @@ export default class CampaignList extends Component {
           bond: response.data
         });
         console.log("Response data from retrievBond() BondDataService.getAllDraftsByUserId:", response.data);
+      })
+      .catch(e => {
+        console.log(e);
+      });
+    }
+  }
+
+  retrieveBridge(userid) {
+    if (userid !== undefined) {
+      BridgeDataService.getAllDraftsByUserId(userid)
+      .then(response => {
+        this.setState({
+          bridge: response.data
+        });
+        console.log("Response data from retrieveBridge() BridgeDataService.getAllDraftsByUserId:", response.data);
       })
       .catch(e => {
         console.log(e);
@@ -203,6 +221,7 @@ export default class CampaignList extends Component {
 
   refreshList() {
     this.retrieveBond();
+    this.retrieveBridge();
     this.retrieveDvP();
     this.retrieveRepo();
     this.retrievePBM();
@@ -265,6 +284,7 @@ export default class CampaignList extends Component {
     this.setState({ isApprover: (isapprover === undefined? false: true),});
 
     this.retrieveBond(user.id);
+    this.retrieveBridge(user.id);
     this.retrieveDvP(user.id);
     this.retrieveRepo(user.id);
     this.retrievePBM(user.id);
@@ -296,7 +316,7 @@ export default class CampaignList extends Component {
       return <Navigate to={this.state.redirect} />
     }
 
-    const { searchName, bond, dvp, repo, pbm, wrapmint, campaigns, mints, transfers, recipients, CurrentUser } = this.state;
+    const { searchName, bridge, bond, dvp, repo, pbm, wrapmint, campaigns, mints, transfers, recipients, CurrentUser } = this.state;
 
     return (
       <div className="container">
@@ -853,6 +873,162 @@ export default class CampaignList extends Component {
                     null
                   }
 
+                  {(bridge.length > 0)? 
+                    <>
+                      <h5>
+                        <strong>Brdige smart contracts</strong>
+                      </h5>
+                      <table style={{ border:"1px solid"}}>
+                        {(bridge.length > 0)?
+                        <tr>
+                          <th>Action</th>
+                          <th>Name</th>
+                          <th>Source Blockchain</th>
+                          <th>Destination Blockchain</th>
+                          <th>Source Bridge Addr</th>
+                          <th>Destination Bridge Addr</th>
+                          <th>Source Token Symbol</th>
+                          <th>Destination Token Symbol</th>
+                          <th>Source Token Addr</th>
+                          <th>Destination Token Addr</th>
+                          <th>Status</th>
+                          <th>Action</th>
+                        </tr>
+                        : null}
+                        {bridge && bridge.length > 0 &&
+                          bridge.map((bridge1, index) => (
+                            <tr>
+                              <td>{bridge1.txntype===0?"Create":bridge1.txntype===1?"Update":"Delete"}</td>
+                              <td>{bridge1.name}</td>
+                              <td>{(() => {
+                                  switch (bridge1.sourceblockchain) {
+                                    case 80001:
+                                      return 'Polygon Testnet Mumbai (Deprecated)'
+                                    case 80002:
+                                      return 'Polygon Testnet Amoy'
+                                    case 11155111:
+                                      return 'Ethereum Testnet Sepolia'
+                                    case 43113:
+                                      return 'Avalanche Testnet Fuji'
+                                    case 137:
+                                      return 'Polygon Mainnet'
+                                    case 1:
+                                      return 'Ethereum  Mainnet'
+                                    case 43114:
+                                      return 'Avalanche Mainnet'
+                                    default:
+                                      return null
+                                  }
+                                }
+                              )()}
+                              </td>
+                              <td>{(() => {
+                                  switch (bridge1.destblockchain) {
+                                    case 80001:
+                                      return 'Polygon Testnet Mumbai (Deprecated)'
+                                    case 80002:
+                                      return 'Polygon Testnet Amoy'
+                                    case 11155111:
+                                      return 'Ethereum Testnet Sepolia'
+                                    case 43113:
+                                      return 'Avalanche Testnet Fuji'
+                                    case 137:
+                                      return 'Polygon Mainnet'
+                                    case 1:
+                                      return 'Ethereum  Mainnet'
+                                    case 43114:
+                                      return 'Avalanche Mainnet'
+                                    default:
+                                      return null
+                                  }
+                                }
+                              )()}
+                              </td>
+                              <td>
+                                {
+                                    (
+                                      bridge1.sourcebridgesmartcontractaddress &&
+                                        bridge1.sourcebridgesmartcontractaddress !== undefined)
+                                      ? this.shorten(bridge1.sourcebridgesmartcontractaddress)  :null
+                                  }
+                              </td>
+                              <td>
+                                {
+                                    (
+                                      bridge1.destbridgesmartcontractaddress &&
+                                        bridge1.destbridgesmartcontractaddress !== undefined)
+                                      ? this.shorten(bridge1.destbridgesmartcontractaddress)  :null
+                                  }
+                              </td>
+                              <td>
+                                {
+                                    (
+                                      bridge1.sourcetokensymbol &&
+                                        bridge1.sourcetokensymbol !== undefined)
+                                      ? bridge1.sourcetokensymbol :null
+                                  }
+                              </td>
+                              <td>
+                                {
+                                    (
+                                      bridge1.desttokensymbol &&
+                                        bridge1.desttokensymbol !== undefined)
+                                      ? bridge1.desttokensymbol:null
+                                  }
+                              </td>
+                              <td>
+                                {
+                                    (
+                                      bridge1.sourcetokensmartcontractaddress &&
+                                        bridge1.sourcetokensmartcontractaddress !== undefined)
+                                      ? this.shorten(bridge1.sourcetokensmartcontractaddress)  :null
+                                  }
+                              </td>
+                              <td>
+                                {
+                                    (
+                                      bridge1.desttokensmartcontractaddress &&
+                                        bridge1.desttokensmartcontractaddress !== undefined)
+                                      ? this.shorten(bridge1.desttokensmartcontractaddress)  :null
+                                  }
+                              </td>
+                              <td>
+                              {
+                                  bridge1.status === -1? "Rejected pending correction" : 
+                                    (bridge1.status === 0? "Created pending submission":
+                                      (bridge1.status === 1? "Submitted pending checker endorsement":
+                                        (bridge1.status === 2? "Checked pending approval":
+                                          (bridge1.status === 3? "Approved": null)
+                                        )
+                                      )
+                                    )
+                              }
+                              </td>
+                              <td>
+                                <Link
+                                  to={"/bridgecheckapprove/" + bridge1.id}
+                                  className="badge badge-warning"
+                                >
+                                  {
+                                    bridge1.status === -1? "View/Correct Task" : (
+                                      bridge1.status === 0? "View/Submit Task": (
+                                        bridge1.status === 1? "View/Endorse Task": (
+                                          bridge1.status === 2? "View/Approve Task": null
+                                        )
+                                      )
+                                    )
+                                  }
+                                </Link>
+                              </td>
+                            </tr>
+                          ))}
+                      </table>
+                      <br/>
+                      <br/>
+                    </>
+                  : 
+                    null
+                  }
 
                   {(dvp.length > 0)? 
                     <>

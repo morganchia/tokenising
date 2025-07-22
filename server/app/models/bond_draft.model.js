@@ -32,6 +32,9 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.FLOAT,
       allowNull: false
     },
+    issuedate: {
+      type: Sequelize.DATE
+    },
     couponrate: {  
       type: Sequelize.FLOAT,
       allowNull: false
@@ -39,9 +42,6 @@ module.exports = (sequelize, Sequelize) => {
     couponinterval: {  
       type: Sequelize.INTEGER,  
       defaultValue: 0
-    },
-    issuedate: {
-      type: Sequelize.DATE
     },
     maturitydate: {
       type: Sequelize.DATE
@@ -192,9 +192,6 @@ module.exports = (sequelize, Sequelize) => {
     },
     approverComments: {
       type: Sequelize.STRING 
-    },
-    approvedbondid: {
-      type: Sequelize.INTEGER  // reference the id in Pbm table
     },
     createdAt: {
       type: Sequelize.DATE,

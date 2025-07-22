@@ -40,7 +40,9 @@ import CampaignEdit from "./components/campaign-edit.component";
 import CampaignCheckApprove from "./components/campaign-checkapprove.component";
 import CampaignsList from "./components/campaigns-list.component";
 
-import BridgeList from "./components/bridge.component";
+//import BridgeList from "./components/bridge.component";
+import BridgeList from "./components/bridge-list.component";
+import BridgeCheckApprove from "./components/bridge-checkapprove.component";
 
 import BondCouponAllowance from "./components/bond-couponallowance.component";
 import BondCouponTrigger from "./components/bond-coupontrigger.component";
@@ -431,7 +433,11 @@ class App extends Component {
             <Route path="/campaignadd" element={<CampaignAdd/>} />
             <Route path="/campaigncheckapprove/:id" element={<CampaignCheckApprove/>} />
             <Route path="/campaignedit/:id" element={<CampaignEdit/>} />
+{ /*  
             <Route path="/bridge" element={<BridgeList/>} />
+*/ }
+            <Route path="/bridge" element={<BridgeList/>} />
+            <Route path="/bridgecheckapprove/:id" element={<BridgeCheckApprove/>} />
             <Route path="/bond" element={<BondList/>} />
             <Route path="/bondcheckapprove/:id" element={<BondCheckApprove/>} />
             <Route path="/bondcouponallowance/:id" element={<BondCouponAllowance />} />

@@ -105,6 +105,7 @@ class Bond extends Component {
         issuer: "",
         totalsupply: "",
         txntype: 0,
+        status: null, 
         checker: "",
         approver: "",
         checkerComments: "",
@@ -1485,7 +1486,7 @@ class Bond extends Component {
               }
                     
               { 
-                  this.state.isMaker && currentBond.status <= 0 &&  // creating draft or amending draft
+                  this.state.isMaker && currentBond.status !== null && currentBond.status <= 0 &&  // creating draft or amending draft
                         <>
                             <button
                             type="submit"
@@ -1507,9 +1508,9 @@ class Bond extends Component {
                             >
                               Drop Request
                             </button>
+
                         </>
               }
-
               {
                 this.state.isChecker && currentBond.status === 1 && 
                     <button
@@ -1525,8 +1526,8 @@ class Bond extends Component {
                       }
                       Request
                     </button> 
+
               }
-              
               {
                     this.state.isApprover && currentBond.status === 2 &&
                     <button

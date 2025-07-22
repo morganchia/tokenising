@@ -47,6 +47,7 @@ require("./app/routes/transfer.routes")(app);
 require("./app/routes/pbm.routes")(app);
 require("./app/routes/dvp.routes")(app);
 require("./app/routes/bond.routes")(app);
+require("./app/routes/bridge.routes")(app);
 require("./app/routes/repo.routes")(app);
 
 
