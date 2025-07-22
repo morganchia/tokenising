@@ -27,6 +27,7 @@ exports.draftCreate = async (req, res) => {
   console.log("Received for Repo draft Create:");
   console.log(req.body);
 
+
   // Validate and convert SGT to UTC for startdatetime and enddatetime
   let startdatetimeUTC, enddatetimeUTC;
   try {
@@ -34,31 +35,27 @@ exports.draftCreate = async (req, res) => {
     console.log("Raw startdatetime:", req.body.startdatetime);
     console.log("Raw enddatetime:", req.body.enddatetime);
 
-    // Ensure inputs are strings and in a valid format
+    // Ensure inputs are strings and valid
     if (!req.body.startdatetime || !req.body.enddatetime) {
       throw new Error("startdatetime or enddatetime is missing");
     }
 
-    // Parse inputs as SGT, assuming they are in 'YYYY-MM-DDTHH:mm:ss' or ISO format
-    startdatetimeUTC = moment.tz(req.body.startdatetime, 'Asia/Singapore').utc();
-    enddatetimeUTC = moment.tz(req.body.enddatetime, 'Asia/Singapore').utc();
+    // Parse inputs as SGT and convert to UTC ISO string
+    const startMoment = moment.tz(req.body.startdatetime, 'Asia/Singapore').utc();
+    const endMoment = moment.tz(req.body.enddatetime, 'Asia/Singapore').utc();
 
     // Validate parsed dates
-    if (!startdatetimeUTC.isValid() || !enddatetimeUTC.isValid()) {
+    if (!startMoment.isValid() || !endMoment.isValid()) {
       throw new Error("Invalid date format for startdatetime or enddatetime");
     }
 
-    // Log converted UTC dates for debugging
-    console.log("Converted startdatetimeUTC:", startdatetimeUTC.format());
-    console.log("Converted enddatetimeUTC:", enddatetimeUTC.format());
+    // Format as UTC ISO strings for Sequelize
+    startdatetimeUTC = startMoment.format('YYYY-MM-DD HH:mm:ss');
+    enddatetimeUTC = endMoment.format('YYYY-MM-DD HH:mm:ss');
 
-    // Convert to JavaScript Date objects for Sequelize
-    startdatetimeUTC = startdatetimeUTC.toDate();
-    enddatetimeUTC = enddatetimeUTC.toDate();
-
-    // Log final Date objects
-    console.log("Final startdatetimeUTC (Date):", startdatetimeUTC);
-    console.log("Final enddatetimeUTC (Date):", enddatetimeUTC);
+    // Log converted UTC strings for debugging
+    console.log("Converted startdatetimeUTC (string):", startdatetimeUTC);
+    console.log("Converted enddatetimeUTC (string):", enddatetimeUTC);
   } catch (error) {
     console.error("Date conversion error:", error.message);
     res.status(400).send({
@@ -123,7 +120,12 @@ exports.draftCreate = async (req, res) => {
     }, 
   )
   .then(data => {
-    console.log("Repo_draft create:", data);
+    
+    // Log stored values for debugging
+    console.log("Stored startdatetime:", data.startdatetime);
+    console.log("Stored enddatetime:", data.enddatetime);
+    logDataValues("Repo draft created: ", data);
+
     // write to audit
     AuditTrail.create(
       { 
