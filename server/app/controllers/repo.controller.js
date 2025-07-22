@@ -27,9 +27,45 @@ exports.draftCreate = async (req, res) => {
   console.log("Received for Repo draft Create:");
   console.log(req.body);
 
-    // Convert SGT to UTC for startdatetime and enddatetime
-  const startdatetimeUTC = moment.tz(req.body.startdatetime, 'Asia/Singapore').utc().toDate();
-  const enddatetimeUTC = moment.tz(req.body.enddatetime, 'Asia/Singapore').utc().toDate();
+  // Validate and convert SGT to UTC for startdatetime and enddatetime
+  let startdatetimeUTC, enddatetimeUTC;
+  try {
+    // Log raw input for debugging
+    console.log("Raw startdatetime:", req.body.startdatetime);
+    console.log("Raw enddatetime:", req.body.enddatetime);
+
+    // Ensure inputs are strings and in a valid format
+    if (!req.body.startdatetime || !req.body.enddatetime) {
+      throw new Error("startdatetime or enddatetime is missing");
+    }
+
+    // Parse inputs as SGT, assuming they are in 'YYYY-MM-DDTHH:mm:ss' or ISO format
+    startdatetimeUTC = moment.tz(req.body.startdatetime, 'Asia/Singapore').utc();
+    enddatetimeUTC = moment.tz(req.body.enddatetime, 'Asia/Singapore').utc();
+
+    // Validate parsed dates
+    if (!startdatetimeUTC.isValid() || !enddatetimeUTC.isValid()) {
+      throw new Error("Invalid date format for startdatetime or enddatetime");
+    }
+
+    // Log converted UTC dates for debugging
+    console.log("Converted startdatetimeUTC:", startdatetimeUTC.format());
+    console.log("Converted enddatetimeUTC:", enddatetimeUTC.format());
+
+    // Convert to JavaScript Date objects for Sequelize
+    startdatetimeUTC = startdatetimeUTC.toDate();
+    enddatetimeUTC = enddatetimeUTC.toDate();
+
+    // Log final Date objects
+    console.log("Final startdatetimeUTC (Date):", startdatetimeUTC);
+    console.log("Final enddatetimeUTC (Date):", enddatetimeUTC);
+  } catch (error) {
+    console.error("Date conversion error:", error.message);
+    res.status(400).send({
+      message: `Invalid date format: ${error.message}`
+    });
+    return;
+  }
 
 
   // Save Repo draft in the database
