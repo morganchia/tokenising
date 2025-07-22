@@ -5,6 +5,9 @@ const Repo = db.repos;
 const Repo_Draft = db.repos_draft;
 const Op = db.Sequelize.Op;
 const { logDataValues } = require('../utils/logDataValues');
+const moment = require('moment-timezone'); // Added for SGT-to-UTC conversion
+
+
 
 var newcontractaddress = null;
 const adjustdecimals = 18;
@@ -24,6 +27,11 @@ exports.draftCreate = async (req, res) => {
   console.log("Received for Repo draft Create:");
   console.log(req.body);
 
+    // Convert SGT to UTC for startdatetime and enddatetime
+  const startdatetimeUTC = moment.tz(req.body.startdatetime, 'Asia/Singapore').utc().toDate();
+  const enddatetimeUTC = moment.tz(req.body.enddatetime, 'Asia/Singapore').utc().toDate();
+
+
   // Save Repo draft in the database
   await Repo_Draft.create(
     { 
@@ -31,8 +39,8 @@ exports.draftCreate = async (req, res) => {
       description           : req.body.description, 
       
       tradedate             : req.body.tradedate,
-      startdatetime         : req.body.startdatetime,   // sent in datetime in SGT, but this func auto convert and write in UTC
-      enddatetime           : req.body.enddatetime,     // sent in datetime in SGT, but this func auto convert and write in UTC
+      startdatetime         : startdatetimeUTC,   // Store in UTC
+      enddatetime           : enddatetimeUTC,     // Store in UTC
       bondisin              : req.body.bondisin,
       securityLB            : req.body.securityLB,
       nominal               : req.body.nominal,
@@ -88,8 +96,8 @@ exports.draftCreate = async (req, res) => {
         description           : req.body.description, 
         
         tradedate             : req.body.tradedate,
-        startdatetime         : req.body.startdatetime, 
-        enddatetime           : req.body.enddatetime, 
+        startdatetime         : startdatetimeUTC,   // Store in UTC
+        enddatetime           : enddatetimeUTC,     // Store in UTC
         bondisin              : req.body.bondisin,
         securityLB            : req.body.securityLB,
         nominal               : req.body.nominal,
@@ -153,10 +161,16 @@ exports.create_review = async (req, res) => {
   console.log("Received for Repo Review:");
   console.log(req.body);
 
+  // Convert SGT to UTC for startdatetime and enddatetime
+  const startdatetimeUTC = moment.tz(req.body.startdatetime, 'Asia/Singapore').utc().toDate();
+  const enddatetimeUTC = moment.tz(req.body.enddatetime, 'Asia/Singapore').utc().toDate();
+
   await Repo_Draft.update(
     { 
-      checkerComments: req.body.checkerComments,
-      status: 2 // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+      checkerComments : req.body.checkerComments,
+      status          : 2,          // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+      startdatetime   : startdatetimeUTC,   // Store in UTC
+      enddatetime     : enddatetimeUTC,     // Store in UTC
     }, 
     { where: { id: id } }
   )
