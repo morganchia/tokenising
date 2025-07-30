@@ -8,7 +8,7 @@ const { logDataValues } = require('../utils/logDataValues');
 
 var newcontractaddress = null;
 const adjustdecimals = 18;
-const TIMEOUT = 700;
+const TIMEOUT = 60;
 
 function createStringWithZeros(num) { return ("0".repeat(num)); }
 
@@ -74,7 +74,7 @@ exports.draftCreate = async (req, res) => {
   await Bond_Draft.create(
     { 
       name                  : req.body.name,
-//      securityname          : req.body.securityname, 
+      securityname          : req.body.securityname, 
       ISIN                  : req.body.ISIN, 
       tokenname             : req.body.tokenname, 
       tokensymbol           : req.body.tokensymbol, 
@@ -127,7 +127,7 @@ exports.draftCreate = async (req, res) => {
         { 
           action                : "Bond draft "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - created",
           name                  : req.body.name,
-//          securityname          : req.body.securityname, 
+          securityname          : req.body.securityname, 
           ISIN                  : req.body.ISIN, 
           tokenname             : req.body.tokenname, 
           tokensymbol           : req.body.tokensymbol, 
@@ -401,12 +401,24 @@ exports.approveDraftById = async (req, res) => {  //
 
       async function dAppCreate() {
         updatestatus = false;
+
         fs = require("fs");
 
         try {
-          await compileSmartContract();
+//          if (! (fs.existsSync("./server/app/abis/ERC20TokenisedBond.abi.json") && fs.existsSync("./server/app/abis/ERC20TokenisedBond.bytecode.json"))) {
+            await compileSmartContract();
+/*
+          } else{
+            // Just read the ABI file
+            console.log("Bond ABI and Bytecode files are present, just read them, no need to recompile...");
+            console.log("Read Bond ABI JSON file.");
+            ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenisedBond.abi.json").toString());
+            console.log("Read Bond Bytecode JSON file.");
+            bytecode = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenisedBond.bytecode.json").toString());
+          }
+*/
         } catch(err) {
-          console.error("Err7: ",err);
+          console.error("Err7: ",err)
           if (!errorSent) {
             console.log("Sending error 400 back to client");
             res.status(400).send({ 
@@ -416,325 +428,300 @@ exports.approveDraftById = async (req, res) => {  //
           }
           return false;
         }
-            
+        
+        // Creation of Web3 class
         Web3 = require("web3");
+
+        // Setting up a HttpProvider
         web3 = new Web3( 
           Web3.providers.HttpProvider(
             `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
           ) 
         );
+        //console.log("web3: =========>", web3);
 
         console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
-        const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY);
+        // Creating a signing account from a private key
+        const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
+        // console.log("signer:", signer);  // contains private key
+        console.log("req.body.totalsupply = ", req.body.totalsupply);
+
+//        let setToTalSupply = (isNaN(+req.body.totalsupply)? req.body.minttotalsupply: req.body.totalsupply.toString())   
+//        + createStringWithZeros(adjustdecimals);  // pad zeros behind
+//        console.log("setToTalSupply = ", setToTalSupply);
+
+        // convert totalsupply to big number
+        // const BN = require('bn.js');
+        // const totalsupply = new BN(req.body.totalsupply).mul(new BN("1000000000000000000")); 
         const totalSupply = (typeof req.body.totalsupply === 'string' || req.body.totalsupply instanceof String) ? req.body.totalsupply : req.body.totalsupply.toString();
 
-        web3.setProvider(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
+        web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
 
         console.log("Maturitydate (unix time) = ", Number(new Date(req.body.maturitydate)));
         try {
+          // Deploy contract
           const deployContract = async () => {
-            console.log('Attempting to deploy from account:', signer.address);
-            const ERC20TokenisedBondcontract = new web3.eth.Contract(ABI);
+              console.log('Attempting to deploy from account:', signer.address);
+              const ERC20TokenisedBondcontract = new web3.eth.Contract(ABI);
 
-            console.log("Extracting issuer name from id...");
-            const recipient = await Recipients.findByPk(req.body.issuerId || req.body.issuer);
-            console.log('Recipient.findByPk issuer:', recipient);
+              console.log("Extracting issuer name from id...");
+              // Fetch recipient to get issuer name
+              const recipient = await Recipients.findByPk(req.body.issuerId || req.body.issuer);
+              console.log('Recipient.findByPk issuer:', recipient);
 
-            if (!recipient || !recipient.name) {
-              console.error('Error: No valid issuer found for ID:', req.body.issuerId || req.body.issuer);
-              res.status(400).send({
-                message: 'Invalid issuer ID or no issuer name found.',
-              });
-              return;
-            }
-
-            console.log('Updated req.body.issuer:', recipient.name);
-
-            const requiredFields = {
-              tokenname: req.body.tokenname,
-              tokensymbol: req.body.tokensymbol,
-              ISIN: req.body.ISIN,
-              facevalue: (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-              couponrate: (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-              couponinterval: (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-              issuedate: req.body.issuedate,
-              maturitydate: req.body.maturitydate,
-              issuer: recipient.name,
-              CashTokensmartcontractaddress: req.body.CashTokensmartcontractaddress,
-              prospectusurl: req.body.prospectusurl,
-              totalsupply: req.body.totalsupply,
-            };
-
-            console.log('Constructor inputs:', requiredFields);
-
-            for (const [key, value] of Object.entries(requiredFields)) {
-              if (value === null || value === undefined) {
-                console.error(`Error: ${key} is ${value}`);
-                if (!errorSent) {
+              if (!recipient || !recipient.name) {
+                  console.error('Error: No valid issuer found for ID:', req.body.issuerId || req.body.issuer);
                   res.status(400).send({
-                    message: `Invalid input: ${key} cannot be ${value}. Please provide a valid value.`,
+                      message: 'Invalid issuer ID or no issuer name found.',
                   });
-                  errorSent = true;
-                }
-                return false;
-              }
-            }
-
-            const stringFields = ['tokenname', 'tokensymbol', 'ISIN', 'issuer', 'prospectusurl'];
-            for (const field of stringFields) {
-              if (typeof requiredFields[field] !== 'string' || requiredFields[field].trim() === '') {
-                console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
-                if (!errorSent) {
-                  res.status(400).send({
-                    message: `Invalid input: ${field} must be a non-empty string.`,
-                  });
-                  errorSent = true;
-                }
-                return false;
-              }
-            }
-
-            const numericFields = ['facevalue', 'totalsupply'];
-            for (const field of numericFields) {
-              const value = Number(requiredFields[field]);
-              if (isNaN(value) || value <= 0) {
-                console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
-                if (!errorSent) {
-                  res.status(400).send({
-                    message: `Invalid input: ${field} must be a positive number.`,
-                  });
-                  errorSent = true;
-                }
-                return false;
-              }
-            }
-
-            if (isNaN(req.body.couponrate) || req.body.couponrate < 0) {
-              console.log("Coupon rate is invalid: ", req.body.couponrate);
-              if (!errorSent) {
-                res.status(400).send({
-                  message: `Invalid input: couponrate must be a positive number.`,
-                });
-                errorSent = true;
-              }
-              return false;
-            }
-
-            if (isNaN(req.body.couponinterval) || req.body.couponinterval < 0) {
-              console.log("Coupon interval is invalid: ", req.body.couponinterval);
-              if (!errorSent) {
-                res.status(400).send({
-                  message: "Coupon interval must be 0 or positive."
-                });
-                errorSent = true;
-              }
-              return false;
-            }
-
-            if (req.body.couponinterval === 0 && req.body.couponrate > 0) {
-              console.log("Coupon interval is zero but coupon rate is positive: ", req.body.couponinterval);
-              if (!errorSent) {
-                res.status(400).send({
-                  message: "Coupon interval is zero but coupon rate is positive.",
-                });
-                errorSent = true;
-              }
-              return false;
-            }
-
-            if (!web3.utils.isAddress(requiredFields.CashTokensmartcontractaddress)) {
-              console.error(`Error: Invalid CashTokensmartcontractaddress: ${requiredFields.CashTokensmartcontractaddress}`);
-              if (!errorSent) {
-                res.status(400).send({
-                  message: 'Invalid input: CashTokensmartcontractaddress must be a valid Ethereum address.',
-                });
-                errorSent = true;
-              }
-              return false;
-            }
-
-            const issueDate = Number(new Date(req.body.issuedate));
-            const maturityDate = Number(new Date(req.body.maturitydate));
-            if (isNaN(issueDate) || isNaN(maturityDate) || maturityDate <= issueDate) {
-              console.error(`Error: Invalid dates - issueDate: ${req.body.issuedate}, maturityDate: ${req.body.maturitydate}`);
-              if (!errorSent) {
-                res.status(400).send({
-                  message: 'Invalid input: Dates must be valid and maturity date must be after issue date.',
-                });
-                errorSent = true;
-              }
-              return false;
-            }
-
-            const bondConfig = [
-              req.body.tokenname,
-              req.body.tokensymbol,
-              req.body.ISIN,
-              scaleToWei(req.body.facevalue),
-              scaleCouponRate(req.body.couponrate),
-              (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-              Math.floor(Number(new Date(req.body.issuedate)) / 1000),
-              Math.floor(Number(new Date(req.body.maturitydate)) / 1000),
-              recipient.name,
-              scaleToWei(totalSupply),
-              req.body.CashTokensmartcontractaddress,
-              req.body.prospectusurl,
-            ];
-
-            console.log('BondConfig:', bondConfig);
-
-
-
-            let gasFees = await retryWithBackoff(() => ERC20TokenisedBondcontract.deploy({
-              data: bytecode,
-              arguments: [bondConfig],
-            })
-            .estimateGas({ from: signer.address })
-            .then((gasAmount) => {
-              console.log("Estimated gas amount for signTransaction: ", gasAmount);
-              return gasAmount;
-            })
-            .catch((error2) => {
-              console.log("Error while estimating Gas fee: ", error2);
-              return 2100000;
-            }));
-
-            console.log("Initial estimated gas fee: ", gasFees);
-
-            const balance = await web3.eth.getBalance(signer.address);
-            console.log("Signer balance:", web3.utils.fromWei(balance, "ether"), "ETH");
-            if (web3.utils.toBN(balance).lt(web3.utils.toBN(gasFees).mul(web3.utils.toBN("1000000000")))) {
-              res.status(400).send({ message: "Insufficient funds for gas." });
-              return false;
-            }
-
-            const contractTx = await retryWithBackoff(() => ERC20TokenisedBondcontract.deploy({
-              data: bytecode,
-              arguments: [bondConfig],
-            }));
-
-            const nonce = await web3.eth.getTransactionCount(signer.address, "pending");
-            console.log("Using nonce:", nonce);
-
-            let gasMultiplier = 1.1; // Initial 10% increase
-            const gasIncreaseInterval = 15000; // 15 seconds in milliseconds
-            const maxWaitTime = TIMEOUT * 1000; // 700 seconds in milliseconds
-            let startTime = Date.now();
-
-            const attemptTransaction = async () => {
-              const currentGas = Math.floor(gasFees * gasMultiplier);
-              console.log(`Attempting transaction with gas: ${currentGas} (multiplier: ${gasMultiplier})`);
-
-              const createTransaction = await retryWithBackoff(() => web3.eth.accounts.signTransaction(
-                {
-                  from: signer.address,
-                  data: contractTx.encodeABI(),
-                  gas: currentGas,
-                  nonce: nonce
-                },
-                signer.privateKey
-              ));
-
-              console.log('Sending signed txn...');
-              return new Promise((resolve, reject) => {
-                let timer = 0;
-                const interval = setInterval(async () => {
-                  if (Date.now() - startTime > maxWaitTime) {
-                    clearInterval(interval);
-                    reject(new Error(`Timeout after ${TIMEOUT} seconds`));
-                    return;
-                  }
-
-                  if (timer % gasIncreaseInterval === 0 && timer > 0) {
-                    gasMultiplier += 0.05; // Increase gas by 5%
-                    console.log(`Increasing gas multiplier to ${gasMultiplier}`);
-                    const newGas = Math.floor(gasFees * gasMultiplier);
-                    const newTransaction = await retryWithBackoff(() => web3.eth.accounts.signTransaction(
-                      {
-                        from: signer.address,
-                        data: contractTx.encodeABI(),
-                        gas: newGas,
-                        nonce: nonce
-                      },
-                      signer.privateKey
-                    ));
-                    web3.eth.sendSignedTransaction(newTransaction.rawTransaction, (error1, hash) => {
-                      if (error1) {
-                        console.log("Error when submitting signed transaction:", error1);
-                        clearInterval(interval);
-                        reject(error1);
-                      } else {
-                        console.log("Txn sent!, hash: ", hash);
-                        handleReceipt(hash, interval, resolve, reject);
-                      }
-                    });
-                  }
-
-                  timer += 1000;
-                }, 1000);
-
-                web3.eth.sendSignedTransaction(createTransaction.rawTransaction, (error1, hash) => {
-                  if (error1) {
-                    console.log("Error when submitting initial signed transaction:", error1);
-                    if (timer >= gasIncreaseInterval) {
-                      return; // Let interval handle retry
-                    }
-                    clearInterval(interval);
-                    reject(error1);
-                  } else {
-                    console.log("Txn sent!, hash: ", hash);
-                    handleReceipt(hash, interval, resolve, reject);
-                  }
-                });
-              });
-            };
-
-            const handleReceipt = (hash, interval, resolve, reject) => {
-              let receiptTimer = 0;
-              const receiptInterval = setInterval(async () => {
-                if (Date.now() - startTime > maxWaitTime) {
-                  clearInterval(interval);
-                  clearInterval(receiptInterval);
-                  reject(new Error(`Timeout after ${TIMEOUT} seconds`));
                   return;
-                }
-
-                const receipt = await web3.eth.getTransactionReceipt(hash);
-                if (receipt) {
-                  console.log('>> GOT RECEIPT!!!!!!!!!!!!!!!!!!!!!!!');
-                  clearInterval(interval);
-                  clearInterval(receiptInterval);
-                  console.log('Receipt -->>: ', receipt);
-                  const trx = await web3.eth.getTransaction(hash);
-                  console.log('trx.status -->>: ', trx);
-                  newcontractaddress = receipt.contractAddress;
-                  resolve(receipt.status);
-                }
-                receiptTimer += 1000;
-              }, 1000);
-            };
-
-            try {
-              const status = await attemptTransaction();
-              console.log('**** Txn executed:', status);
-              console.log('New Contract deployed at address', newcontractaddress);
-              return true;
-            } catch (err) {
-              console.error("Transaction error:", err);
-              if (!errorSent) {
-                console.log("Sending error 400 back to client");
-                res.status(400).send({
-                  message: err.message || 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
-                });
-                errorSent = true;
               }
-              return false;
-            }
+
+              // Set issuer name in req.body
+              //req.body.issuer = recipient.name;
+              console.log('Updated req.body.issuer:', recipient.name);
+
+                        // Validate inputs
+              const requiredFields = {
+                  tokenname: req.body.tokenname,
+                  tokensymbol: req.body.tokensymbol,
+                  securityname: req.body.securityname,
+                  ISIN: req.body.ISIN,
+                  facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
+                  couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
+                  couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
+                  issuedate: req.body.issuedate,
+                  maturitydate: req.body.maturitydate,
+                  issuer: recipient.name,
+                  CashTokensmartcontractaddress: req.body.CashTokensmartcontractaddress,
+                  prospectusurl: req.body.prospectusurl,
+                  totalsupply: req.body.totalsupply,
+              };
+
+              // Log all inputs for debugging
+              console.log('Constructor inputs:', requiredFields);
+
+              // Check for null or undefined values
+              for (const [key, value] of Object.entries(requiredFields)) {
+                  if (value === null || value === undefined) {
+                      console.error(`Error: ${key} is ${value}`);
+                      if (!errorSent) {
+                          res.status(400).send({
+                              message: `Invalid input: ${key} cannot be ${value}. Please provide a valid value.`,
+                          });
+                          errorSent = true;
+                      }
+                      return false;
+                  }
+              }
+
+              // Validate string fields
+              const stringFields = ['tokenname', 'tokensymbol', 'securityname', 'ISIN', 'issuer', 'prospectusurl'];
+              for (const field of stringFields) {
+                  if (typeof requiredFields[field] !== 'string' || requiredFields[field].trim() === '') {
+                      console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
+                      if (!errorSent) {
+                          res.status(400).send({
+                              message: `Invalid input: ${field} must be a non-empty string.`,
+                          });
+                          errorSent = true;
+                      }
+                      return false;
+                  }
+              }
+
+              // Validate numeric fields
+              const numericFields = ['facevalue', 'couponrate', 'couponinterval', 'totalsupply'];
+              for (const field of numericFields) {
+                  const value = Number(requiredFields[field]);
+                  if (isNaN(value) || value <= 0) {
+                      console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
+                      if (!errorSent) {
+                          res.status(400).send({
+                              message: `Invalid input: ${field} must be a positive number.`,
+                          });
+                          errorSent = true;
+                      }
+                      return false;
+                  }
+              }
+
+              // Validate address
+              if (!web3.utils.isAddress(requiredFields.CashTokensmartcontractaddress)) {
+                  console.error(`Error: Invalid CashTokensmartcontractaddress: ${requiredFields.CashTokensmartcontractaddress}`);
+                  if (!errorSent) {
+                      res.status(400).send({
+                          message: 'Invalid input: CashTokensmartcontractaddress must be a valid Ethereum address.',
+                      });
+                      errorSent = true;
+                  }
+                  return false;
+              }
+
+              // Validate dates
+              const issueDate = Number(new Date(req.body.issuedate));
+              const maturityDate = Number(new Date(req.body.maturitydate));
+              if (isNaN(issueDate) || isNaN(maturityDate) || maturityDate <= issueDate) {
+                  console.error(`Error: Invalid dates - issueDate: ${req.body.issuedate}, maturityDate: ${req.body.maturitydate}`);
+                  if (!errorSent) {
+                      res.status(400).send({
+                          message: 'Invalid input: Dates must be valid and maturity date must be after issue date.',
+                      });
+                      errorSent = true;
+                  }
+                  return false;
+              }              
+
+              // Structure BondConfig as an array
+              const bondConfig = [
+                  req.body.securityname,
+                  req.body.ISIN,
+                  scaleToWei(req.body.facevalue), // Scale faceValue to 10^18
+                  scaleCouponRate(req.body.couponrate), // Scale couponrate to 0.001% units
+                  (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
+                  Math.floor(Number(new Date(req.body.issuedate)) / 1000),    // Convert to seconds from milliseconds
+                  Math.floor(Number(new Date(req.body.maturitydate)) / 1000), // Convert to seconds from milliseconds
+                  recipient.name,
+                  scaleToWei(totalSupply), // Scale totalSupply to 10^18
+                  req.body.CashTokensmartcontractaddress,
+                  req.body.prospectusurl,
+              ];
+
+              console.log('BondConfig:', bondConfig);
+
+              // Estimate gas fee
+              const gasFees = await retryWithBackoff( () => ERC20TokenisedBondcontract.deploy({
+                  data: bytecode,
+                  arguments: [
+                      req.body.tokenname,
+                      req.body.tokensymbol,
+                      bondConfig,
+                  ],
+                })
+                .estimateGas({
+                    from: signer.address,
+                })
+                .then((gasAmount) => {
+                    console.log("Estimated gas amount for signTransaction: ", gasAmount);
+                    return gasAmount;
+                })
+                .catch((error2) => {
+                    console.log("Error while estimating Gas fee: ", error2);
+                    return 2100000; // Default gas limit
+                })
+              );
+              console.log("Estimated gas fee for transfer: ", gasFees);
+
+              const balance = await web3.eth.getBalance(signer.address);
+              console.log("Signer balance:", web3.utils.fromWei(balance, "ether"), "ETH");
+              if (web3.utils.toBN(balance).lt(web3.utils.toBN(gasFees).mul(web3.utils.toBN("1000000000")))) {
+                res.status(400).send({ message: "Insufficient funds for gas." });
+                return false;
+              }
+
+              const contractTx = await retryWithBackoff( () => ERC20TokenisedBondcontract.deploy({
+                  data: bytecode,
+                  arguments: [
+                      req.body.tokenname,
+                      req.body.tokensymbol,
+                      bondConfig,
+                  ],
+                })
+              );
+
+              const nonce = await web3.eth.getTransactionCount(signer.address, "pending");
+              console.log("Using nonce:", nonce);
+              const createTransaction = await retryWithBackoff( () => web3.eth.accounts.signTransaction(
+                  {
+                      from: signer.address,
+                      data: contractTx.encodeABI(),
+                      gas: Math.floor(gasFees * 1.1), // Increase by 10%
+                      nonce: nonce
+                  },
+                  signer.privateKey
+                )
+              );
+              console.log('Sending signed txn 1...');
+
+              const createReceipt = await web3.eth.sendSignedTransaction(
+                  createTransaction.rawTransaction,
+                  function (error1, hash) {
+                      if (error1) {
+                          console.log("Error11a when submitting your signed transaction:", error1);
+                          if (!errorSent) {
+                              console.log("Sending error 400 back to client");
+                              res.status(400).send({
+                                  message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
+                              });
+                              errorSent = true;
+                          }
+                          return false;
+                      } else {
+                          console.log("Txn sent!, hash: ", hash);
+                          var timer = 1;
+                          const interval = setInterval(function () {
+                              console.log("Attempting A to get transaction receipt... (" + timer + ")");
+                              web3.eth.getTransactionReceipt(hash, async function (error3, receipt) {
+                                  if (receipt) {
+                                      console.log('>> GOT RECEIPT!!!!!!!!!!!!!!!!!!!!!!!');
+                                      clearInterval(interval);
+                                      console.log('Receipt -->>: ', receipt);
+                                      const trx = await web3.eth.getTransaction(hash);
+                                      console.log('trx.status -->>: ', trx);
+                                      return receipt.status;
+                                  }
+                                  if (error3) {
+                                      console.log("!! getTransactionReceipt error (1): ", error3);
+                                      clearInterval(interval);
+                                      if (!errorSent) {
+                                          console.log("Sending error 400 back to client");
+                                          res.status(400).send({
+                                              message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
+                                          });
+                                          errorSent = true;
+                                      }
+                                      return false;
+                                  }
+                                  if (timer > TIMEOUT) {
+                                      console.log("!! getTransactionReceipt error (1): timeout after " + TIMEOUT.toString() + " seconds");
+                                      clearInterval(interval);
+                                      if (!errorSent) {
+                                          console.log("Sending error 400 back to client");
+                                          res.status(400).send({
+                                              message: "Timeout after " + TIMEOUT.toString() + " seconds, please check the Bond tab after 5 minutes and try again if the Bond isnt created.",
+                                          });
+                                          errorSent = true;
+                                      }
+                                      return false;
+                                  }
+                              });
+                              timer++;
+                          }, 1000);
+                      }
+                  }
+              ).on("error", err => {
+                  console.log("Err22 sentSignedTxn error: ", err);
+                  if (!errorSent) {
+                      console.log("Sending error 400 back to client");
+                      res.status(400).send({
+                          message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
+                      });
+                      errorSent = true;
+                  }
+                  return false;
+              });
+
+              console.log('**** Txn executed:', createReceipt);
+              console.log('New Contract deployed at address', createReceipt.contractAddress);
+              newcontractaddress = createReceipt.contractAddress;
+
+              return true;
           };
 
-          return (await deployContract());
+          return(await deployContract());
+
         } catch(err) {
-          console.error("Err8: ", err);
+          console.error("Err8: ",err)
           if (!errorSent) {
             console.log("Sending error 400 back to client");
             res.status(400).send({ 
@@ -743,7 +730,9 @@ exports.approveDraftById = async (req, res) => {  //
             errorSent = true;
           }
           return false;
-        }        
+        }  // try catch
+
+
       } //dAppCreate
 
       async function dAppUpdate() {
@@ -791,7 +780,6 @@ exports.approveDraftById = async (req, res) => {  //
                 from: signer.address,
                 to: req.body.smartcontractaddress,
                 data: ERC20TokenisedBondcontract.methods.updateTotalSupply(
-                        1,  // bondId
                         web3.utils.toBN( setToTalSupply )
                       ).encodeABI(),
                 gas: 8700000, // 4700000,
@@ -892,18 +880,17 @@ exports.approveDraftById = async (req, res) => {  //
     
         }; // UpdateContract()
     
-        return ( await UpdateContract() );
+        return ( await UpdateContract());
       } // dAppUpdate
 
-      
+      /*
       console.log("*** isNewBond = ", isNewBond);
       console.log("*** req.body.smartcontractaddress = ", req.body.smartcontractaddress);
-/*
       res.status(400).send({
         message: "ENDDD!"
       });
       return;
-*/
+      */
 
       if (isNewBond) {   // new bond
         updatestatus = await dAppCreate();
@@ -956,10 +943,10 @@ exports.approveDraftById = async (req, res) => {  //
       await Bond.create( // create Bond in the database !!!!!
         { 
           name                  : req.body.name,
-//          securityname          : req.body.securityname,
+          securityname          : req.body.securityname,
           ISIN                  : req.body.ISIN, 
-          tokenname             : req.body.tokenname, 
-          tokensymbol           : req.body.tokensymbol.toUpperCase(),
+          tokenname             : req.body.tokenname.toUpperCase(), 
+          tokensymbol           : req.body.tokensymbol,
           blockchain            : req.body.blockchain,
 
 //          datafield1_name       : req.body.datafield1_name,
@@ -1008,10 +995,10 @@ exports.approveDraftById = async (req, res) => {  //
       await Bond.update( // update Bond in the database !!!!! 
       { 
         name                  : req.body.name,
-//        securityname          : req.body.securityname,
+        securityname          : req.body.securityname,
         ISIN                  : req.body.ISIN, 
-        tokenname             : req.body.tokenname, 
-        tokensymbol           : req.body.tokensymbol.toUpperCase(),
+        tokenname             : req.body.tokenname.toUpperCase(), 
+        tokensymbol           : req.body.tokensymbol,
         blockchain            : req.body.blockchain,
 
 //        datafield1_name       : req.body.datafield1_name,
@@ -1220,7 +1207,7 @@ exports.triggerBondCouponPaymentById = async (req, res) => {
         }
         */
         // Prepare transaction
-        const contractTx = bondContract.methods.payCoupon(1, lowestUnpaidCouponIndex, holders, amountsHeld);
+        const contractTx = bondContract.methods.payCoupon(lowestUnpaidCouponIndex, holders, amountsHeld);
         const createTransaction = await web3.eth.accounts.signTransaction(
           {
             nonce: nonce,
@@ -1327,10 +1314,10 @@ exports.triggerBondCouponPaymentById = async (req, res) => {
       await AuditTrail.create({
         action: "Bond coupon payment",
         name: bond.name,
-//        securityname: bond.securityname,
+        securityname: bond.securityname,
         ISIN: bond.ISIN,
-        tokenname: bond.tokenname,
-        tokensymbol: bond.tokensymbol?.toUpperCase(),
+        tokenname: bond.tokenname?.toUpperCase(),
+        tokensymbol: bond.tokensymbol,
         blockchain: bond.blockchain,
         facevalue: bond.facevalue,
         couponrate: bond.couponrate,
@@ -1490,7 +1477,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
   
     var inWallet = 0;
     try {
-      const _inWallet = await contract1.methods.balanceOf(1, CONTRACT_OWNER_WALLET).call(); 
+      const _inWallet = await contract1.methods.balanceOf(CONTRACT_OWNER_WALLET).call(); 
       inWallet = await Web3Client.utils.fromWei(_inWallet)
       console.log("In Wallet: ", inWallet);
     } catch (err) {
@@ -1499,7 +1486,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
 
     var totalMinted = 0
     try {
-      const _totalMinted = await contract1.methods._incirculation(1).call(); 
+      const _totalMinted = await contract1.methods._incirculation().call(); 
       totalMinted = await Web3Client.utils.fromWei(_totalMinted)
       console.log("total Minted: ", totalMinted);
     } catch (err) {
@@ -1508,7 +1495,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
 
     var totalSupply = 0
     try {
-      const _totalSupply = await contract1.methods.totalSupply(1).call(); 
+      const _totalSupply = await contract1.methods.totalSupply().call(); 
       totalSupply = await Web3Client.utils.fromWei(_totalSupply) 
       console.log("total Supply: ", totalSupply);
     } catch (err) {
@@ -1924,7 +1911,7 @@ exports.getAllInvestorsById = (req, res) => {
 
           // Fetch config
           console.log("Fetching config from contract...");
-          const config = await retryWithBackoff(() => bondContract.methods.config(1).call());
+          const config = await retryWithBackoff(() => bondContract.methods.config().call());
           console.log("Config fetched:", config);
           faceValue = Number(config.faceValue) / 1e18; // Scale down by 10^18
           couponRate = Number(config.couponRate);  // in basis points
@@ -1933,7 +1920,7 @@ exports.getAllInvestorsById = (req, res) => {
           const issueDate = Number(config.issueDate) * 1000; // Seconds to milliseconds
           const maturityDate = Number(config.maturityDate) * 1000;
           const couponInterval = Number(config.couponInterval) * 1000; // Seconds to milliseconds
-          const couponCount = Number(await retryWithBackoff(() => bondContract.methods.couponCount(1).call()));
+          const couponCount = Number(await retryWithBackoff(() => bondContract.methods.couponCount().call()));
           console.log("couponCount:", couponCount);
           console.log("issueDate (seconds):", config.issueDate, "=>", new Date(issueDate).toISOString());
           console.log("maturityDate (seconds):", config.maturityDate, "=>", new Date(maturityDate).toISOString());
@@ -1945,7 +1932,7 @@ exports.getAllInvestorsById = (req, res) => {
             console.log(`Coupon ${i} date:`, new Date(currentCouponDate).toISOString());
             couponDates.push(new Date(currentCouponDate).toISOString());
             console.log(`Fetching status for coupon ${i}...`);
-            const isPaid = await retryWithBackoff(() => bondContract.methods.isCouponPaid(1, i).call());
+            const isPaid = await retryWithBackoff(() => bondContract.methods.isCouponPaid(i).call());
             couponStatuses.push({ couponIndex: i, date: new Date(currentCouponDate).toISOString(), paid: isPaid });
             if (!isPaid && (lowestUnpaidCouponIndex === null || i < lowestUnpaidCouponIndex)) {
               lowestUnpaidCouponIndex = i;
@@ -2022,9 +2009,9 @@ exports.getAllInvestorsById = (req, res) => {
 
       for (const [address, balance] of Object.entries(holders)) {
         if (!balance.isZero()) {
-          const isBlacklisted = await retryWithBackoff(() => bondContract.methods.isBlacklisted(1, address).call());
+          const isBlacklisted = await retryWithBackoff(() => bondContract.methods.isBlacklisted(address).call());
           if (!isBlacklisted) {
-            const currentBalance = await retryWithBackoff(() => bondContract.methods.balanceOf(1, address).call());
+            const currentBalance = await retryWithBackoff(() => bondContract.methods.balanceOf(address).call());
             if (new web3.utils.BN(currentBalance).gt(new web3.utils.BN(0))) {
               holderAddresses.push(address);
               holderBalances.push(currentBalance);
@@ -2071,10 +2058,10 @@ exports.submitDraftById = async (req, res) => {
   { 
     status                : 1,
     name                  : req.body.name,
-//    securityname          : req.body.securityname,
+    securityname          : req.body.securityname,
     ISIN                  : req.body.ISIN, 
-    tokenname             : req.body.tokenname, 
-    tokensymbol           : req.body.tokensymbol.toUpperCase(),
+    tokenname             : req.body.tokenname.toUpperCase(), 
+    tokensymbol           : req.body.tokensymbol,
     blockchain            : req.body.blockchain,
 
 //    datafield1_name       : req.body.datafield1_name,
@@ -2114,10 +2101,10 @@ exports.submitDraftById = async (req, res) => {
         { 
           action                : "Bond "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - resubmitted",
           name                  : req.body.name,
-//          securityname          : req.body.securityname,
+          securityname          : req.body.securityname,
           ISIN                  : req.body.ISIN, 
-          tokenname             : req.body.tokenname, 
-          tokensymbol           : req.body.tokensymbol.toUpperCase(),
+          tokenname             : req.body.tokenname.toUpperCase(), 
+          tokensymbol           : req.body.tokensymbol,
           blockchain            : req.body.blockchain,
 
 //          datafield1_name       : req.body.datafield1_name,
@@ -2200,10 +2187,10 @@ exports.acceptDraftById = async (req, res) => {
         { 
           action                : "Bond "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - accepted",
           name                  : req.body.name,
-//          securityname          : req.body.securityname,
+          securityname          : req.body.securityname,
           ISIN                  : req.body.ISIN, 
-          tokenname             : req.body.tokenname, 
-          tokensymbol           : req.body.tokensymbol?.toUpperCase(),
+          tokenname             : req.body.tokenname.toUpperCase(), 
+          tokensymbol           : req.body.tokensymbol,
           blockchain            : req.body.blockchain,
 
 //          datafield1_name       : req.body.datafield1_name,
@@ -2286,10 +2273,10 @@ exports.rejectDraftById = async (req, res) => {
         { 
           action                : "Bond "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - rejected",
           name                  : req.body.name,
-//          securityname          : req.body.securityname,
+          securityname          : req.body.securityname,
           ISIN                  : req.body.ISIN, 
-          tokenname             : req.body.tokenname, 
-          tokensymbol           : req.body.tokensymbol.toUpperCase(),
+          tokenname             : req.body.tokenname.toUpperCase(), 
+          tokensymbol           : req.body.tokensymbol,
           blockchain            : req.body.blockchain,
         
 //          datafield1_name       : req.body.datafield1_name,
@@ -2444,7 +2431,6 @@ exports.update = async (req, res) => {
             from: signer.address,
             to: req.body.smartcontractaddress,
             data: ERC20TokenisedBondcontract.methods.updateTotalSupply(
-                    1,  // bondId
                     web3.utils.toBN( setToTalSupply )
                   ).encodeABI(),
             gas: 8700000,  // 4700000,
@@ -2534,13 +2520,13 @@ exports.update = async (req, res) => {
 
   if (updatestatus) {
     await Bond.update(
-      {
+      { 
           name                  : req.body.name,
-//          securityname          : req.body.securityname,
+          securityname          : req.body.securityname,
           ISIN                  : req.body.ISIN, 
   // cant update token name once smart contract is deployed
-  //    tokenname             : req.body.tokenname, 
-  //    tokensymbol           : req.body.tokensymbol.toUpperCase(),
+  //    tokenname             : req.body.tokenname.toUpperCase(), 
+  //    tokensymbol           : req.body.tokensymbol,
         blockchain            : req.body.blockchain,
       
 //        datafield1_name       : req.body.datafield1_name,
@@ -2571,7 +2557,7 @@ exports.update = async (req, res) => {
             { 
               action                : "Bond "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" update request - approved",
               name                  : req.body.name,
-//              securityname          : req.body.securityname, 
+              securityname          : req.body.securityname, 
               ISIN                  : req.body.ISIN, 
               tokenname             : req.body.tokenname, 
               tokensymbol           : req.body.tokensymbol, 
@@ -2675,7 +2661,7 @@ exports.approveDeleteDraftById = async (req, res) => {
         { 
           action                : "Bond "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - deleted",
           name                  : req.body.name,
-//          securityname          : req.body.securityname, 
+          securityname          : req.body.securityname, 
           ISIN                  : req.body.ISIN, 
           tokenname             : req.body.tokenname, 
           tokensymbol           : req.body.tokensymbol, 
@@ -2793,7 +2779,7 @@ exports.dropRequestById = async (req, res) => {
         { 
           action                : "Bond "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - dropped",
           name                  : req.body.name,
-//          securityname          : req.body.securityname, 
+          securityname          : req.body.securityname, 
           ISIN                  : req.body.ISIN, 
           tokenname             : req.body.tokenname, 
           tokensymbol           : req.body.tokensymbol, 

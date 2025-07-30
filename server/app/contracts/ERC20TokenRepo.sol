@@ -389,6 +389,11 @@ contract ERC20TokenRepo {
         );
     }
 
+    // Get contract end date (UTC)
+    function getEndDate() public view returns (uint256) {
+        return endDate;  // return date in UTC i.e. GMT+0
+    }
+
     // Get contract end date adjusted to SGT (UTC+8)
     function getEndDateSGT() public view returns (uint256) {
         return endDate == 0 ? 0 : endDate + 28800; // Add 8 hours to convert UTC to SGT

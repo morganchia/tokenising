@@ -660,7 +660,7 @@ class Bond extends Component {
     if (! validator.isDate(this.state.currentBond.maturitydate)) err += "- End Date is invalid\n";
     if (this.state.currentBond.facevalue === "") err += "- Face value cannot be empty\n";
     if (this.state.currentBond.couponrate === "") err += "- Coupon Rate cannot be empty\n";
-    if (this.state.currentBond.counponinterval === "") err += "- Coupon Interval cannot be empty\n";
+    if (this.state.currentBond.couponinterval === "") err += "- Coupon Interval cannot be empty\n";
     if (this.state.currentBond.issuer === "") err += "- Issuer cannot be empty\n";
     if (this.state.currentBond.totalsupply === "") err += "- TotalSupply cannot be empty\n";
     if (parseInt(this.state.currentBond.totalsupply) <=  0) err += "- TotalSupply must be more than zero\n";
@@ -707,7 +707,7 @@ class Bond extends Component {
   
         var data = {
           name              : (this.state.currentBond.name).trim(),
-          securityname      : (this.state.currentBond.securityname).trim(),
+          securityname      : this.state.currentBond.securityname,
           ISIN              : (this.state.currentBond.ISIN).trim(),
           tokenname         : (this.state.currentBond.tokenname).trim(),
           tokensymbol       : (this.state.currentBond.tokensymbol).trim(),
@@ -749,7 +749,7 @@ class Bond extends Component {
           this.setState({
             id                  : response.data.id,
             name                : (response.data.name).trim(),
-            securityname        : (response.data.securityname).trim(),
+            securityname        : response.data.securityname,
             ISIN                : (response.data.ISIN).trim(),
             tokenname           : (response.data.tokenname).trim(),
             tokensymbol         : (response.data.tokensymbol).trim(),
@@ -1225,13 +1225,6 @@ class Bond extends Component {
                         <option value={HALFYEARLY} selected={currentBond.couponinterval==HALFYEARLY}>Semi Annually</option>
                         <option value={QUARTERLY} selected={currentBond.couponinterval==QUARTERLY}>Quarterly</option>
                         <option value={MONTHLY} selected={currentBond.couponinterval==MONTHLY}>Monthly</option>
-                        {
-                          /*
-                          <option value={WEEKLY} selected={currentBond.couponinterval==WEEKLY}>Weekly (only for testnet)</option>
-                          <option value={DAILY} selected={currentBond.couponinterval==DAILY}>Daily (only for testnet)</option>
-                          <option value={HOURLY} selected={currentBond.couponinterval==HOURLY}>Hourly (only for testnet)</option>
-                          */
-                        }                        
                   </select>
                 </div>
                 <div className="form-group">
@@ -1535,7 +1528,7 @@ class Bond extends Component {
                     className="m-3 btn btn-sm btn-primary"
                     onClick={currentBond.txntype===2? this.deleteDraft: this.approveBond}
                     >
-                      Approve
+                      Approve & Deploy 
                       {
                         (currentBond.txntype===0? " Create ":
                         (currentBond.txntype===1? " Update ":

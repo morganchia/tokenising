@@ -14,7 +14,7 @@ module.exports = (sequelize, Sequelize) => {
     },
     securityname: {
       type: Sequelize.STRING,  // varchar(45)
-      allowNull: false
+      allowNull: true
     },
     ISIN: {
       type: Sequelize.STRING,  // varchar(20)
