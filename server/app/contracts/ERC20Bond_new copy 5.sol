@@ -164,38 +164,6 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
         );
     }
 
-    // Returns all BondConfig parameters
-    function getBondDetails() public view returns (
-        string memory tokenName,
-        string memory tokenSymbol,
-        string memory isinNumber,
-        uint256 faceValue,
-        uint256 couponRate,
-        uint256 couponInterval,
-        uint256 issueDate,
-        uint256 maturityDate,
-        string memory issuer,
-        uint256 totalSupply,
-        address cashToken,
-        string memory prospectusUrl
-    ) {
-        return (
-            config.tokenName,
-            config.tokenSymbol,
-            config.isinNumber,
-            config.faceValue,
-            config.couponRate,
-            config.couponInterval,
-            config.issueDate,
-            config.maturityDate,
-            config.issuer,
-            config.totalSupply,
-            config.cashToken,
-            config.prospectusUrl
-        );
-    }
-
-
     function _validateConfig(BondConfig memory _config) private pure {
         require(bytes(_config.tokenName).length > 0, "Bond: Token name cannot be empty");
         require(bytes(_config.tokenSymbol).length > 0, "Bond: Token symbol cannot be empty");

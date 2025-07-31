@@ -617,7 +617,7 @@ exports.approveDraftById = async (req, res) => {  //
             console.log("Using nonce:", nonce);
 
             let gasMultiplier = 1.1; // Initial 10% increase
-            const gasIncreaseInterval = 15000; // 15 seconds in milliseconds
+            const gasIncreaseInterval = 30000; // 30 seconds in milliseconds
             const maxWaitTime = TIMEOUT * 1000; // 700 seconds in milliseconds
             let startTime = Date.now();
 
@@ -646,7 +646,7 @@ exports.approveDraftById = async (req, res) => {  //
                   }
 
                   if (timer % gasIncreaseInterval === 0 && timer > 0) {
-                    gasMultiplier += 0.05; // Increase gas by 5%
+                    gasMultiplier += 0.15; // Increase gas by 15%, lower than 10% may get "replace transaction underpriced" error
                     console.log(`Increasing gas multiplier to ${gasMultiplier}`);
                     const newGas = Math.floor(gasFees * gasMultiplier);
                     const newTransaction = await retryWithBackoff(() => web3.eth.accounts.signTransaction(
@@ -659,13 +659,17 @@ exports.approveDraftById = async (req, res) => {  //
                       signer.privateKey
                     ));
                     web3.eth.sendSignedTransaction(newTransaction.rawTransaction, (error1, hash) => {
-                      if (error1) {
-                        console.log("Error when submitting signed transaction:", error1);
-                        clearInterval(interval);
-                        reject(error1);
+                      if (error1 && error1.message.includes("replacement transaction underpriced")) {
+                        console.log("Transaction replacement failed: replacement transaction underpriced!");
                       } else {
-                        console.log("Txn sent!, hash: ", hash);
-                        handleReceipt(hash, interval, resolve, reject);
+                        if (error1) {
+                          console.log("Error when submitting signed transaction:", error1);
+                          clearInterval(interval);
+                          reject(error1);
+                        } else {
+                          console.log("Txn sent!, hash: ", hash);
+                          handleReceipt(hash, interval, resolve, reject);
+                        }
                       }
                     });
                   }
