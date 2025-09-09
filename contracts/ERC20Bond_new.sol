@@ -6,6 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"; 
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol"; 
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; 
 
 //import "@openzeppelin/contracts@5.0.2/token/ERC20/ERC20.sol";
 //import "@openzeppelin/contracts@5.0.2/token/ERC20/IERC20.sol";
@@ -13,13 +17,16 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 //import "@openzeppelin/contracts@5.0.2/token/ERC20/extensions/ERC20Pausable.sol";
 //import "@openzeppelin/contracts@5.0.2/utils/Strings.sol";
 
-contract BondToken is ERC20, ERC20Pausable, Ownable {
+contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     // Bond configuration
     struct BondConfig {
-        string securityName;
+        string tokenName; // Token name (e.g., "SGS 2.625 08012032")
+        string tokenSymbol; // Token symbol (e.g., "EAPS")
         string isinNumber;
         uint256 faceValue; // Scaled by 10^18 (e.g., 100.5 * 10^18)
-        uint256 couponRate; // In basis points (e.g., 500 = 5%)
+        uint256 couponRate; // In 0.001% units (e.g., 262500 = 2.625%)
         uint256 couponInterval; // In seconds (e.g., 15768000 for semi-annual)
         uint256 issueDate; // Unix timestamp in seconds
         uint256 maturityDate; // Unix timestamp in seconds
@@ -31,19 +38,19 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
 
     BondConfig public config;
     mapping(address => bool) private _blacklist;
-    mapping(address => bool) private _admins;
+    mapping(address => bool) public admins;
     mapping(uint256 => bool) private _couponPaid;
     uint256 public couponCount;
+    bool public initialized; // Tracks whether bond has been initialized
 
     // Events
     event CouponPaid(address indexed to, uint256 couponpaid, uint256 timestamp, uint256 couponIndex);
-    event Blacklisted(address indexed account);
-    event Unblacklisted(address indexed account);
+    event BlacklistUpdated(address indexed account, bool isBlacklisted);
     event TokensBurned(address indexed account, uint256 amount);
-    event AdminAdded(address indexed account);
-    event AdminRemoved(address indexed account);
+    event AdminUpdated(address indexed admin, bool isAdded);
     event BondConfigUpdated(
-        string securityName,
+        string tokenName,
+        string tokenSymbol,
         string isinNumber,
         uint256 faceValue,
         uint256 couponRate,
@@ -56,41 +63,75 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
         string prospectusUrl
     );
 
-    event DebugUint(string message, uint256 value);
-    event DebugAddress(string message, address addr);
+//    event DebugUint(string message, uint256 value);
+//    event DebugAddress(string message, address addr);
 
-    modifier onlyOwnerOrAdmin() {
-        require(_msgSender() == owner() || _admins[_msgSender()], "Bond: Caller is not owner or admin");
+    modifier onlyAdminOrOwner() {
+        require(msg.sender == owner() || admins[msg.sender], "Bond: Only owner or admin can call this function");
         _;
     }
 
-    constructor(
-        string memory _tokenName,
-        string memory _tokenSymbol,
-        BondConfig memory _config
-    ) ERC20(_tokenName, _tokenSymbol) Ownable(msg.sender) {
-        require(_config.totalSupply > 0, "Bond: Total supply must be greater than zero");
-        _validateConfig(_config);
-        config = _config;
-        if (_config.couponRate > 0 && _config.couponInterval > 0) {
-            uint256 tenure = _config.maturityDate - _config.issueDate;
-            couponCount = tenure / _config.couponInterval + (tenure % _config.couponInterval > 0 ? 1 : 0);
+    // NEW: explicit constants for clarity and correctness 
+    uint256 private constant SECONDS_PER_YEAR = 365 days; 
+    uint256 private constant RATE_DENOMINATOR = 10_000_000; // couponRate in 0.00001% units; 100% = 10,000,000 
+
+    // Constructor accepts only BondConfig to initialize bond during deployment
+    constructor(BondConfig memory _config) ERC20(_config.tokenName, _config.tokenSymbol) Ownable(msg.sender) {
+        // If valid bond parameters are provided, initialize the bond
+        if (
+            _config.totalSupply > 0 &&
+            _config.cashToken != address(0) &&
+            _config.maturityDate > _config.issueDate
+        ) {
+            _validateConfig(_config);
+            config = _config;
+            initialized = true;
+            if (_config.couponRate > 0 && _config.couponInterval > 0) {
+                uint256 tenure = _config.maturityDate - _config.issueDate;
+                couponCount = tenure / _config.couponInterval; // Integer division rounds down
+                if (tenure % _config.couponInterval > 0) {
+                    couponCount += 1; // Add final coupon at maturity if there's a remainder
+                }
+            }
+            _mint(msg.sender, _config.totalSupply);
+            emit BondConfigUpdated(
+                _config.tokenName,
+                _config.tokenSymbol,
+                _config.isinNumber,
+                _config.faceValue,
+                _config.couponRate,
+                _config.couponInterval,
+                _config.issueDate,
+                _config.maturityDate,
+                _config.issuer,
+                _config.totalSupply,
+                _config.cashToken,
+                _config.prospectusUrl
+            );
         }
-        _mint(msg.sender, _config.totalSupply);
     }
 
-    function updateBondConfig(BondConfig memory _config) public onlyOwner {
-        require(_config.totalSupply >= totalSupply(), "Bond: New total supply cannot be less than current supply");
+    // Function to create/initialize bond with parameters, callable only if not initialized
+    function createBond(BondConfig memory _config) public onlyAdminOrOwner {
+        require(!initialized, "Bond: Already initialized");
+        require(_config.totalSupply > 0, "Bond: Total supply must be greater than zero");
+        require(_config.cashToken != address(0), "Bond: Invalid cash token address");
+        require(_config.maturityDate > _config.issueDate, "Bond: Maturity date must be after issue date");
+
         _validateConfig(_config);
         config = _config;
+        initialized = true;
         if (_config.couponRate > 0 && _config.couponInterval > 0) {
             uint256 tenure = _config.maturityDate - _config.issueDate;
-            couponCount = tenure / _config.couponInterval + (tenure % _config.couponInterval > 0 ? 1 : 0);
-        } else {
-            couponCount = 0;
+            couponCount = tenure / _config.couponInterval; // Integer division rounds down
+            if (tenure % _config.couponInterval > 0) {
+                couponCount += 1; // Add final coupon at maturity if there's a remainder
+            }
         }
+        _mint(msg.sender, _config.totalSupply);
         emit BondConfigUpdated(
-            _config.securityName,
+            _config.tokenName,
+            _config.tokenSymbol,
             _config.isinNumber,
             _config.faceValue,
             _config.couponRate,
@@ -104,17 +145,93 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
         );
     }
 
-    function _validateConfig(BondConfig memory _config) private pure {
-        require(_config.maturityDate > _config.issueDate, "Bond: Maturity date must be after issue date");
-        require(_config.couponInterval == 0 || _config.couponRate == 0 || _config.couponInterval >= 1 days, "Bond: Invalid coupon interval");
-        require(_config.cashToken != address(0), "Bond: Invalid cash token address");
-        require(_config.totalSupply > 0, "Bond: Total supply must be greater than zero");
-        // Ensure dates are reasonable (e.g., not beyond year 2100, i.e., 4102444800 seconds)
-        require(_config.issueDate <= 4102444800, "Bond: Issue date too far in future");
-        require(_config.maturityDate <= 4102444800, "Bond: Maturity date too far in future");
+    function updateBondConfig(BondConfig memory _config) public onlyAdminOrOwner {
+        // Enforce metadata immutability to avoid on-chain/off-chain mismatch
+        require(keccak256(bytes(_config.tokenName)) == keccak256(bytes(name())), "Bond: tokenName immutable");
+        require(keccak256(bytes(_config.tokenSymbol)) == keccak256(bytes(symbol())), "Bond: tokenSymbol immutable");
+        require(_config.totalSupply >= totalSupply(), "Bond: New total supply cannot be less than current supply");
+        _validateConfig(_config);
+        config = _config;
+        if (_config.couponRate > 0 && _config.couponInterval > 0) {
+            uint256 tenure = _config.maturityDate - _config.issueDate;
+            couponCount = tenure / _config.couponInterval;
+            if (tenure % _config.couponInterval > 0) {
+                couponCount += 1; // Add final coupon at maturity
+            }
+        } else {
+            couponCount = 0;
+        }
+        emit BondConfigUpdated(
+            _config.tokenName,
+            _config.tokenSymbol,
+            _config.isinNumber,
+            _config.faceValue,
+            _config.couponRate,
+            _config.couponInterval,
+            _config.issueDate,
+            _config.maturityDate,
+            _config.issuer,
+            _config.totalSupply,
+            _config.cashToken,
+            _config.prospectusUrl
+        );
     }
 
-    function mint(address account, uint256 amount) public onlyOwner {
+    // Returns all BondConfig parameters
+    function getBondDetails() public view returns (
+        string memory tokenName,
+        string memory tokenSymbol,
+        string memory isinNumber,
+        uint256 faceValue,
+        uint256 couponRate,
+        uint256 couponInterval,
+        uint256 issueDate,
+        uint256 maturityDate,
+        string memory issuer,
+        uint256 totalSupply,
+        address cashToken,
+        string memory prospectusUrl
+    ) {
+        return (
+            config.tokenName,
+            config.tokenSymbol,
+            config.isinNumber,
+            config.faceValue,
+            config.couponRate,
+            config.couponInterval,
+            config.issueDate,
+            config.maturityDate,
+            config.issuer,
+            config.totalSupply,
+            config.cashToken,
+            config.prospectusUrl
+        );
+    }
+
+    function _validateConfig(BondConfig memory _config) private pure {
+        require(bytes(_config.tokenName).length > 0, "Bond: Token name cannot be empty");
+        require(bytes(_config.tokenSymbol).length > 0, "Bond: Token symbol cannot be empty");
+        require(bytes(_config.isinNumber).length > 0, "Bond: ISIN number cannot be empty");
+        require(_config.maturityDate > _config.issueDate, "Bond: Maturity date must be after issue date");
+        // FIX: coupon rules 
+        // - If couponRate == 0 then couponInterval must be 0
+        // - If couponRate > 0 then couponInterval >= 1 day 
+        if ( _config.couponRate == 0) { 
+            require (_config.couponInterval == 0, "Bond: couponInterval must be 0 when couponRate is 0"); 
+        } else { 
+            require(_config.couponInterval > 1 days, "Bond: couponInterval too short"); 
+        }
+
+//        require(_config.couponInterval == 0 || _config.couponRate == 0 || _config.couponInterval >= 1 days, "Bond: Invalid coupon interval");
+        require(_config.cashToken != address(0), "Bond: Invalid cash token address");
+        require(_config.totalSupply > 0, "Bond: Total supply must be greater than zero");
+        require(_config.issueDate <= 4102444800, "Bond: Issue date too far in future");
+        require(_config.maturityDate <= 4102444800, "Bond: Maturity date too far in future");
+        // NOTE: couponRate is in 0.00001% units; 100% = 10,000,000
+        require(_config.couponRate <= RATE_DENOMINATOR, "Bond: Coupon rate exceeds 100%"); 
+    }
+
+    function mint(address account, uint256 amount) public onlyAdminOrOwner {
         require(totalSupply() + amount <= config.totalSupply, "Bond: Exceeds configured total supply");
         _mint(account, amount);
     }
@@ -151,81 +268,111 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
     }
 
     function _isActionAllowed(address account) private view returns (bool) {
-        return (block.timestamp <= config.maturityDate || _msgSender() == owner() || _admins[_msgSender()]) && !_blacklist[account];
+        return (block.timestamp <= config.maturityDate || msg.sender == owner() || admins[msg.sender]) && !_blacklist[account];
     }
 
-    function pause() public onlyOwner {
+    function pause() public onlyAdminOrOwner {
         _pause();
     }
 
-    function unpause() public onlyOwner {
+    function unpause() public onlyAdminOrOwner {
         _unpause();
     }
 
-    function addAdmin(address account) public onlyOwner {
-        require(account != address(0), "Bond: Cannot add zero address as admin");
-        require(!_admins[account], "Bond: Account is already an admin");
-        _admins[account] = true;
-        emit AdminAdded(account);
+    function manageAdmins(address _admin, bool _add) public onlyOwner {
+        require(_admin != address(0), "Bond: Invalid admin address");
+        require(admins[_admin] != _add, "Bond: Admin status already set");
+        admins[_admin] = _add;
+        emit AdminUpdated(_admin, _add);
     }
 
-    function removeAdmin(address account) public onlyOwner {
-        require(_admins[account], "Bond: Account is not an admin");
-        _admins[account] = false;
-        emit AdminRemoved(account);
+    function manageBlacklist(address _account, bool _add) public onlyAdminOrOwner {
+        require(_account != address(0), "Bond: Cannot blacklist zero address");
+        require(_account != owner(), "Bond: Cannot blacklist owner");
+        require(!admins[_account], "Bond: Cannot blacklist admin");
+        require(_blacklist[_account] != _add, "Bond: Blacklist status already set");
+        _blacklist[_account] = _add;
+        emit BlacklistUpdated(_account, _add);
     }
 
-    function isAdmin(address account) public view returns (bool) {
-        return _admins[account];
+    function isBlacklisted(address account) public view returns (bool) {
+        return _blacklist[account];
     }
 
-    function payCoupon(uint256 couponIndex, address[] calldata holderList, uint256[] calldata amounts) public onlyOwnerOrAdmin {
+    function payCoupon(uint256 couponIndex, address[] calldata holderList, uint256[] calldata amounts) public onlyAdminOrOwner whenNotPaused nonReentrant {
         require(config.couponRate > 0, "Bond: No coupon payments configured");
         require(couponIndex < couponCount, "Bond: Invalid coupon index");
         require(!_couponPaid[couponIndex], "Bond: Coupon already paid");
         require(block.timestamp >= config.issueDate, "Bond: Coupon payment not started");
         require(block.timestamp <= config.maturityDate, "Bond: Bond has matured");
-        require(block.timestamp >= config.issueDate + (couponIndex * config.couponInterval), "Bond: Coupon period not reached");
-        require(holderList.length == amounts.length, "Bond: Invalid input lengths");
+        require(holderList.length == amounts.length, "Bond: Length mismatch");
+
+        // Calculate the expected coupon payment time
+        uint256 couponPaymentTime;
+        if (couponIndex == couponCount - 1 && (config.maturityDate - config.issueDate) % config.couponInterval > 0) {
+            couponPaymentTime = config.maturityDate; // Last coupon at maturity
+        } else {
+            couponPaymentTime = config.issueDate + (couponIndex + 1) * config.couponInterval; // Regular coupons
+        }
+        require(block.timestamp >= couponPaymentTime, "Bond: Coupon period not reached");
+
+        IERC20 cashToken = IERC20(config.cashToken);
+        uint8 bondDec = decimals();
+        uint8 cashDec = IERC20Metadata(config.cashToken).decimals();
+
+        // Pre-cals total expected to fail early if underfunded
+        uint256 totalExpectedCash = 0;
+
+//        uint256 scalingFactor = 10 ** decimals(); // Returns 10^18
+//        emit DebugUint("payCoupon(): scalingFactor is:", scalingFactor);
+//        emit DebugUint("payCoupon(): faceValue", config.faceValue);
+//        emit DebugUint("payCoupon(): couponRate", config.couponRate);
+//        emit DebugUint("payCoupon(): couponInterval is:", config.couponInterval);
+
+        for (uint256 i = 0; i < holderList.length; i++) {
+            // Optional safety: do not pay blacklisted or zero-amount entries
+            if (balanceOf(holderList[i]) == 0 || _blacklist[holderList[i]] || amounts[i] == 0) continue;
+
+            // Sanity: amounts[i] must not exceed current balance (prevents obvious mispayments)
+            require(amounts[i] <= balanceOf(holderList[i]), "Bond: amount exceeds holder balance");
+
+            // expected in bond decimals first 
+            uint256 expectedBond = Math.mulDiv( 
+                amounts[i], 
+                config.couponRate * config.couponInterval, 
+                SECONDS_PER_YEAR * RATE_DENOMINATOR
+            );
+
+            // normalize to cash token decimals 
+            uint256 expectedCash = bondDec == cashDec 
+            ? expectedBond 
+            : Math.mulDiv(expectedBond, 10 ** cashDec, 10 ** bondDec);
+
+            totalExpectedCash += expectedCash;
+        }
+        require(cashToken.balanceOf(address(this)) >= totalExpectedCash, "Bond: Insufficient cash token balance");
 
         _couponPaid[couponIndex] = true;
-        IERC20 cashToken = IERC20(config.cashToken);
-        //uint256 couponPerToken = (config.faceValue * config.couponRate) / 10000;
-        uint256 scalingFactor = 10 ** decimals(); // Returns 10^18
-        //emit DebugUint("payCoupon(): couponPerToken is:", couponPerToken);
-        emit DebugUint("payCoupon(): scalingFactor is:", scalingFactor);
-        emit DebugUint("payCoupon(): faceValue", config.faceValue);
-        emit DebugUint("payCoupon(): couponRate", config.couponRate);
-        emit DebugUint("payCoupon(): couponInterval is:", config.couponInterval);
+
 
         for (uint256 i = 0; i < holderList.length; i++) {
             address holder = holderList[i];
-            if (balanceOf(holder) > 0 && !_blacklist[holder]) {
-                uint256 couponAdjustment = 0;
-                if (config.couponInterval == 31536000) {
-                    couponAdjustment = 12;
-                } else if (config.couponInterval == 15768000) {
-                    couponAdjustment = 6;
-                } else if (config.couponInterval == 7884000) {
-                    couponAdjustment = 3;
-                } else if (config.couponInterval == 2628000) {
-                    couponAdjustment = 1;
-                }
+            if (balanceOf(holder) >0 && !_blacklist[holder] && amounts[i] > 0) {
+                // expected in bond decimals first 
+                uint256 expectedBond = Math.mulDiv( 
+                    amounts[i],
+                    config.couponRate * config.couponInterval, 
+                    SECONDS_PER_YEAR * RATE_DENOMINATOR
+                );
 
-                // Correct formula expectedAmount = (amounts[i]) * (config.couponRate / 10000) * (couponAdjustment / 12);
-                // rearrange to avoid becoming decimals ==> 0
-                uint256 expectedAmount = (amounts[i] * config.couponRate * couponAdjustment) / (12 * 10000);
+                // normalize to cash token decimals 
+                uint256 expectedCash = bondDec == cashDec 
+                    ? expectedBond 
+                    : Math.mulDiv(expectedBond, 10 ** cashDec, 10 ** bondDec);
 
-                emit DebugUint("payCoupon(): balanceOf(holder)", balanceOf(holder));
-                emit DebugUint("payCoupon(): couponAdjustment is:", couponAdjustment);
-                emit DebugUint("payCoupon(): expectedAmount is:", expectedAmount);
-                emit DebugUint("payCoupon(): amounts[i] is:", amounts[i]);
-
-                string memory errormsg2 = string(abi.encodePacked("Bond: Insufficient cash token balance. Balance=", Strings.toString(cashToken.balanceOf(address(this))), ", Required=", Strings.toString(expectedAmount)));
-                require(cashToken.balanceOf(address(this)) >= expectedAmount, errormsg2);
-                require(cashToken.transfer(holder, expectedAmount), "Bond: Cash token transfer failed");
-
-                emit CouponPaid(holder, expectedAmount, block.timestamp, couponIndex);
+                // Safe transfer 
+                cashToken.safeTransfer(holder, expectedCash); 
+                emit CouponPaid(holder, expectedCash, block.timestamp, couponIndex);
             }
         }
     }
@@ -234,8 +381,8 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
         return _couponPaid[couponIndex];
     }
 
-    function burnAllTokens(address[] calldata holderList) public onlyOwnerOrAdmin {
-        require(block.timestamp > config.maturityDate, "Error: Cannot burn before maturity");
+    function burnAllTokens(address[] calldata holderList) public onlyAdminOrOwner {
+        require(block.timestamp > config.maturityDate, "Bond: Cannot burn before maturity");
         for (uint256 i = 0; i < holderList.length; i++) {
             address holder = holderList[i];
             uint256 balance = balanceOf(holder);
@@ -246,22 +393,17 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
         }
     }
 
-    function addToBlacklist(address account) public onlyOwnerOrAdmin {
-        require(account != address(0), "Bond: Cannot blacklist zero address");
-        require(account != owner(), "Bond: Cannot blacklist owner");
-        require(!_admins[account], "Bond: Cannot blacklist admin");
-        _blacklist[account] = true;
-        emit Blacklisted(account);
+    // Owner rescue functions for operational safety 
+    function rescueETH(address payable to, uint256 amount) external onlyOwner { 
+        require(to != address(0), "Bond: zero address");
+        (bool ok, ) = to.call{value: amount}("");
+        require(ok, "Bond: ETH transfer failed");
     }
 
-    function removeFromBlacklist(address account) public onlyOwnerOrAdmin {
-        require(_blacklist[account], "Bond: Account not blacklisted");
-        _blacklist[account] = false;
-        emit Unblacklisted(account);
-    }
-
-    function isBlacklisted(address account) public view returns (bool) {
-        return _blacklist[account];
+    function rescueERC20(address token, address to, uint256 amount) external onlyOwner { 
+        require(token != address(this), "Bond: cannot rescue BondToken"); 
+        require(to != address(0), "Bond: zero address"); 
+        IERC20(token).safeTransfer(to, amount);
     }
 
     // Override _update to handle both ERC20 and ERC20Pausable
@@ -272,10 +414,10 @@ contract BondToken is ERC20, ERC20Pausable, Ownable {
     }
 
     receive() external payable {
-        revert("Bond: Delegatecall not allowed");
+        revert("Bond: ETH not allowed");
     }
 
     fallback() external payable {
-        revert("Bond: Delegatecall not allowed");
+        revert("Bond: Fallback not allowed");
     }
 }

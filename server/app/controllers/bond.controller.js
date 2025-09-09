@@ -1632,7 +1632,7 @@ exports.getAll = (req, res) => {
         on: {
           id: db.Sequelize.where(db.Sequelize.col("bond.cashTokenID"), "=", db.Sequelize.col("campaign.id")),
         },
-        attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
+        attributes: ['id', 'name', 'tokenname', 'smartcontractaddress', 'blockchain'],
       }
     ]
   },

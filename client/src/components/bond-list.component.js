@@ -228,7 +228,7 @@ export default class BondList extends Component {
                 {(bond.length > 0)?
                 <tr>
                   <th>Bond Name</th>
-                  <th>Token Name</th>
+                  <th>Token Symbol</th>
                   <th>Cash Token</th>
                   <th>Blockchain</th>
                   <th>Issue Date</th>
@@ -251,7 +251,7 @@ export default class BondList extends Component {
                   bond.map((bond1, index) => (
                     <tr>
                       <td>{bond1.name}</td>
-                      <td>{bond1.tokenname}</td>
+                      <td>{bond1.tokensymbol}</td>
                       <td>{
                             (
                               bond1.campaign &&
