@@ -20,8 +20,8 @@ class Bridge extends Component {
     this.onChangeDestBlockchain = this.onChangeDestBlockchain.bind(this);
     this.onChangeSourceTokenSymbol = this.onChangeSourceTokenSymbol.bind(this);
     this.onChangeDestTokenSymbol = this.onChangeDestTokenSymbol.bind(this);
-    this.onChangeSourceTokenSmartContractAddress = this.onChangeSourceTokenSmartContractAddress.bind(this);
-    this.onChangeDestTokenSmartContractAddress = this.onChangeDestTokenSmartContractAddress.bind(this);
+    this.onChangeSourceToken = this.onChangeSourceToken.bind(this);
+    this.onChangeDestToken = this.onChangeDestToken.bind(this);
     this.onChangeChecker = this.onChangeChecker.bind(this);
     this.onChangeApprover = this.onChangeApprover.bind(this);
     this.onChangeCheckerComments = this.onChangeCheckerComments.bind(this);
@@ -60,8 +60,8 @@ class Bridge extends Component {
         destbridgesmartcontractaddress: "",
         sourceblockchain: "",
         destblockchain: "",
-        sourcetokensmartcontractaddress: "",
-        desttokensmartcontractaddress: "",
+        sourcetokenID: "",
+        desttokenID: "",
 
         txntype: 0,
         status: null,
@@ -249,7 +249,8 @@ class Bridge extends Component {
     });
   }
 
-  onChangeSourceTokenSmartContractAddress(e) {
+  onChangeSourceToken(e) {
+  /*
     const address = e.target.value;
     this.setState({
       datachanged: true
@@ -259,13 +260,38 @@ class Bridge extends Component {
       return {
         currentBridge: {
           ...prevState.currentBridge,
-          sourcetokensmartcontractaddress: address
+          sourcetokenID: address
         }
       };
     });
+  */
+    const underlyingTokenID = e.target.value;
+    console.log("New underlying=", underlyingTokenID);
+    const newBlockchain = underlyingTokenID === "" ? "": this.state.cashTokenList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+    console.log("New blockchain=", newBlockchain);
+    const newUnderlyingDSGDsmartcontractaddress = underlyingTokenID === "" ? "": this.state.cashTokenList.find((ee) => ee.id === parseInt(underlyingTokenID)).smartcontractaddress
+    const newCampaign = this.state.cashTokenList.find((ee) => ee.id === parseInt(underlyingTokenID));
+
+    // when underlying changes, blockchain might change also bccos underlying could be in different blockchain
+    this.setState({
+      datachanged: true
+    });
+    this.setState(function(prevState) {
+      return {
+        currentBridge: {
+          ...prevState.currentBridge,
+          sourcetokenID: underlyingTokenID,
+          sourceblockchain: newBlockchain,
+          sourcetokensmartcontractaddress: newUnderlyingDSGDsmartcontractaddress,
+          campaign: newCampaign,
+        }
+      };
+    });
+    console.log("New currentBridge=", this.state.currentBridge);
   }
 
-  onChangeDestTokenSmartContractAddress(e) {
+  onChangeDestToken(e) {
+/*
     const address = e.target.value;
     this.setState({
       datachanged: true
@@ -275,10 +301,34 @@ class Bridge extends Component {
       return {
         currentBridge: {
           ...prevState.currentBridge,
-          desttokensmartcontractaddress: address
+          desttokenID: address
         }
       };
     });
+*/
+    const underlyingTokenID = e.target.value;
+    console.log("New underlying=", underlyingTokenID);
+    const newBlockchain = underlyingTokenID === "" ? "": this.state.cashTokenList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
+    console.log("New blockchain=", newBlockchain);
+    const newUnderlyingDSGDsmartcontractaddress = underlyingTokenID === "" ? "": this.state.cashTokenList.find((ee) => ee.id === parseInt(underlyingTokenID)).smartcontractaddress
+    const newCampaign = this.state.cashTokenList.find((ee) => ee.id === parseInt(underlyingTokenID));
+
+    // when underlying changes, blockchain might change also bccos underlying could be in different blockchain
+    this.setState({
+      datachanged: true
+    });
+    this.setState(function(prevState) {
+      return {
+        currentBridge: {
+          ...prevState.currentBridge,
+          desttokenID: underlyingTokenID,
+          destblockchain: newBlockchain,
+          desttokensmartcontractaddress: newUnderlyingDSGDsmartcontractaddress,
+          campaign: newCampaign,
+        }
+      };
+    });
+    console.log("New currentBridge=", this.state.currentBridge);
   }
 
   onChangeChecker(e) {
@@ -377,11 +427,8 @@ class Bridge extends Component {
             cashTokenList: [ { id:-1, name:"No campaign available, please create a campaign first."}],
           });
         } else {          
-          var first_array_record = [  // add 1 empty record to front of array which is the option list
-            { }
-          ];
           this.setState({
-            cashTokenList: [first_array_record].concat(response.data)
+            cashTokenList: response.data
           });
         }
       })
@@ -500,8 +547,8 @@ class Bridge extends Component {
           destblockchain    : (this.state.currentBridge.destblockchain).trim(),
           sourcetokensymbol : (this.state.currentBridge.sourcetokensymbol).trim(),
           desttokensymbol   : (this.state.currentBridge.desttokensymbol).trim(),
-          sourcetokensmartcontractaddress: (this.state.currentBridge.sourcetokensmartcontractaddress).trim(),
-          desttokensmartcontractaddress  : (this.state.currentBridge.desttokensmartcontractaddress).trim(),
+          sourcetokenID: (this.state.currentBridge.sourcetokenID).trim(),
+          desttokenID  : (this.state.currentBridge.desttokenID).trim(),
 //          sourcebridgesmartcontractaddress: (this.state.currentBridge.sourcebridgesmartcontractaddress).trim(),
 //          destbridgesmartcontractaddress  : (this.state.currentBridge.destbridgesmartcontractaddress).trim(),
 
@@ -859,6 +906,11 @@ class Bridge extends Component {
     this.setState({ showm: false });
   };
 
+  shorten(s) {
+    return(s.substring(0,6) + "..." + s.slice(-3));
+  }
+
+
   render() {
     const { cashTokenList, recipient, currentBridge, checkerList, approverList } = this.state;
     console.log("Render cashTokenList:", cashTokenList);
@@ -899,6 +951,9 @@ class Bridge extends Component {
                     disabled={!this.state.isMaker || currentBridge.txntype===2 || currentBridge.status > 0 }
                     />
                 </div>
+{/* 
+
+
                 <div className="form-group">
                   <label htmlFor="name">Source Token Symbol *</label>
                   <input
@@ -929,33 +984,65 @@ class Bridge extends Component {
                     disabled={!this.state.isMaker || this.state.currentBridge.txntype===2 || currentBridge.status > 0 }
                     />
                 </div>
+*/}
+
                 <div className="form-group">
-                  <label htmlFor="name">Source Token Address *</label>
-                  <input
-                    type="text"
+                  <label htmlFor="name">Source Token *</label>
+                  <select
+                    onChange={this.onChangeSourceToken}
                     className="form-control"
-                    id="sourcetokensmartcontractaddress"
-                    maxLength="42"
+                    name="sourcetokenID"
+                    id="sourcetokenID"
                     required
-                    value={currentBridge.sourcetokensmartcontractaddress}
-                    onChange={this.onChangeSourceTokenSmartContractAddress}
-                    name="sourcetokensmartcontractaddress"
                     disabled={!this.state.isMaker || this.state.currentBridge.txntype===2 || currentBridge.status > 0 }
-                    />
+                  >
+                    <option value=""> </option>
+                    {
+                      Array.isArray(cashTokenList) ?
+                      cashTokenList.map( (d) => {
+                        // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                          if (typeof d.id === "number" && d.blockchain !== 80001) // no mumbai
+                            return <option value={d.id} selected={d.id === currentBridge.sourcetokenID}>{d.tokenname} ({d.name} - {this.shorten(d.smartcontractaddress)} [{d.blockchain}])</option>
+                        })
+                      : null
+                    }
+{/* 
+
+                    <option value="" disabled>--- PBM ---</option>
+                    {
+                      Array.isArray(PBMList) ?
+                      PBMList.map( (d) => {
+                        // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                          if (typeof d.id === "number")
+                            return <option value={d.id} selected={d.id === currentBridge.sourcetokenID}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                        })
+                      : null
+                    }
+                    
+*/}
+                  </select>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="name">Destination Token Address *</label>
-                  <input
-                    type="text"
+                  <label htmlFor="name">Destination Token *</label>
+                  <select
+                    onChange={this.onChangeDestToken}
                     className="form-control"
-                    id="desttokensymbol"
-                    maxLength="42"
+                    name="desttokenID"
+                    id="desttokenID"
                     required
-                    value={currentBridge.desttokensmartcontractaddress}
-                    onChange={this.onChangeDestTokenSmartContractAddress}
-                    name="desttokensmartcontractaddress"
-                    disabled={!this.state.isMaker || this.state.currentBridge.txntype===2 || currentBridge.status > 0 }
-                    />
+                    disabled={!this.state.isMaker || this.state.currentBridge.txntype===2 || currentBridge.status > 0 || currentBridge.sourcetokenID===null || currentBridge.sourcetokenID==="" }
+                  >
+                    <option value=""> </option>
+                    {
+                      Array.isArray(cashTokenList) ?
+                      cashTokenList.map( (d) => {
+                        // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
+                          if (typeof d.id === "number" && d.blockchain !== currentBridge.sourceblockchain && d.blockchain !== 80001) // no mumbai
+                            return <option value={d.id} selected={d.id === currentBridge.desttokenID}>{d.tokenname} ({d.name} - {this.shorten(d.smartcontractaddress)} [{d.blockchain}])</option>
+                        })
+                      : null
+                    }
+                  </select>
                 </div>
                 <div className="form-group">
                   <label htmlFor="sourceblockchain">Source Blockchain *</label>
@@ -963,7 +1050,7 @@ class Bridge extends Component {
                         onChange={this.onChangeSourceBlockchain}                         
                         className="form-control"
                         id="sourceblockchain"
-                        disabled={!this.state.isMaker || this.state.currentBridge.txntype===2 || currentBridge.status > 0 }
+                        disabled={true}
                         >
                         <option >   </option>
                         <option value="80002"  selected={currentBridge ? currentBridge.sourceblockchain === 80002 : this.state.blockchain === 80002}>Polygon   Testnet Amoy</option>
@@ -981,7 +1068,7 @@ class Bridge extends Component {
                         onChange={this.onChangeDestBlockchain}                         
                         className="form-control"
                         id="destblockchain"
-                        disabled={!this.state.isMaker || this.state.currentBridge.txntype===2 || currentBridge.status > 0 }
+                        disabled={true}
                         >
                         <option >   </option>
                         <option value="80002"  selected={currentBridge ? currentBridge.destblockchain === 80002 : this.state.blockchain === 80002}>Polygon   Testnet Amoy</option>
