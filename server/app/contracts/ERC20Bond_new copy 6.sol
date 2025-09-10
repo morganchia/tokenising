@@ -71,20 +71,9 @@ contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
         _;
     }
 
-    modifier ifActionAllowed(address account) {
-        require(
-            (block.timestamp <= config.maturityDate || msg.sender == owner() || admins[msg.sender]) && 
-            !_blacklist[account], 
-            "Bond: Action restricted"
-        );
-        _;
-    }
-
-
     // NEW: explicit constants for clarity and correctness 
     uint256 private constant SECONDS_PER_YEAR = 365 days; 
     uint256 private constant RATE_DENOMINATOR = 10_000_000; // couponRate in 0.00001% units; 100% = 10,000,000 
-    uint256 private constant FUTURE_DATE = 4102444800; 
 
     // Constructor accepts only BondConfig to initialize bond during deployment
     constructor(BondConfig memory _config) ERC20(_config.tokenName, _config.tokenSymbol) Ownable(msg.sender) {
@@ -236,8 +225,8 @@ contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
 //        require(_config.couponInterval == 0 || _config.couponRate == 0 || _config.couponInterval >= 1 days, "Bond: Invalid coupon interval");
         require(_config.cashToken != address(0), "Bond: Invalid cash token address");
         require(_config.totalSupply > 0, "Bond: Total supply must be greater than zero");
-        require(_config.issueDate <= FUTURE_DATE, "Bond: Issue date too far in future");
-        require(_config.maturityDate <= FUTURE_DATE, "Bond: Maturity date too far in future");
+        require(_config.issueDate <= 4102444800, "Bond: Issue date too far in future");
+        require(_config.maturityDate <= 4102444800, "Bond: Maturity date too far in future");
         // NOTE: couponRate is in 0.00001% units; 100% = 10,000,000
         require(_config.couponRate <= RATE_DENOMINATOR, "Bond: Coupon rate exceeds 100%"); 
     }
@@ -247,24 +236,39 @@ contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
         _mint(account, amount);
     }
 
-    function transfer(address recipient, uint256 amount) public override whenNotPaused ifActionAllowed(_msgSender()) ifActionAllowed(recipient) returns (bool) {
+    function transfer(address recipient, uint256 amount) public override whenNotPaused returns (bool) {
+        require(_isActionAllowed(_msgSender()), "Bond: Action restricted");
+        require(_isActionAllowed(recipient), "Bond: Action restricted");
         return super.transfer(recipient, amount);
     }
 
-    function transferFrom(address sender, address recipient, uint256 amount) public override whenNotPaused ifActionAllowed(sender) ifActionAllowed(recipient) returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public override whenNotPaused returns (bool) {
+        require(_isActionAllowed(sender), "Bond: Action restricted");
+        require(_isActionAllowed(recipient), "Bond: Action restricted");
         return super.transferFrom(sender, recipient, amount);
     }
 
-    function approve(address spender, uint256 amount) public override whenNotPaused ifActionAllowed(_msgSender()) returns (bool) {
+    function approve(address spender, uint256 amount) public override whenNotPaused returns (bool) {
+        require(_isActionAllowed(_msgSender()), "Bond: Action restricted");
         return super.approve(spender, amount);
     }
 
-    function increaseAllowance(address spender, uint256 addedValue) public override whenNotPaused ifActionAllowed(_msgSender()) returns (bool) {
-        return super.increaseAllowance(spender, addedValue);
+    function increaseAllowance(address spender, uint256 addedValue) public whenNotPaused returns (bool) {
+        require(_isActionAllowed(_msgSender()), "Bond: Action restricted");
+        _approve(_msgSender(), spender, allowance(_msgSender(), spender) + addedValue);
+        return true;
     }
 
-    function decreaseAllowance(address spender, uint256 subtractedValue) public override whenNotPaused ifActionAllowed(_msgSender()) returns (bool) {
-        return super.decreaseAllowance(spender, subtractedValue);
+    function decreaseAllowance(address spender, uint256 subtractedValue) public whenNotPaused returns (bool) {
+        require(_isActionAllowed(_msgSender()), "Bond: Action restricted");
+        uint256 currentAllowance = allowance(_msgSender(), spender);
+        require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+        _approve(_msgSender(), spender, currentAllowance - subtractedValue);
+        return true;
+    }
+
+    function _isActionAllowed(address account) private view returns (bool) {
+        return (block.timestamp <= config.maturityDate || msg.sender == owner() || admins[msg.sender]) && !_blacklist[account];
     }
 
     function pause() public onlyAdminOrOwner {
@@ -403,10 +407,11 @@ contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
     }
 
     // Override _update to handle both ERC20 and ERC20Pausable
-    function _update(address from, address to, uint256 amount) internal override(ERC20, ERC20Pausable) ifActionAllowed(from) ifActionAllowed(to) {
+    function _update(address from, address to, uint256 amount) internal override(ERC20, ERC20Pausable) {
+        require(_isActionAllowed(from), "Bond: Action restricted");
+        require(_isActionAllowed(to), "Bond: Action restricted");
         super._update(from, to, amount);
     }
-
 
     receive() external payable {
         revert("Bond: ETH not allowed");
