@@ -72,14 +72,15 @@ contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
     }
 
     modifier ifActionAllowed(address account) {
-        require(
-            (block.timestamp <= config.maturityDate || msg.sender == owner() || admins[msg.sender]) && 
-            !_blacklist[account], 
-            "Bond: Action restricted"
-        );
+        if (account != address(0)) { // Skip for minting/burning
+            require(
+                (block.timestamp <= config.maturityDate || msg.sender == owner() || admins[msg.sender]) && 
+                !_blacklist[account], 
+                "Bond: Action restricted"
+            );
+        }
         _;
     }
-
 
     // NEW: explicit constants for clarity and correctness 
     uint256 private constant SECONDS_PER_YEAR = 365 days; 
@@ -259,12 +260,16 @@ contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
         return super.approve(spender, amount);
     }
 
-    function increaseAllowance(address spender, uint256 addedValue) public override whenNotPaused ifActionAllowed(_msgSender()) returns (bool) {
-        return super.increaseAllowance(spender, addedValue);
+    function increaseAllowance(address spender, uint256 addedValue) public whenNotPaused ifActionAllowed(_msgSender()) returns (bool) {
+        _approve(_msgSender(), spender, allowance(_msgSender(), spender) + addedValue);
+        return true;
     }
 
-    function decreaseAllowance(address spender, uint256 subtractedValue) public override whenNotPaused ifActionAllowed(_msgSender()) returns (bool) {
-        return super.decreaseAllowance(spender, subtractedValue);
+    function decreaseAllowance(address spender, uint256 subtractedValue) public whenNotPaused ifActionAllowed(_msgSender()) returns (bool) {
+        uint256 currentAllowance = allowance(_msgSender(), spender);
+        require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+        _approve(_msgSender(), spender, currentAllowance - subtractedValue);
+        return true;
     }
 
     function pause() public onlyAdminOrOwner {
