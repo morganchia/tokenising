@@ -334,7 +334,7 @@ exports.approveDraftById = async (req, res) => {
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
-  console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+  console.log("!!!1 Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
 
   async function compileSmartContract() {
     solc = require("solc");
@@ -448,7 +448,7 @@ exports.approveDraftById = async (req, res) => {
       return false;
     }
 
-    console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+    console.log("!!!2 Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
     const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
     console.log("req.body = ", req.body);
 
@@ -511,24 +511,25 @@ exports.approveDraftById = async (req, res) => {
         const startDateTimeUTC = startDateTimeSGT - SGT_OFFSET;
         const maturityDateTimeUTC = maturityDateTimeSGT - SGT_OFFSET;
 
-        const tradeInput = {
-          startDateTime: startDateTimeUTC,
-          maturityDateTime: maturityDateTimeUTC,
-          bondIsin: req.body.bondisin,
-          counterparty1RepoType: (req.body.securityLB === "B" ? 0 : 1), // RepoType: 0=Repo, 1=ReverseRepo
-          bondAmount: (req.body.securityLB === "B" ? this_amount1 : this_amount2),
-          startAmount: web3.utils.toWei(req.body.startamount.toString(), 'ether'),
-          interestAmount: web3.utils.toWei(req.body.interestamount.toString(), 'ether'),
-          cashAmount: (req.body.securityLB === "B" ? this_amount2 : this_amount1),
-          counterparty1: req.body.counterparty1,
-          counterparty2: req.body.counterparty2,
-          cashToken: (req.body.securityLB === "B" ? req.body.smartcontractaddress2 : req.body.smartcontractaddress1),
-          bondToken: (req.body.securityLB === "B" ? req.body.smartcontractaddress1 : req.body.smartcontractaddress2),
-        };
+        const tradeInputArray = [
+          startDateTimeUTC,
+          maturityDateTimeUTC,
+          req.body.bondisin,
+          (req.body.securityLB === "B" ? 0 : 1), // RepoType: 0=Repo, 1=ReverseRepo
+          (req.body.securityLB === "B" ? this_amount1 : this_amount2),
+          web3.utils.toWei(req.body.startamount.toString(), 'ether'),
+          web3.utils.toWei(req.body.interestamount.toString(), 'ether'),
+          (req.body.securityLB === "B" ? this_amount2 : this_amount1),
+          req.body.counterparty1,
+          req.body.counterparty2,
+          (req.body.securityLB === "B" ? req.body.smartcontractaddress2 : req.body.smartcontractaddress1),
+          (req.body.securityLB === "B" ? req.body.smartcontractaddress1 : req.body.smartcontractaddress2),
+        ];
 
+        console.log('Trade input array:', tradeInputArray);
         console.log('Attempting to deploy from account:', signer.address);
         let nonce = await web3.eth.getTransactionCount(signer.address, "pending");
-        const deployTx = ERC20TokenRepoContract.deploy({ data: bytecode, arguments: [tradeInput] });  
+        const deployTx = ERC20TokenRepoContract.deploy({ data: bytecode, arguments: [tradeInputArray] });
         let gasFees;
         try {
           gasFees = await deployTx.estimateGas({ from: signer.address });
@@ -635,26 +636,29 @@ exports.approveDraftById = async (req, res) => {
 
     Web3 = require("web3");
 
-    web3 = new Web3( 
-      Web3.providers.HttpProvider(
-        `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
-      ) 
-    );
+    // Initialize Web3 with the provider
+    const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;
+    const web3 = new Web3(new Web3.providers.HttpProvider(providerUrl));
 
-    console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+    console.log("!!!3 Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
     const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
 
     const UpdateContract = async () => {
       try {
         console.log('Creating Repo contract with ABI');
-        const ERC20TokenRepoContract = new web3.eth.Contract(ABI);
+        const ERC20TokenRepoContract = new web3.eth.Contract(ABI, req.body.smartcontractaddress);
 
-        let setToTalSupply = (isNaN(+req.body.amount) ? req.body.amount : req.body.amount.toString()) + createStringWithZeros(adjustdecimals);
-        console.log("Repo setToTalSupply = ", setToTalSupply);
+        // Validate req.body.amount
+        if (!req.body.amount || isNaN(parseFloat(req.body.amount))) {
+          throw new Error("Invalid or missing amount in request body");
+        }
+
+        let setTotalSupply = req.body.amount.toString() + createStringWithZeros(adjustdecimals);
+        console.log("Repo setTotalSupply = ", setTotalSupply);
 
         console.log('**** Signing update txn('+signer.address+','+req.body.amount );
         const nonce = await web3.eth.getTransactionCount(signer.address, "latest"); // Store original nonce
-        const contractTx = ERC20TokenRepoContract.methods.updateTotalSupply(web3.utils.toBN(setToTalSupply));
+        const contractTx = ERC20TokenRepoContract.methods.updateTotalSupply(web3.utils.toBN(setTotalSupply));
         let gasFees;
         try {
           gasFees = await contractTx.estimateGas({ from: signer.address });
@@ -687,9 +691,7 @@ exports.approveDraftById = async (req, res) => {
                 console.log("Error111 submitting your signed transaction:", error1);
                 if (!errorSent) {
                   console.log("Sending error 400 back to client");
-                  res.status(400).send({ 
-                    message: error1.toString().replace('*', ''),
-                  });
+                  res.status(400).send({ message: error1.toString().replace('*', '')});
                   errorSent = true;
                 }
                 return false;
@@ -715,9 +717,7 @@ exports.approveDraftById = async (req, res) => {
                       clearInterval(interval);
                       if (!errorSent) {
                         console.log("Sending error 400 back to client");
-                        res.status(400).send({ 
-                          message: error3.toString().replace('*', ''),
-                        });
+                        res.status(400).send({ message: error3.toString().replace('*', '') });
                         errorSent = true;
                       }
                       return false;
@@ -752,9 +752,7 @@ exports.approveDraftById = async (req, res) => {
               console.log("sentSignedTxn error2: ", err);
               if (!errorSent) {
                 console.log("Sending error 400 back to client");
-                res.status(400).send({ 
-                  message: err.toString().replace('*', ''),
-                });
+                res.status(400).send({ message: err.toString().replace('*', '') });
                 errorSent = true;
               }
               return false;
@@ -766,9 +764,7 @@ exports.approveDraftById = async (req, res) => {
         console.log('Error4 encountered -->: ', error);
         if (!errorSent) {
           console.log("Sending error 400 back to client");
-          res.status(400).send({ 
-            message: error.toString().replace('*', ''),
-          });
+          res.status(400).send({ message: error.toString().replace('*', '') });
           errorSent = true;
         }
         return false;
@@ -1175,7 +1171,7 @@ exports.executeRepoById = async (req, res) => {
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
-  console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+  console.log("!!!4 Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
 
   async function repoExec() {  // create and deploy new smart contract
     var errorSent = false;
@@ -1212,7 +1208,7 @@ exports.executeRepoById = async (req, res) => {
     );
     //console.log("web3: =========>", web3);
 */
-    console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+    console.log("!!!5 Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
     // Creating a signing account from a private key
 //    const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
     // console.log("signer:", signer);  // contains private key
@@ -2186,7 +2182,7 @@ exports.update = async (req, res) => {
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
-  console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+  console.log("!!!6 Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
 
   async function dAppUpdate() {
 
@@ -2207,7 +2203,7 @@ exports.update = async (req, res) => {
     );
     //console.log("web3: =========>", web3);
 
-    console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+    console.log("!!!7 Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
     // Creating a signing account from a private key
     const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
     // console.log("signer:", signer);  // contains private key
