@@ -1542,7 +1542,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
 exports.findByName = (req, res) => {
   const name = req.query.name;
   var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
-
+/*
   Bond.findAll(
     { include: db.recipients,
       where: condition
@@ -1560,6 +1560,37 @@ exports.findByName = (req, res) => {
           err.message || "Some error occurred while retrieving bond."
       });
     });
+*/
+  Bond.findAll(
+  {
+    where: condition,
+    include: [
+      {
+        model: db.recipients,
+        on: {
+          id: db.Sequelize.where(db.Sequelize.col("bond.issuer"), "=", db.Sequelize.col("recipient.id")),
+        },
+        attributes: ['id','name', 'walletaddress'],
+      },
+      {
+        model: db.campaigns,
+        on: {
+          id: db.Sequelize.where(db.Sequelize.col("bond.cashTokenID"), "=", db.Sequelize.col("campaign.id")),
+        },
+        attributes: ['id', 'name', 'tokenname', 'smartcontractaddress', 'blockchain'],
+      }
+    ]
+  },
+  ).then(data => {
+    logDataValues("Bond.findAll: ", data);
+    res.send(data);
+  }).catch(err => {
+    res.status(500).send({
+      message:
+        err.message || "Some error occurred while retrieving bond."
+    });
+  }); // findAll
+
 }; // findByName
 
 exports.getAllByBondId = (req, res) => {

@@ -261,7 +261,7 @@ export default class BondList extends Component {
                           }
                       </td>
                       <td>{(() => {
-                          switch (bond1.campaign.blockchain) {
+                          switch (bond1.blockchain) {
                             case 80001:
                               return 'Polygon Testnet Mumbai (Deprecated)'
                             case 80002:
@@ -318,7 +318,7 @@ export default class BondList extends Component {
                       <td>
                         <a href={"https://"+
                         (() => {
-                          switch (bond1.campaign.blockchain) {
+                          switch (bond1.blockchain) {
                             case 80001:
                               return 'mumbai.polygonscan.com/address/'
                             case 80002:
