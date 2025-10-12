@@ -284,7 +284,7 @@ export default class PBMList extends Component {
                               ? pbm1.recipient.name  :null
                           }
                       </td>
-                      <td>{pbm1.amount}</td>
+                      <td>{pbm1.amount ? pbm1.amount.toLocaleString() : null}</td>
                       <td>{
                             (
                               pbm1.campaign &&
