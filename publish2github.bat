@@ -1,3 +1,3 @@
 git add .
-git commit -m "Updates on Repo Controller and Smart contract"
+git commit -m "Fixed transfer findByName issue"
 git push github master

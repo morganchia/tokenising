@@ -240,7 +240,7 @@ class App extends Component {
                           <span className="tooltip">Mint</span>
                         </li>
                         <li>
-                          <Link to={"/transfer"} className="nav-link">
+                          <Link to={"/transfers"} className="nav-link">
                             <i className='bx bx-transfer' ></i>
                             <span className="links_name">Transfer</span>
                           </Link>
@@ -416,7 +416,7 @@ class App extends Component {
             <Route path="/recipientadd" element={<RecipientAdd/>} />
             <Route path="/recipientcheckapprove/:id" element={<RecipientCheckApprove/>} />
             <Route path="/withdraw" element={<Withdraw />} />
-            <Route path="/transfer" element={<TransferList />} />
+            <Route path="/transfers" element={<TransferList />} />
             <Route path="/transfercheckapprove/:id" element={<TransferCheckApprove/>} />
             <Route path="/audittrail" element={<AuditTrail />} />
             <Route path="/order" element={<Order />} />

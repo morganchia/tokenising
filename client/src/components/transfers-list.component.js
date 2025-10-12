@@ -93,7 +93,7 @@ export default class TransferList extends Component {
         this.setState({
           transferList: response.data
         });
-        console.log(response.data);
+        console.log("TransferDataService.findByName:",response.data);
       })
       .catch(e => {
         console.log(e);
@@ -141,6 +141,7 @@ export default class TransferList extends Component {
   };
 
   shorten(s) {
+    if (s === null || s === undefined) return "";
     return(s.substring(0,6) + "..." + s.slice(-3));
   }
 
@@ -167,7 +168,8 @@ export default class TransferList extends Component {
 
           <div className="list row">
             <div className="col-md-8">
-            {(transferList.length > 0)?
+            {
+              //(transferList.length > 0)?
               <div className="input-group mb-3">
                 <input
                   type="text"
@@ -186,7 +188,8 @@ export default class TransferList extends Component {
                   </button>
                 </div>
               </div>
-              : null}
+              //: null
+            }
             </div>
             <div className="col-md-8">
 

@@ -70,7 +70,7 @@ class TransferDataService {
   }
 
   findByName(name) {
-    return http.get(`/transfers?name=${name}`);
+    return http.get(`/transfers/findByName?name=${name}`);
   }
 
   findByNameExact(name) {

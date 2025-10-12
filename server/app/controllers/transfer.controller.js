@@ -1432,7 +1432,7 @@ exports.findAll = (req, res) => {
     { where: condition },
     )
     .then(data => {
-      logDataValues("Transfer.findAll: ", data);
+      logDataValues("Transfer.findAll9: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -1503,69 +1503,69 @@ exports.findAllTransfers = async (req, res) => {
   });
 */
 
-let campaignData = [];
-let bondData = [];
-let pbmData = [];
+  let campaignData = [];
+  let bondData = [];
+  let pbmData = [];
 
-await Transfer.findAll(
-  { 
-    where: { '$campaign.name$': 
-      {
-        [Op.not]: null
-      } 
+  await Transfer.findAll(
+    { 
+      where: { '$campaign.name$': 
+        {
+          [Op.not]: null
+        } 
+      },
+      include: db.campaigns,
+      attributes: ['campaignId', 'recipientwallet', [db.transfers.sequelize.fn('sum', db.transfers.sequelize.col('transferAmount')), 'totalTransfered']],
+                  group: ['campaignId','recipientwallet'],
     },
-    include: db.campaigns,
-    attributes: ['campaignId', 'recipientwallet', [db.transfers.sequelize.fn('sum', db.transfers.sequelize.col('transferAmount')), 'totalTransfered']],
-                group: ['campaignId','recipientwallet'],
-  },
-  )
-  .then(tdata => {
-    logDataValues("Transfer.findAll: ", tdata);
-    campaignData = tdata;
-  })
-  .catch(err => {
-    console.log("Error while retreiving transfers9a: "+err.message);
-  });
+    )
+    .then(tdata => {
+      logDataValues("Transfer.findAll1: ", tdata);
+      campaignData = tdata;
+    })
+    .catch(err => {
+      console.log("Error while retreiving transfers9a: "+err.message);
+    });
 
-await Transfer.findAll(
-  { 
-    where: { '$bond.name$': 
-      {
-        [Op.not]: null
-      } 
+  await Transfer.findAll(
+    { 
+      where: { '$bond.name$': 
+        {
+          [Op.not]: null
+        } 
+      },
+      include: db.bonds,
+      attributes: ['id', 'recipientwallet', [db.transfers.sequelize.fn('sum', db.transfers.sequelize.col('transferAmount')), 'totalTransfered']],
+                  group: ['id','recipientwallet'],
     },
-    include: db.bonds,
-    attributes: ['id', 'recipientwallet', [db.transfers.sequelize.fn('sum', db.transfers.sequelize.col('transferAmount')), 'totalTransfered']],
-                group: ['id','recipientwallet'],
-  },
-  )
-  .then(tdata => {
-    logDataValues("Transfer.findAll: ", tdata);
-    bondData = tdata;
-  })
-  .catch(err => {
-    console.log("Error while retreiving transfers9b: "+err.message);
-  });
+    )
+    .then(tdata => {
+      logDataValues("Transfer.findAll2: ", tdata);
+      bondData = tdata;
+    })
+    .catch(err => {
+      console.log("Error while retreiving transfers9b: "+err.message);
+    });
 
-await Transfer.findAll(
-  { 
-    where: { '$pbm.name$': 
-      {
-        [Op.not]: null
-      } 
+  await Transfer.findAll(
+    { 
+      where: { '$pbm.name$': 
+        {
+          [Op.not]: null
+        } 
+      },
+      include: db.pbm,
+      attributes: ['id', 'recipientwallet', [db.transfers.sequelize.fn('sum', db.transfers.sequelize.col('transferAmount')), 'totalTransfered']],
+                  group: ['id','recipientwallet'],
     },
-    include: db.pbm,
-    attributes: ['id', 'recipientwallet', [db.transfers.sequelize.fn('sum', db.transfers.sequelize.col('transferAmount')), 'totalTransfered']],
-                group: ['id','recipientwallet'],
-  },
-  )
-  .then(tdata => {
-    logDataValues("Transfer.findAll: ", tdata);
-    pbmData = tdata;
-  })
-  .catch(err => {
-    console.log("Error while retreiving transfers9c: "+err.message);
-  });
+    )
+    .then(tdata => {
+      logDataValues("Transfer.findAll3: ", tdata);
+      pbmData = tdata;
+    })
+    .catch(err => {
+      console.log("Error while retreiving transfers9c: "+err.message);
+    });
 
   try {
     const combinedData = campaignData.concat(bondData, pbmData);
@@ -1577,6 +1577,81 @@ await Transfer.findAll(
     });
   }
 }; // findAllTransfers
+
+// Retrieve all transfers from the database.
+exports.findByName = async (req, res) => {
+  const name = req.query.name;
+
+  console.log("Searching for name: ", name);
+
+//  var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
+  var condition = name ? { '$campaign.name$': { [Op.like]: `%${name}%` } } : { '$campaign.name$': { [Op.not]: null } };
+
+  let campaignData = [];
+  let bondData = [];
+  let pbmData = [];
+
+  await Transfer.findAll(
+    { 
+      where: condition,
+      include: db.campaigns,
+      attributes: ['campaignId', 'recipientwallet', [db.transfers.sequelize.fn('sum', db.transfers.sequelize.col('transferAmount')), 'totalTransfered']],
+                  group: ['campaignId','recipientwallet'],
+    },
+    )
+    .then(tdata => {
+      logDataValues("Transfer.findByName: ", tdata);
+      campaignData = tdata;
+    })
+    .catch(err => {
+      console.log("Error while retreiving transfers9a: "+err.message);
+    });
+
+  
+  condition = name ? { '$bond.name$': { [Op.like]: `%${name}%` } } : { '$bond.name$': { [Op.not]: null } };
+  await Transfer.findAll(
+    { 
+      where: condition,
+      include: db.bonds,
+      attributes: ['id', 'recipientwallet', [db.transfers.sequelize.fn('sum', db.transfers.sequelize.col('transferAmount')), 'totalTransfered']],
+                  group: ['id','recipientwallet'],
+    },
+    )
+    .then(tdata => {
+      logDataValues("Transfer.findByName: ", tdata);
+      bondData = tdata;
+    })
+    .catch(err => {
+      console.log("Error while retreiving transfers9b: "+err.message);
+    });
+
+  condition = name ? { '$pbm.name$': { [Op.like]: `%${name}%` } } : { '$pbm.name$': { [Op.not]: null } };
+  await Transfer.findAll(
+    { 
+      where: condition,
+      include: db.pbm,
+      attributes: ['id', 'recipientwallet', [db.transfers.sequelize.fn('sum', db.transfers.sequelize.col('transferAmount')), 'totalTransfered']],
+                  group: ['id','recipientwallet'],
+    },
+    )
+    .then(tdata => {
+      logDataValues("Transfer.findByName: ", tdata);
+      pbmData = tdata;
+    })
+    .catch(err => {
+      console.log("Error while retreiving transfers9c: "+err.message);
+    });
+
+  try {
+    const combinedData = campaignData.concat(bondData, pbmData);
+    console.log("Combined data:", combinedData);
+    res.send( combinedData );
+  } catch(e) {
+    res.status(500).send({
+      message: "Error while retrieving transfers."
+    });
+  }
+};
 
 exports.findAllByCampaignId = (req, res) => {
     // get token address from CampaignId
@@ -1640,6 +1715,7 @@ exports.findAllByCampaignId = (req, res) => {
     );
     
 }; // findAllByCampaignId
+
 
 /*
 // Update a Transfer by the id in the request

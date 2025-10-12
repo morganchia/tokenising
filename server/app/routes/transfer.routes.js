@@ -18,7 +18,8 @@ module.exports = app => {
   router.post("/draftcreate/", transfers.draftCreate);
 
   // Retrieve all Transfers with LIKE condition
-  router.get("/", transfers.findAll);
+  //router.get("/", transfers.findAll);
+  router.get("/findByName", transfers.findByName);
 
   router.get("/findAllTransfers", transfers.findAllTransfers);
 
