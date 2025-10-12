@@ -1869,7 +1869,7 @@ exports.getAll = (req, res) => {
 // Retrieve all PBM from the database.
 exports.getAllPBMTemplates = (req, res) => {
   const name = req.query.name;
-  var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
+  var condition = name ? { templatename: { [Op.like]: `%${name}%` } } : null;
 
   PBM_TEMPLATE.findAll(
     { where: condition,

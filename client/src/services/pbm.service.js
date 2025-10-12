@@ -4,9 +4,13 @@ class PBMDataService {
   getAll() {
     return http.get("/pbm");
   }
-
+/*
   getAllPBMTemplates() {
     return http.get("/pbm/getallpbmtemplates");
+  }
+*/
+  getAllPBMTemplates(name) {
+    return http.get(`/pbm/getallpbmtemplates?name=${name}`);
   }
 
   get(id) {

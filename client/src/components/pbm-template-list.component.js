@@ -45,7 +45,7 @@ export default class PBMList extends Component {
   }
 
   retrievePBM() {
-    PBMDataService.getAllPBMTemplates()
+    PBMDataService.getAllPBMTemplates("")
       .then(response => {
         this.setState({
           pbmTemplateList: response.data
@@ -120,12 +120,12 @@ export default class PBMList extends Component {
       currentIndex: -1
     });
 
-    PBMDataService.findByName(this.state.searchName)
+    PBMDataService.getAllPBMTemplates(this.state.searchName)
       .then(response => {
         this.setState({
           pbmTemplateList: response.data
         });
-        console.log("PBMDataService.findByName",response.data);
+        console.log("Response data from searchName() PBMDataService.getAllPBMTemplates:", response.data);
       })
       .catch(e => {
         console.log(e);
