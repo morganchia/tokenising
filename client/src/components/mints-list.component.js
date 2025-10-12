@@ -249,8 +249,8 @@ export default class MintList extends Component {
                         }
                         {blockchainname}
                       </td>
-                      <td>{mmm.totalMinted}</td>
-                      <td>{mmm.campaign.amount}</td>
+                      <td>{mmm.totalMinted.toLocaleString()}</td>
+                      <td>{mmm.campaign.amount.toLocaleString()}</td>
                       <td>{this.shorten(mmm.campaign.smartcontractaddress)}</td>
                       <td>
                         <a href={"https://" + url + mmm.campaign.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>

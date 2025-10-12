@@ -1760,7 +1760,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
 exports.findByName = (req, res) => {
   const name = req.query.name;
   var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
-
+/*
   PBM.findAll(
     { include: db.recipients,
       where: condition
@@ -1778,6 +1778,38 @@ exports.findByName = (req, res) => {
           err.message || "Some error occurred while retrieving pbm."
       });
     });
+*/
+
+  PBM.findAll(
+  {
+    where: condition,
+    include: [
+      {
+        model: db.recipients,
+        on: {
+          id: db.Sequelize.where(db.Sequelize.col("pbm.sponsor"), "=", db.Sequelize.col("recipient.id")),
+        },
+        attributes: ['id','name'],
+      },
+      {
+        model: db.campaigns,
+        on: {
+          id: db.Sequelize.where(db.Sequelize.col("pbm.underlyingTokenID"), "=", db.Sequelize.col("campaign.id")),
+        },
+        attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
+      }
+    ]
+  },
+  ).then(data => {
+    console.log(JSON.stringify(data, null, 2));
+    res.send(data);
+  }).catch(err => {
+    res.status(500).send({
+      message:
+        err.message || "Some error occurred while retrieving pbm."
+    });
+  });
+
 }; // findByName
 
 // Retrieve all PBM from the database.

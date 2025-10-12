@@ -279,7 +279,7 @@ export default class CampaignList extends Component {
                               ? campaign1.recipient.name  :null
                           }
                       </td>
-                      <td>{campaign1.amount}</td>
+                      <td>{campaign1.amount.toLocaleString()}</td>
                       <td>{
                             (campaign1.smartcontractaddress !== undefined && typeof campaign1.smartcontractaddress === "string")? this.shorten(campaign1.smartcontractaddress): null
                           }
