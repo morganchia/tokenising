@@ -17,11 +17,9 @@ module.exports = app => {
   //router.post("/", repo.create);
   router.post("/draftcreate/", repo.draftCreate);
 
-
-/*
   // Retrieve all Repo with LIKE condition
   router.get("/findByName", repo.findByName);
-*/
+
   router.get("/getallrepodraftsbyuserid", repo.getAllRepoDraftsByUserId);
 
   router.get("/getalldraftsbyrepoid", repo.getAllDraftsByRepoId);

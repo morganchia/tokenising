@@ -77,11 +77,11 @@ class RepoDataService {
   deleteAll() {
     return http.delete(`/repo`);
   }
-
+*/
   findByName(name) {
     return http.get(`/repo/findByName?name=${name}`);
   }
-*/
+
   findOne(id) {
     return http.get(`/repo/findone?id=${id}`);
   }

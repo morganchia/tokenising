@@ -1610,26 +1610,36 @@ exports.findByName = (req, res) => {
   const name = req.query.name;
   var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
 
-  Repo.findAll(
-    { 
+  Repo.findAll( { 
 //      raw: true, // display only dataValues, not metadata
 //      nest: true,
-      include: db.recipients,
-      where: condition
-    },
-    )
-    .then(data => {
-      logDataValues("Repo.findByName: ", data);
-      res.send(data);
-    })
-    .catch(err => {
-      console.log("Error while retreiving repo3: "+err.message);
-
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving repo."
-      });
+    where: condition,
+    include: [
+      {
+        model: db.recipients,
+        on: {
+          id: db.Sequelize.where(db.Sequelize.col("repo.counterparty1"), "=", db.Sequelize.col("recipient.id")),
+        },
+        attributes: ['id','name'],
+      },
+      {
+        model: db.campaigns,
+        on: {
+          id: db.Sequelize.where(db.Sequelize.col("repo.underlyingTokenID1"), "=", db.Sequelize.col("campaign.id")),
+        },
+        attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
+      }
+    ]
+  },
+  ).then(data => {
+    logDataValues("Repo.findAll: ", data);
+    res.send(data);
+  }).catch(err => {
+    res.status(500).send({
+      message:
+        err.message || "Some error occurred while retrieving repo."
     });
+  });
 }; // findByName
 
 // Retrieve all Repo from the database.
