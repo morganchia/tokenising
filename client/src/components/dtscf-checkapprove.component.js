@@ -432,7 +432,7 @@ class DTSCFProjectCreation extends Component {
       formData.append('checker', this.state.currentProject.checker);
       formData.append('approver', this.state.currentProject.approver);
       formData.append('actionby', this.state.currentUser.username);
-      formData.append('approvedbondid', -1);
+      formData.append('approveddtscfid', -1);
 
       formData.append('milestones', JSON.stringify(this.state.currentProject.milestones));
       formData.append('contractors', JSON.stringify(this.state.currentProject.contractors.map(c => ({...c, purchases: c.purchases.map(p => ({...p, invoices: []}))})))); // Send metadata
@@ -521,14 +521,14 @@ class DTSCFProjectCreation extends Component {
   };
   
   showModalDelete = () => {
-    this.displayModal("Are you sure you want to Delete this Bond?", null, "Yes, delete", null, "Cancel");
+    this.displayModal("Are you sure you want to Delete this Dtscf?", null, "Yes, delete", null, "Cancel");
   };
 
   hideModal = () => {
     this.setState({ showm: false });
   };
 
-  // Modal functions similar to bond
+  // Modal functions similar to dtscf
 
   render() {
     const { currentProject, isNewProject, isLoading, checkerList, approverList } = this.state;
@@ -540,7 +540,7 @@ class DTSCFProjectCreation extends Component {
             <div>
             <header className="jumbotron col-md-8">
               <h3>
-                <strong>{this.state.currentProject.txntype===0?"Create ":(this.state.currentProject.txntype===1?"Update ":(this.state.currentProject.txntype===2?"Delete ":null))}Bond { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
+                <strong>{this.state.currentProject.txntype===0?"Create ":(this.state.currentProject.txntype===1?"Update ":(this.state.currentProject.txntype===2?"Delete ":null))}DTSCF Project { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
               </h3>
             </header>
 
@@ -629,11 +629,11 @@ class DTSCFProjectCreation extends Component {
                   </div>
                   <label htmlFor="milestone.startDate">Start Date</label>
                   <div>
-                    <input type="date" className="form-control" value={milestone.startDate} onChange={(e) => this.onChangeMilestone(index, 'startDate', e.target.value)} placeholder="Start Date" />
+                    <input type="date" className="form-control" value={milestone.startDate} onChange={(e) => this.onChangeMilestone(index, 'startdate', e.target.value)} placeholder="Start Date" />
                   </div>
                   <label htmlFor="milestone.endDate">End Date</label>
                   <div>
-                    <input type="date" className="form-control" value={milestone.endDate} onChange={(e) => this.onChangeMilestone(index, 'endDate', e.target.value)} placeholder="End Date" />&nbsp;
+                    <input type="date" className="form-control" value={milestone.endDate} onChange={(e) => this.onChangeMilestone(index, 'enddate', e.target.value)} placeholder="End Date" />&nbsp;
                   </div>
 
                   <div>
@@ -808,7 +808,7 @@ class DTSCFProjectCreation extends Component {
                             <button
                             type="submit"
                             className="m-3 btn btn-sm btn-primary"
-                            onClick={this.submitBond}
+                            onClick={this.submitDtscf}
                             >
                               Submit 
                               {
@@ -833,7 +833,7 @@ class DTSCFProjectCreation extends Component {
                     <button
                       type="submit"
                       className="m-3 btn btn-sm btn-primary"
-                      onClick={this.acceptBond}
+                      onClick={this.acceptDtscf}
                     >
                       Endorse
                       {
@@ -850,7 +850,7 @@ class DTSCFProjectCreation extends Component {
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-primary"
-                    onClick={currentProject.txntype===2? this.deleteDraft: this.approveBond}
+                    onClick={currentProject.txntype===2? this.deleteDraft: this.approveDtscf}
                     >
                       Approve & Deploy 
                       {
@@ -870,7 +870,7 @@ class DTSCFProjectCreation extends Component {
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-danger"
-                    onClick={this.rejectBond}
+                    onClick={this.rejectDtscf}
                     >
                       Reject
                     </button> 
@@ -899,7 +899,7 @@ class DTSCFProjectCreation extends Component {
 
               {this.state.isLoading ? <LoadingSpinner /> : null}
 
-              <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/bond'} handleProceed2={this.deleteBond} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
+              <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/dtscf'} handleProceed2={this.deleteDtscf} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
                 {this.state.modalmsg}
               </Modal>
 

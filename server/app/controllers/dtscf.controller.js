@@ -109,8 +109,8 @@ exports.draftCreate = async (req, res) => {
         await db.dtscf_milestone_drafts.create({
           description: ms.description,
           budget: parseInt(ms.budget) || 0,
-          startdate: ms.startDate,
-          enddate: ms.endDate,
+          startdate: ms.startdate,
+          enddate: ms.enddate,
           dtscf_project_id: draftProject.id
         });
       }
