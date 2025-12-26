@@ -72,6 +72,15 @@ import DSGD2PBM from "./components/dsgd2pbm.component";
 import PBMTemplateAdd from "./components/pbm-template-add.component";
 import PBMTemplateList from "./components/pbm-template-list.component";
 
+import DTSCFProjectList from "./components/dtscf-list.component";
+import DTSCFProjectCreation from "./components/dtscf-project-creation.component";
+import DTSCFContractorList from "./components/dtscf-dashboard-contractor.component";
+import DTSCFBankList from "./components/dtscf-dashboard-bank.component";
+import DTSCFCheckApprove from "./components/dtscf-checkapprove.component";
+
+//import PayableList from "./components/payable-list.component";
+//import PayableCheckApprove from "./components/payable-checkapprove.component";
+
 import AuthVerify from "./common/auth-verify";
 import EventBus from "./common/EventBus";
 import moment from "moment-timezone";
@@ -312,6 +321,13 @@ class App extends Component {
                           </Link>
                           <span className="tooltip">Wrap Mint PBM</span>
                         </li>
+                        <li>
+                          <Link to={"/dtscf"} className="nav-link">
+                            <i className='bx bx-atom'></i>
+                            <span className="links_name">Deep-tier Supply Chain Financing</span>
+                          </Link>
+                          <span className="tooltip">Deep-tier Supply Chain Financing</span>
+                        </li>
                       </ul>
                     )}
                   </li>
@@ -459,6 +475,15 @@ class App extends Component {
             <Route path="/pbmwrapadd/" element={<PBMWrapAdd/>} />
             <Route path="/pbmwrapcheckapprove/:id" element={<PBMWrapCheckApprove/>} />
             <Route path="/pbmwraplist" element={<PBMWrapList/>} />
+            <Route path="/dtscf" element={<DTSCFProjectList/>} />
+            <Route path="/dtscfcheckapprove/:id" element={<DTSCFCheckApprove/>} />
+
+{
+/*
+            <Route path="/payable" element={<PayableList/>} />
+            <Route path="/payablecheckapprove/:id" element={<PayableCheckApprove/>} />
+*/
+}
           </Routes>
         </div>
 

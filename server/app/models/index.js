@@ -29,7 +29,7 @@ const db = {};
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
-db.audittrail     = require("./audit_trail.model.js")(sequelize, Sequelize);
+db.audittrail          = require("./audit_trail.model.js")(sequelize, Sequelize);
 
 db.user                = require("./user.model.js")(sequelize, Sequelize);
 db.role                = require("./role.model.js")(sequelize, Sequelize);
@@ -56,6 +56,14 @@ db.bonds               = require("./bond.model.js")(sequelize, Sequelize);
 db.bonds_draft         = require("./bond_draft.model.js")(sequelize, Sequelize);
 db.repos               = require("./repo.model.js")(sequelize, Sequelize);
 db.repos_draft         = require("./repo_draft.model.js")(sequelize, Sequelize);
+db.dtscf                   = require("./dtscf.model.js")(sequelize, Sequelize);
+db.dtscf_draft             = require("./dtscf_draft.model.js")(sequelize, Sequelize);
+db.dtscf_contractors       = require("./dtscf_contractors.model.js")(sequelize, Sequelize);
+db.dtscf_contractors_draft = require("./dtscf_contractors_draft.model.js")(sequelize, Sequelize);
+db.dtscf_purchases          = require("./dtscf_purchases.model.js")(sequelize, Sequelize);
+db.dtscf_purchases_draft    = require("./dtscf_purchases_draft.model.js")(sequelize, Sequelize);
+db.dtscf_milestones        = require("./dtscf_milestones.model.js")(sequelize, Sequelize);
+db.dtscf_milestone_drafts  = require("./dtscf_milestones_drafts.model.js")(sequelize, Sequelize);
 
 
 db.role.belongsToMany(db.user, {
@@ -455,6 +463,79 @@ db.wrapmints_draft.hasOne(db.user, {
   sourceKey: "approver"
 });
 
+// DTSCF Relationships
+db.dtscf.hasMany(db.dtscf_milestones, {
+  foreignKey: "project_id"
+});
+db.dtscf_milestones.belongsTo(db.dtscf, {
+  foreignKey: "project_id"
+});
 
+db.dtscf_draft.hasMany(db.dtscf_milestone_drafts, {
+  foreignKey: "project_id"
+});
+db.dtscf_milestone_drafts.belongsTo(db.dtscf_draft, {
+  foreignKey: "project_id"
+});
+
+db.dtscf.hasMany(db.dtscf_contractors, {
+  foreignKey: "project_id"
+});
+db.dtscf_contractors.belongsTo(db.dtscf, {
+  foreignKey: "project_id"
+});
+
+db.dtscf_draft.hasMany(db.dtscf_contractors_draft, {
+  foreignKey: "project_id"
+});
+db.dtscf_contractors_draft.belongsTo(db.dtscf_draft, {
+  foreignKey: "project_id"
+});
+
+db.dtscf_contractors.belongsTo(db.dtscf_contractors, {
+  as: 'parent',
+  foreignKey: 'parent_contractor_id'
+});
+db.dtscf_contractors.hasMany(db.dtscf_contractors, {
+  as: 'subcontractors',
+  foreignKey: 'parent_contractor_id'
+});
+
+db.dtscf_contractors_draft.belongsTo(db.dtscf_contractors_draft, {
+  as: 'parent',
+  foreignKey: 'parent_contractor_id'
+});
+db.dtscf_contractors_draft.hasMany(db.dtscf_contractors_draft, {
+  as: 'subcontractors',
+  foreignKey: 'parent_contractor_id'
+});
+
+db.dtscf.hasMany(db.dtscf_purchases, {
+  foreignKey: "project_id"
+});
+db.dtscf_purchases.belongsTo(db.dtscf, {
+  foreignKey: "project_id"
+});
+
+db.dtscf_draft.hasMany(db.dtscf_purchases_draft, {
+  foreignKey: "project_id"
+});
+db.dtscf_purchases_draft.belongsTo(db.dtscf_draft, {
+  foreignKey: "project_id"
+});
+
+db.dtscf_contractors.hasMany(db.dtscf_purchases, {
+  foreignKey: "contractor_id"
+});
+db.dtscf_purchases.belongsTo(db.dtscf_contractors, {
+  foreignKey: "contractor_id"
+});
+
+db.dtscf_contractors_draft.hasMany(db.dtscf_purchases_draft, {
+  foreignKey: "contractor_id"
+});
+db.dtscf_purchases_draft.belongsTo(db.dtscf_contractors_draft, {
+  foreignKey: "contractor_id"
+});
 
 module.exports = db;

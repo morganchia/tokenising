@@ -49,7 +49,7 @@ require("./app/routes/dvp.routes")(app);
 require("./app/routes/bond.routes")(app);
 require("./app/routes/bridge.routes")(app);
 require("./app/routes/repo.routes")(app);
-
+require("./app/routes/dtscf.routes")(app);
 
 if (process.env.NODE_ENV === 'production') {
   // https://www.freecodecamp.org/news/how-to-create-a-react-app-with-a-node-backend-the-complete-guide/

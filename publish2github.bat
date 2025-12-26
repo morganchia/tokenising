@@ -1,3 +1,3 @@
 git add .
-git commit -m "Fixed transfer findByName issue"
+git commit -m "Added dtscf"
 git push github master
