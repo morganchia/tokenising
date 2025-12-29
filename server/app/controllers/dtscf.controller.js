@@ -90,7 +90,7 @@ exports.draftCreate = async (req, res) => {
         enddate           : req.body.enddate,
         blockchain        : req.body.blockchain || 0, // Default or from form
         txntype           : 0, // Create
-        status            : 0, // Draft
+        status            : 1,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
         actionby          : req.body.actionby, // Assuming auth service
         actiontimedate    : new Date(),
         maker             : req.body.maker,
@@ -106,7 +106,7 @@ exports.draftCreate = async (req, res) => {
       // Parse and create milestones
       const milestones = JSON.parse(req.body.milestones || '[]');
       for (const ms of milestones) {
-        await db.dtscf_milestone_drafts.create({
+        await db.dtscf_milestones_draft.create({
           description: ms.description,
           budget: parseInt(ms.budget) || 0,
           startdate: ms.startdate,
@@ -1703,22 +1703,6 @@ exports.getAllDraftsByUserId = (req, res) => {
     { 
       where: condition,
       //include: db.recipients
-      include: [
-        {
-          model: db.recipients,
-          on: {
-            id: db.Sequelize.where(db.Sequelize.col("dtscfs_draft.issuer"), "=", db.Sequelize.col("recipient.id")),
-          },
-          attributes: ['id','name'],
-        },
-        {
-          model: db.campaigns,
-          on: {
-            id: db.Sequelize.where(db.Sequelize.col("dtscfs_draft.cashTokenID"), "=", db.Sequelize.col("campaign.id")),
-          },
-          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
-        }
-      ]
     },
     )
     .then(data => {
@@ -1731,92 +1715,52 @@ exports.getAllDraftsByUserId = (req, res) => {
         message:
           err.message || "Some error occurred while retrieving dtscf."
       });
-    });
+    }
+  );
 }; // getAllDraftsByUserId
 
 exports.getAllDraftsByDtscfId = (req, res) => {
   const id = req.query.id;
   console.log("====== dtscf.getAllDraftsByDtscfId(id) ",id);
-  var condition = id ? 
-       {id : id}
-      : null;
-
-  Dtscf_Draft.findAll(
-    { 
-/*
-      where: condition
-    },
-    { include: db.recipients},
-*/
-      where: condition,
-      //include: db.recipients
+  Dtscf_Draft.findByPk(id, {
       include: [
         {
-          model: db.recipients,
-          on: {
-            id: db.Sequelize.where(db.Sequelize.col("dtscfs_draft.issuer"), "=", db.Sequelize.col("recipient.id")),
-          },
-          attributes: ['id','name','walletaddress'],
+          model: db.dtscf_milestones_draft,
+          as: 'dtscf_milestones_drafts'  // Use the plural alias
         },
         {
-          model: db.campaigns,
-          on: {
-            id: db.Sequelize.where(db.Sequelize.col("dtscfs_draft.cashTokenID"), "=", db.Sequelize.col("campaign.id")),
-          },
-          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
+          model: db.dtscf_contractors_draft,
+          as: 'dtscf_contractors_drafts',
+          include: [
+            {
+              model: db.dtscf_contractors_draft,
+              as: 'subcontractors'
+            },
+            {
+              model: db.dtscf_purchases_draft,
+              as: 'dtscf_purchases_drafts'
+            }
+          ]
         }
       ]
-    },
-    )
-    .then(data => {
-      logDataValues("Dtscf_Draft.findAll: ", data);
-
-      if (data.length === 0) {
-        console.log("Data is empty!!!");
-        res.status(500).send({
-          message: "No such record in the system" 
-        });
-      } else
-      res.send(data);
     })
-    .catch(err => {
-      console.log("Error while retreiving dtscf5: "+err.message);
-
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving dtscf."
+    .then(data => {
+    if (data) {
+      logDataValues("Dtscf_Draft.findByPk: ", data);
+      res.send(data);
+    } else {
+      logDataValues("Dtscf_Draft.findByPk: ", data);
+      res.status(404).send({
+        message: `Cannot find Dtscf draft with id=${id}.`
       });
-    });
-/*
-  Dtscf_Draft.findAll( 
-    {
-      include: [
-        {
-          model: db.recipients,
-          on: {
-            id: db.Sequelize.where(db.Sequelize.col("dtscf.issuer"), "=", db.Sequelize.col("recipient.id")),
-          },
-          attributes: ['id','name'],
-        },
-        {
-          model: db.campaigns,
-          on: {
-            id: db.Sequelize.where(db.Sequelize.col("dtscf.cashTokenID"), "=", db.Sequelize.col("campaign.id")),
-          },
-          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
-        }
-      ]
-    }).then(data => {
-    console.log(JSON.stringify(data, null, 2));
-    res.send(data);
-  }).catch(err => {
+    }
+  })
+  .catch(err => {
+    console.log("Error while retreiving dtscf draft: "+err.message);
     res.status(500).send({
-      message:
-        err.message || "Some error occurred while retrieving dtscf."
+      message: "Error retrieving Dtscf draft with id=" + id
     });
-  });
-  */
-}; // getAllDraftsByDtscfId
+  });}; // getAllDraftsByDtscfId
 
 // Find a single Dtscf with an id
 exports.findOne = (req, res) => {
@@ -2088,113 +2032,141 @@ exports.submitDraftById = async (req, res) => {
 
   console.log("Received1 submitDraftById:");
   console.log("id=", draft_id);
-  console.log(req.body);
 
-  await Dtscf_Draft.update(
-  { 
-    status                : 1,
-    name                  : req.body.name,
-//    securityname          : req.body.securityname,
-    ISIN                  : req.body.ISIN, 
-    tokenname             : req.body.tokenname, 
-    tokensymbol           : req.body.tokensymbol.toUpperCase(),
-    blockchain            : req.body.blockchain,
+  upload.any()(req, res, async (err) => {
+    if (err) {
+      return res.status(500).send({ message: "Error parsing form data" });
+    }
 
-//    datafield1_name       : req.body.datafield1_name,
-//    datafield1_value      : req.body.datafield1_value,
-//    operator1             : req.body.operator1,
-//    datafield2_name       : req.body.datafield2_name,
-//    datafield2_value      : req.body.datafield2_value,
+    var errorSent = false;
 
-    facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-    couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-    couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
+    if (!req.body.name) {
+      if (!errorSent) {
+        res.status(400).send({
+          message: "Content can not be empty!"
+        });
+        errorSent = true;
+      }
+      return;
+    }
 
-    issuedate             : req.body.issuedate, 
-    maturitydate          : req.body.maturitydate, 
-    smartcontractaddress  : req.body.smartcontractaddress,
-    cashTokenID           : req.body.cashTokenID,
-    CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,
-    issuer                : (typeof req.body.issuer === 'string' || req.body.issuer instanceof String)? parseInt(req.body.issuer): req.body.issuer,
-    totalsupply           : (typeof req.body.totalsupply === 'string' || req.body.totalsupply instanceof String)? parseInt(req.body.totalsupply): req.body.totalsupply,
-    prospectusurl         : req.body.prospectusurl, // new
+    console.log("Received for Dtscf draft Update:");
+    console.log(req.body);
 
-    txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
-    maker                 : req.body.maker,
-    checker               : req.body.checker,
-    approver              : req.body.approver,
-    checkerComments       : req.body.checkerComments,
-    approverComments      : req.body.approverComments,
-    actionby              : req.body.actionby,
-  }, 
-  { where:      { id: draft_id }},
-  )
-  .then(num => {
-    if (num == 1) {
+    try {
+      // Parse main project data
+      const projectData = {
+        name              : req.body.name,
+        description       : req.body.description,
+        totalBudget       : parseInt(req.body.totalBudget) || 0,
+        startdate         : req.body.startdate,
+        enddate           : req.body.enddate,
+        blockchain        : req.body.blockchain || 0, // Default or from form
+        txntype           : 0, // Create
+        status            : 1,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+        actionby          : req.body.actionby, // Assuming auth service
+        actiontimedate    : new Date(),
+        maker             : req.body.maker,
+        checker           : req.body.checker,
+        approver          : req.body.approver,
+        checkerComments   : req.body.checkerComments || '',
+        approverComments  : req.body.approverComments || ''
+      };
 
-      // write to audit
-      AuditTrail.create(
-        { 
-          action                : "Dtscf "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - resubmitted",
-          name                  : req.body.name,
-//          securityname          : req.body.securityname,
-          ISIN                  : req.body.ISIN, 
-          tokenname             : req.body.tokenname, 
-          tokensymbol           : req.body.tokensymbol.toUpperCase(),
-          blockchain            : req.body.blockchain,
-
-//          datafield1_name       : req.body.datafield1_name,
-//          datafield1_value      : req.body.datafield1_value,
-//          operator1             : req.body.operator1,
-//          datafield2_name       : req.body.datafield2_name,
-//          datafield2_value      : req.body.datafield2_value,
-
-          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-
-          cashTokenID           : req.body.cashTokenID,
-          CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,    
-          startdate             : req.body.startdate,
-          enddate               : req.body.enddate,
-          issuer                : req.body.issuer,
-          totalsupply           : req.body.totalsupply,
-          prospectusurl         : req.body.prospectusurl, // new
-
-          txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
-
-          draftdtscfId           : draft_id,
-          maker                 : req.body.maker,
-          checker               : req.body.checker,
-          approver              : req.body.approver,
-          actionby              : req.body.actionby,
-          checkerComments       : req.body.checkerComments,
-          approverComments      : req.body.approverComments,
-          status                : 1,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
-        }, 
+      // Create the draft project
+      const draftProject = await Dtscf_Draft.update(projectData, 
+      { where:      { id: draft_id }}
       )
-      .then(auditres => {
-        console.log("Data written to audittrail for resubmitting dtscf request:", auditres);
+      .then(async num => {
+        if (num == 1) {
+          console.log("Dtscf draft project updated successfully.");
 
+          // Parse and update milestones
+          const milestones = JSON.parse(req.body.milestones || '[]');
+          for (const ms of milestones) {
+            await db.dtscf_milestones_draft.update({
+              description: ms.description,
+              budget: parseInt(ms.budget) || 0,
+              startdate: ms.startdate,
+              enddate: ms.enddate,
+            },
+            { 
+              where:      { id: ms.id }
+            }
+            );
+          }
+
+          // Parse and update contractors with purchases
+          const contractors = JSON.parse(req.body.contractors || '[]');
+          for (const [conIndex, con] of contractors.entries()) {
+            const draftContractor = await db.dtscf_contractors_draft.update({
+              name: con.name,
+              budget: parseInt(con.budget) || 0,
+              dtscf_project_id: draft_id,
+              dtscf_parent_contractor_id: con.parent_contractor_id || null
+            },
+            { 
+              where:      { id: con.id }
+            });
+
+            for (const [purIndex, pur] of con.purchases.entries()) {
+              const invoiceField = `contractor_${conIndex}_purchase_${purIndex}_invoice`;
+              const invoiceFile = req.files[invoiceField] ? req.files[invoiceField][0] : null;
+
+              await db.dtscf_purchases_draft.update({
+                description: pur.description,
+                amount: parseFloat(pur.amount) || 0,
+                dtscf_project_id: draft_id,
+                dtscf_contractor_id: draftContractor.id,
+                invoice_blob: invoiceFile ? invoiceFile.buffer : null
+              },
+              { 
+                where:      { id: pur.id }
+              });
+            }
+          }
+
+          // write to audit
+          AuditTrail.create(
+          { 
+            tablename: 'dtscf_draft',
+            action: 'update - resubmitted',
+            actionby: projectData.actionby,
+            actiontimedate: projectData.actiontimedate,
+            data: logDataValues(projectData)
+          })
+          .then(auditres => {
+            console.log("Data written to audittrail for resubmitting dtscf request:", auditres);
+
+          })
+          .catch(err => {
+            console.log("Error while logging to audittrail for resubmitting dtscf request: "+err.message);
+          });
+          
+          res.send({
+            message: "Dtscf resubmitted successfully."
+          });
+        } else {
+          res.send({
+            message: `${req.body}. Record updated =${num}. Cannot update Dtscf with id=${draft_id}. Maybe Dtscf was not found or req.body is empty!`
+          });
+        }
       })
       .catch(err => {
-        console.log("Error while logging to audittrail for resubmitting dtscf request: "+err.message);
-      });
-      
-      res.send({
-        message: "Dtscf resubmitted successfully."
-      });
-    } else {
-      res.send({
-        message: `${req.body}. Record updated =${num}. Cannot update Dtscf with id=${draft_id}. Maybe Dtscf was not found or req.body is empty!`
-      });
+        console.log(err);
+        res.status(500).send({
+          message: `Error updating Dtscf. ${err}`
+        });
+      }); // await Dtscf_Draft.update()
+    } catch (err) {
+      console.error(err);
+      if (!errorSent) {
+        res.status(500).send({
+          message: err.message || "Some error occurred while creating the draft."
+        });
+        errorSent = true;
+      }
     }
-  })
-  .catch(err => {
-    console.log(err);
-    res.status(500).send({
-      message: `Error updating Dtscf. ${err}`
-    });
   });
 }; // submitDraftById
 
@@ -2310,9 +2282,6 @@ exports.rejectDraftById = async (req, res) => {
           action                : "Dtscf "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - rejected",
           name                  : req.body.name,
 //          securityname          : req.body.securityname,
-          ISIN                  : req.body.ISIN, 
-          tokenname             : req.body.tokenname, 
-          tokensymbol           : req.body.tokensymbol.toUpperCase(),
           blockchain            : req.body.blockchain,
         
 //          datafield1_name       : req.body.datafield1_name,
@@ -2321,17 +2290,8 @@ exports.rejectDraftById = async (req, res) => {
 //          datafield2_name       : req.body.datafield2_name,
 //          datafield2_value      : req.body.datafield2_value,
 
-          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-
-          cashTokenID           : req.body.cashTokenID,
-          CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,    
           startdate             : req.body.startdate,
           enddate               : req.body.enddate,
-          issuer                : req.body.issuer,
-          totalsupply           : req.body.totalsupply,
-          prospectusurl         : req.body.prospectusurl, // new
 
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
 

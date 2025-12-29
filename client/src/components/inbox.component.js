@@ -8,12 +8,13 @@ import CampaignDataService from "../services/campaign.service";
 import MintDataService from "../services/mint.service";
 import TransferDataService from "../services/transfer.service";
 import RecipientDataService from "../services/recipient.service";
+import DtscfDataService from "../services/dtscf.service";
 import UserOpsRoleDataService from "../services/user_opsrole.service";
 import { Link, Navigate } from "react-router-dom";
 import AuthService from "../services/auth.service";
 import Modal from '../Modal.js';
 
-export default class CampaignList extends Component {
+export default class Inbox extends Component {
   constructor(props) {
     super(props);
 //    this.onChangeSearchName = this.onChangeSearchName.bind(this);
@@ -28,6 +29,8 @@ export default class CampaignList extends Component {
     this.retrieveMints = this.retrieveMints.bind(this);
     this.retrieveTransfers = this.retrieveTransfers.bind(this);
     this.retrieveRecipients = this.retrieveRecipients.bind(this);
+    this.retrieveDtscf = this.retrieveDtscf.bind(this);
+
     this.refreshList = this.refreshList.bind(this);
 //    this.removeAllCampaigns = this.removeAllCampaigns.bind(this);
 
@@ -219,6 +222,21 @@ export default class CampaignList extends Component {
     }
   }
 
+    retrieveDtscf(userid) {
+    if (userid !== undefined) {
+      DtscfDataService.getAllDraftsByUserId(userid)
+      .then(response => {
+        this.setState({
+          dtscf: response.data
+        });
+        console.log("Response data from retrieveDtscf() DtscfDataService.getAllDraftsByUserId:", response.data);
+      })
+      .catch(e => {
+        console.log(e);
+      });
+    }
+  }
+
   refreshList() {
     this.retrieveBond();
     this.retrieveBridge();
@@ -233,6 +251,7 @@ export default class CampaignList extends Component {
     this.retrieveMints();
     this.retrieveTransfers();
     this.retrieveRecipients();
+    this.retrieveDtscf();
   }
 /*
   removeAllCampaigns() {
@@ -293,6 +312,7 @@ export default class CampaignList extends Component {
     this.retrieveMints(user.id);
     this.retrieveTransfers(user.id);
     this.retrieveRecipients(user.id);
+    this.retrieveDtscf(user.id);
 }
 
   showModal = () => {
@@ -316,7 +336,7 @@ export default class CampaignList extends Component {
       return <Navigate to={this.state.redirect} />
     }
 
-    const { searchName, bridge, bond, dvp, repo, pbm, wrapmint, campaigns, mints, transfers, recipients, CurrentUser } = this.state;
+    const { searchName, bridge, bond, dvp, repo, pbm, wrapmint, campaigns, mints, transfers, recipients, dtscf, currentUser } = this.state;
 
     return (
       <div className="container">
@@ -333,9 +353,9 @@ export default class CampaignList extends Component {
           <div className="col-md-8">
           </div>
           <div className="col-md-12">
-            { bond.length > 0 || repo.length > 0 || campaigns.length > 0 || mints.length > 0 || transfers.length > 0 || dvp.length > 0 || pbm.length > 0 || wrapmint.length > 0 || recipients.length > 0 ? 
+            { bond.length > 0 || repo.length > 0 || campaigns.length > 0 || mints.length > 0 || transfers.length > 0 || dvp.length > 0 || pbm.length > 0 || wrapmint.length > 0 || recipients.length > 0 || recipients.length > 0? 
             <>
-                  {(bond.length > 0)? 
+                  {(bond && bond.length > 0)? 
                     <>
                       <h5>
                         <strong>Bonds</strong>
@@ -445,7 +465,7 @@ export default class CampaignList extends Component {
                     null                  
                   }
 
-                  {(repo.length > 0)?
+                  {(repo && repo.length > 0)?
                     <>
                       <h5>
                         <strong>Repo smart contracts</strong>
@@ -564,7 +584,7 @@ export default class CampaignList extends Component {
                     null
                   }
 
-                  {(campaigns.length > 0)? 
+                  {(campaigns && campaigns.length > 0)? 
                     <>
                       <h5>
                         <strong>Campaigns for Digital Cash</strong>
@@ -676,7 +696,7 @@ export default class CampaignList extends Component {
                     null
                   }
 
-                  {(mints.length > 0)?
+                  {(mints && mints.length > 0)?
                     <>
                       <h5>
                         <strong>Mints</strong>
@@ -774,7 +794,7 @@ export default class CampaignList extends Component {
                   }
 
 
-                  {(transfers.length > 0)? 
+                  {(transfers && transfers.length > 0)? 
                     <>
                       <h5>
                         <strong>Transfers</strong>
@@ -873,7 +893,7 @@ export default class CampaignList extends Component {
                     null
                   }
 
-                  {(bridge.length > 0)? 
+                  {(bridge &&bridge.length > 0)? 
                     <>
                       <h5>
                         <strong>Brdige smart contracts</strong>
@@ -1030,7 +1050,7 @@ export default class CampaignList extends Component {
                     null
                   }
 
-                  {(dvp.length > 0)? 
+                  {(dvp && dvp.length > 0)? 
                     <>
                       <h5>
                         <strong>DvP smart contracts</strong>
@@ -1149,7 +1169,7 @@ export default class CampaignList extends Component {
                     null
                   }
 
-                  {(pbm.length > 0)? 
+                  {(pbm && pbm.length > 0)? 
                     <>
                       <h5>
                         <strong>PBMs</strong>
@@ -1259,7 +1279,7 @@ export default class CampaignList extends Component {
                     null
                   }
 
-                  {(wrapmint.length > 0)? 
+                  {(wrapmint && wrapmint.length > 0)? 
                     <>
                       <h5>
                         <strong>Wrap DSGD with PBM</strong>
@@ -1371,7 +1391,7 @@ export default class CampaignList extends Component {
                     null
                   }
 
-                  {(recipients.length > 0)? 
+                  {(recipients && recipients.length > 0)? 
                     <>
                       <h5>
                         <strong>Recipients maintenance</strong>
@@ -1418,6 +1438,71 @@ export default class CampaignList extends Component {
                                       recipient1.status === 0? "View/Submit Task": (
                                         recipient1.status === 1? "View/Endorse Task": (
                                           recipient1.status === 2? "View/Approve Task": null
+                                        )
+                                      )
+                                    )
+                                  }
+                                </Link>
+                              </td>
+                            </tr>
+                          ))}
+                      </table>
+                      <br/>
+                      <br/>
+                    </>
+                  : 
+                    null
+                  }
+
+                  {(dtscf && dtscf.length > 0)? 
+                    <>
+                      <h5>
+                        <strong>Deep-Tier Supply Chain Financing Projects</strong>
+                      </h5>
+                      <table style={{ border:"1px solid"}}>
+                        {(dtscf.length > 0)?
+                        <tr>
+                          <th>Action</th>
+                          <th>Name</th>
+                          <th>Description</th>
+                          <th>Project Budget</th>
+                          <th>Start Date</th>
+                          <th>End Date</th>
+                          <th>Status</th>
+                          <th>Action</th>
+                        </tr>
+                        : null}
+                        {dtscf && dtscf.length > 0 &&
+                          dtscf.map((dtscf1, index) => (
+                            <tr>
+                              <td>{dtscf1.txntype===0?"Create":dtscf1.txntype===1?"Update":"Delete"}</td>
+                              <td>{dtscf1.name}</td>
+                              <td>{dtscf1.description}</td>
+                              <td>{dtscf1.totalBudget.toLocaleString()}</td>
+                              <td>{dtscf1.startdate.split("T")[0]}</td>
+                              <td>{dtscf1.enddate.split("T")[0]}</td>
+                              <td>
+                              {
+                                  dtscf1.status === -1? "Rejected pending correction" : 
+                                    (dtscf1.status === 0? "Created pending submission":
+                                      (dtscf1.status === 1? "Submitted pending check":
+                                        (dtscf1.status === 2? "Checked pending approval":
+                                          (dtscf1.status === 3? "Approved": null)
+                                        )
+                                      )
+                                    )
+                              }
+                              </td>
+                              <td>
+                                <Link
+                                  to={"/dtscfcheckapprove/" + dtscf1.id}
+                                  className="badge badge-warning"
+                                >
+                                  {
+                                    dtscf1.status === -1? "View/Correct Task" : (
+                                      dtscf1.status === 0? "View/Submit Task": (
+                                        dtscf1.status === 1? "View/Endorse Task": (
+                                          dtscf1.status === 2? "View/Approve Task": null
                                         )
                                       )
                                     )

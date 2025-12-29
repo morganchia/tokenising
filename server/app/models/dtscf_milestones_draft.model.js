@@ -1,5 +1,5 @@
 module.exports = (sequelize, Sequelize) => {
-  const Dtscf_Milestones_Draft = sequelize.define("dtscf_milestones_draft", {
+  const Dtscf_Milestones_Draft = sequelize.define("dtscf_milestones_drafts", {
     id: {
       type: Sequelize.INTEGER,
       primaryKey: true,
@@ -7,7 +7,7 @@ module.exports = (sequelize, Sequelize) => {
       autoIncrement: true,
       initialAutoIncrement: 1,
     },
-    description: {
+    name: {
       type: Sequelize.STRING,  // varchar(50)
       unique: false,
       allowNull: false

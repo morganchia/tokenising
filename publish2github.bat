@@ -1,3 +1,3 @@
 git add .
-git commit -m "Added dtscf"
+git commit -m "Added dtscf_update"
 git push github master
