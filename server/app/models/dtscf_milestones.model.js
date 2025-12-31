@@ -28,7 +28,7 @@ module.exports = (sequelize, Sequelize) => {
     dtscf_project_id: {
       type: Sequelize.INTEGER  // reference the id in Dtscf project table
     },
-    description_changed: {
+    name_changed: {
       type: Sequelize.BOOLEAN,
       defaultValue: false,
     },
@@ -44,7 +44,7 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.BOOLEAN,
       defaultValue: false,
     },
-    description_original: {
+    name_original: {
       type: Sequelize.STRING,  // varchar(50)
     },
     budget_original: {  

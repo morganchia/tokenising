@@ -1,5 +1,5 @@
 module.exports = (sequelize, Sequelize) => {
-  const Dtscf_Draft = sequelize.define("dtscf_draft", {
+  const Dtscf = sequelize.define("dtscf", {
     id: {
       type: Sequelize.INTEGER,
       primaryKey: true,
@@ -21,6 +21,21 @@ module.exports = (sequelize, Sequelize) => {
       defaultValue: 0,
       allowNull: false
     },
+    underlyingTokenID: {
+      type: Sequelize.INTEGER,  
+      allowNull: false
+    },
+    underlyingDSGDsmartcontractaddress: {
+      type: Sequelize.STRING,  // varchar(255)
+      allowNull: false
+    },
+    campaign_id: {
+      type: Sequelize.INTEGER,  
+      allowNull: false
+    },
+    blockchain: {
+      type: Sequelize.INTEGER   // chain id
+    },
     startdate: {
       type: Sequelize.DATE,
       allowNull: false
@@ -28,9 +43,6 @@ module.exports = (sequelize, Sequelize) => {
     enddate: {
       type: Sequelize.DATE,
       allowNull: false
-    },
-    blockchain: {
-      type: Sequelize.INTEGER   // chain id
     },
     txntype: {
       type: Sequelize.INTEGER  // 0=create, 1=edit, 2=delete
@@ -108,5 +120,5 @@ module.exports = (sequelize, Sequelize) => {
     }
   });
 
-  return Dtscf_Draft;
+  return Dtscf;
 };

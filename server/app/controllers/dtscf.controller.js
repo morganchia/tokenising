@@ -2,6 +2,7 @@ const db = require("../models");
 const DTSCFProject = db.dtscfprojects;
 const AuditTrail = db.audittrail;
 const Dtscf_Draft = db.dtscf_draft;
+const Dtscf = db.dtscf;
 const Milestone = db.milestones;
 const Contractor = db.contractors;
 const Purchase = db.purchases;
@@ -11,6 +12,12 @@ const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); // Assume configured
 const Op = db.Sequelize.Op;
 const { logDataValues } = require('../utils/logDataValues');
+
+const smartContractFile = "./server/app/contracts/ERC20Dtscf_new.sol";
+const abiFile = "./server/app/abis/ERC20Dtscf_new.abi.json";
+const byteCodeFile = "./server/app/abis/ERC20Dtscf_new.bytecode.json";
+const smartContractFileName = "ERC20Dtscf_new.sol";
+const TokenName = "DTS-CF Token";
 
 var newcontractaddress = null;
 const adjustdecimals = 18;
@@ -86,11 +93,16 @@ exports.draftCreate = async (req, res) => {
         name              : req.body.name,
         description       : req.body.description,
         totalBudget       : parseInt(req.body.totalBudget) || 0,
+        blockchain        : req.body.blockchain || 0, // Default or from form
+        underlyingTokenID : req.body.underlyingTokenID || null,
+        underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+        campaign_id        : req.body.campaign_id || null,
+
         startdate         : req.body.startdate,
         enddate           : req.body.enddate,
-        blockchain        : req.body.blockchain || 0, // Default or from form
+
         txntype           : 0, // Create
-        status            : 1,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+        status            : 1,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
         actionby          : req.body.actionby, // Assuming auth service
         actiontimedate    : new Date(),
         maker             : req.body.maker,
@@ -107,7 +119,7 @@ exports.draftCreate = async (req, res) => {
       const milestones = JSON.parse(req.body.milestones || '[]');
       for (const ms of milestones) {
         await db.dtscf_milestones_draft.create({
-          description: ms.description,
+          name: ms.name,
           budget: parseInt(ms.budget) || 0,
           startdate: ms.startdate,
           enddate: ms.enddate,
@@ -141,11 +153,11 @@ exports.draftCreate = async (req, res) => {
 
       // Log to audittrail
       await AuditTrail.create({
-        tablename: 'dtscf_draft',
-        action: 'create',
+        action: "Dtscf project draft creation",
+        name: projectData.name,
         actionby: projectData.actionby,
         actiontimedate: projectData.actiontimedate,
-        data: logDataValues(draftProject)
+        //data: logDataValues(draftProject)
       });
 
       res.send({
@@ -184,7 +196,7 @@ exports.create_review = async (req, res) => {
   await Dtscf_Draft.update(
       { 
         checkerComments :   checkercomments,
-        status:             2   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+        status          : 2,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
       }, 
       { where:      { id: id }},
       )
@@ -255,37 +267,46 @@ exports.approveDraftById = async (req, res) => {  //
 
 ////////////////////////////// Blockchain ////////////////////////
 
-      // https://www.geeksforgeeks.org/how-to-deploy-contract-from-nodejs-using-web3/
+  // https://www.geeksforgeeks.org/how-to-deploy-contract-from-nodejs-using-web3/
 
-      require('dotenv').config();
-      const ETHEREUM_NETWORK = (() => {
-        switch (req.body.campaign.blockchain) {
-        case 80001:
-          return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
-        case 80002:
-          return process.env.REACT_APP_POLYGON_AMOY_NETWORK
-        case 11155111:
-          return process.env.REACT_APP_ETHEREUM_SEPOLIA_NETWORK
-        case 43113:
-          return process.env.REACT_APP_AVALANCHE_FUJI_NETWORK
-        case 137:
-          return process.env.REACT_APP_POLYGON_MAINNET_NETWORK
-        case 1:
-          return process.env.REACT_APP_ETHEREUM_MAINNET_NETWORK
-        case 43114:
-          return process.env.REACT_APP_AVALANCHE_MAINNET_NETWORK
-        default:
-          return null
-        }
-      }
-      )()
+  require('dotenv').config();
+  const ETHEREUM_NETWORK = (() => {
+    switch (req.body.campaign.blockchain) {
+    case 80001:
+      return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
+    case 80002:
+      return process.env.REACT_APP_POLYGON_AMOY_NETWORK
+    case 11155111:
+      return process.env.REACT_APP_ETHEREUM_SEPOLIA_NETWORK
+    case 43113:
+      return process.env.REACT_APP_AVALANCHE_FUJI_NETWORK
+    case 137:
+      return process.env.REACT_APP_POLYGON_MAINNET_NETWORK
+    case 1:
+      return process.env.REACT_APP_ETHEREUM_MAINNET_NETWORK
+    case 43114:
+      return process.env.REACT_APP_AVALANCHE_MAINNET_NETWORK
+    default:
+      return null
+    }
+  }
+  )()
 
-//      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
-      const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
-      const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
-      const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
-    
-      console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
+  if (!ETHEREUM_NETWORK) {
+    if (!errorSent) {
+      res.status(400).send({
+        message: "Invalid blockchain network."
+      });
+      errorSent = true;
+    }
+    return;
+  }
+
+  const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
+  const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
+
+  console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
 
       async function compileSmartContract() {
         // solc compiler
@@ -295,36 +316,15 @@ exports.approveDraftById = async (req, res) => {  //
         fs = require("fs");
 
         console.log("Reading smart contract file... ");
-
-        // Reading the file
-//        file = fs.readFileSync("./server/app/contracts/ERC20TokenisedDtscf.sol").toString();
-        file = fs.readFileSync("./server/app/contracts/ERC20Dtscf_new.sol").toString();
+        file = fs.readFileSync(smartContractFile).toString();
         // console.log(file);
 
         // input structure for solidity compiler
-/*
-        var input = {
-          language: "Solidity",
-          sources: {
-//          "ERC20TokenisedDtscf.sol": {
-            "ERC20Dtscf_new.sol": {
-              content: file,
-            },
-          },
-          settings: {
-            outputSelection: {
-              "*": {
-                "*": ["*"],
-              },
-            },
-          },
-        };
-*/
-
         const input = {
             language: 'Solidity',
             sources: {
-                'ERC20Dtscf_new.sol': {
+//                'ERC20Dtscf_new.sol': {  
+                smartContractFileName: {  
                     content: file
                 }
             },
@@ -359,35 +359,37 @@ exports.approveDraftById = async (req, res) => {  //
         console.log("Result of compilation: ", output);
 
         console.log("Generating bytecode from smart contract file ");
-//        ABI = output.contracts["ERC20TokenisedDtscf.sol"]["DtscfToken"].abi;
-//        bytecode = output.contracts["ERC20TokenisedDtscf.sol"]["DtscfToken"].evm.bytecode.object;
-        ABI = output.contracts["ERC20Dtscf_new.sol"]["DtscfToken"].abi;
-        bytecode = output.contracts["ERC20Dtscf_new.sol"]["DtscfToken"].evm.bytecode.object;
+        ABI = output.contracts[smartContractFileName][TokenName].abi;
+        bytecode = output.contracts[smartContractFileName][TokenName].evm.bytecode.object;
         // console.log("solc.compile output: ", output);
         // console.log("ABI: ", ABI);
         // console.log("Bytecode: ", bytecode);
-
                 
-//        await fs.writeFile("./server/app/abis/ERC20TokenisedDtscf.abi.json", JSON.stringify(ABI) , 'utf8', function (err) {
-        await fs.writeFile("./server/app/abis/ERC20Dtscf_new.abi.json", JSON.stringify(ABI) , 'utf8', function (err) {
+        await fs.writeFile(abiFile, JSON.stringify(ABI) , 'utf8', function (err) {
           if (err) {
             console.log("An error occured while writing Dtscf ABI JSON Object to File.");
             return console.log(err);
           }
           console.log("Dtscf ABI JSON file has been saved.");
         });
-//         await fs.writeFile("./server/app/abis/ERC20TokenisedDtscf.bytecode.json", JSON.stringify(bytecode) , 'utf8', function (err) {
-        await fs.writeFile("./server/app/abis/ERC20Dtscf_new.bytecode.json", JSON.stringify(bytecode) , 'utf8', function (err) {
+        await fs.writeFile(byteCodeFile, JSON.stringify(bytecode) , 'utf8', function (err) {
           if (err) {
             console.log("An error occured while writing Dtscf bytecode JSON Object to File.");
             return console.log(err);
           }
           console.log("Dtscf Bytecode JSON file has been saved.");
         });
-
       }
 
       async function dAppCreate() {
+        // Actions:
+        // 1. compile Tokenised Payable TP smart contract
+        // 2. sign smart contract
+        // 3. deploy smart contract
+        // 4. keep the new smart contract address
+        // 5. allow TP smart contract to pull tokenised deposits TBD from system's wallet
+        // 6. call method wrapDepositToPayable() which pulls TBD from system wallet into the TP smart contract
+
         updatestatus = false;
         fs = require("fs");
 
@@ -398,7 +400,7 @@ exports.approveDraftById = async (req, res) => {  //
           if (!errorSent) {
             console.log("Sending error 400 back to client");
             res.status(400).send({ 
-              message: "Error when compiling Dtscf smart contract. Please contact your tech support."
+              message: "Error when compiling Tokenised Payable smart contract. Please contact your tech support."
             });
             errorSent = true;
           }
@@ -418,7 +420,7 @@ exports.approveDraftById = async (req, res) => {  //
 
         web3.setProvider(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
 
-        console.log("Maturitydate (unix time) = ", Number(new Date(req.body.maturitydate)));
+        console.log("Enddate (unix time) = ", Number(new Date(req.body.enddate)));
         try {
           const deployContract = async () => {
             console.log('Attempting to deploy from account:', signer.address);
@@ -445,8 +447,8 @@ exports.approveDraftById = async (req, res) => {  //
               facevalue: (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
               couponrate: (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
               couponinterval: (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-              issuedate: req.body.issuedate,
-              maturitydate: req.body.maturitydate,
+              startdate: req.body.startdate,
+              enddate: req.body.enddate,
               issuer: recipient.name,
               CashTokensmartcontractaddress: req.body.CashTokensmartcontractaddress,
               prospectusurl: req.body.prospectusurl,
@@ -541,10 +543,10 @@ exports.approveDraftById = async (req, res) => {  //
               return false;
             }
 
-            const issueDate = Number(new Date(req.body.issuedate));
-            const maturityDate = Number(new Date(req.body.maturitydate));
-            if (isNaN(issueDate) || isNaN(maturityDate) || maturityDate <= issueDate) {
-              console.error(`Error: Invalid dates - issueDate: ${req.body.issuedate}, maturityDate: ${req.body.maturitydate}`);
+            const startDate = Number(new Date(req.body.startdate));
+            const endDate = Number(new Date(req.body.enddate));
+            if (isNaN(startDate) || isNaN(endDate) || endDate <= startDate) {
+              console.error(`Error: Invalid dates - startDate: ${req.body.startdate}, endDate: ${req.body.enddate}`);
               if (!errorSent) {
                 res.status(400).send({
                   message: 'Invalid input: Dates must be valid and maturity date must be after issue date.',
@@ -561,8 +563,8 @@ exports.approveDraftById = async (req, res) => {  //
               scaleToWei(req.body.facevalue),
               scaleCouponRate(req.body.couponrate),
               (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-              Math.floor(Number(new Date(req.body.issuedate)) / 1000),
-              Math.floor(Number(new Date(req.body.maturitydate)) / 1000),
+              Math.floor(Number(new Date(req.body.startdate)) / 1000),
+              Math.floor(Number(new Date(req.body.enddate)) / 1000),
               recipient.name,
               scaleToWei(totalSupply),
               req.body.CashTokensmartcontractaddress,
@@ -570,8 +572,6 @@ exports.approveDraftById = async (req, res) => {  //
             ];
 
             console.log('DtscfConfig:', dtscfConfig);
-
-
 
             let gasFees = await retryWithBackoff(() => ERC20TokenisedDtscfcontract.deploy({
               data: bytecode,
@@ -661,7 +661,6 @@ exports.approveDraftById = async (req, res) => {  //
                       }
                     });
                   }
-
                   timer += 1000;
                 }, 1000);
 
@@ -743,8 +742,7 @@ exports.approveDraftById = async (req, res) => {  //
     
         // Readng ABI from JSON file
         fs = require("fs");
-//        ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenisedDtscf.abi.json").toString());
-        ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20Dtscf_new.abi.json").toString());
+        ABI = JSON.parse(fs.readFileSync(abiFile).toString());
     
         // Creation of Web3 class
         Web3 = require("web3");
@@ -888,24 +886,23 @@ exports.approveDraftById = async (req, res) => {  //
       } // dAppUpdate
 
       
-      console.log("*** isNewDtscf = ", isNewDtscf);
-      console.log("*** req.body.smartcontractaddress = ", req.body.smartcontractaddress);
+  console.log("*** isNewDtscf = ", isNewDtscf);
+  console.log("*** req.body.smartcontractaddress = ", req.body.smartcontractaddress);
 /*
-      res.status(400).send({
-        message: "ENDDD!"
-      });
-      return;
+  res.status(400).send({
+    message: "ENDDD!"
+  });
+  return;
 */
 
-      if (isNewDtscf) {   // new dtscf
-        updatestatus = await dAppCreate();
-      } else {                              // update dtscf
-        updatestatus = await dAppUpdate(); 
-      }
-      console.log("approveDraftById Update status (1):", updatestatus);
+  if (isNewDtscf) {   // new dtscf
+    updatestatus = await dAppCreate();
+  } else {                              // update dtscf
+    updatestatus = await dAppUpdate(); 
+  }
+  console.log("approveDraftById Update status (1):", updatestatus);
 
 ////////////////////////////// Blockchain ////////////////////////
-
 
   console.log('New Dtscf Contract deployed updating DB: ', newcontractaddress);
 
@@ -948,33 +945,17 @@ exports.approveDraftById = async (req, res) => {  //
       await Dtscf.create( // create Dtscf in the database !!!!!
         { 
           name                  : req.body.name,
-//          securityname          : req.body.securityname,
-          ISIN                  : req.body.ISIN, 
-          tokenname             : req.body.tokenname, 
-          tokensymbol           : req.body.tokensymbol.toUpperCase(),
-          blockchain            : req.body.blockchain,
+          totalBudget           : parseInt(req.body.totalBudget) || 0,
+          blockchain            : req.body.blockchain || 0, // Default or from form
+          underlyingTokenID     : req.body.underlyingTokenID || null,
+          underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+          campaign_id           : req.body.campaign_id || null,
 
-//          datafield1_name       : req.body.datafield1_name,
-//          datafield1_value      : req.body.datafield1_value,
-//          operator1             : req.body.operator1,
-//          datafield2_name       : req.body.datafield2_name,
-//          datafield2_value      : req.body.datafield2_value,
-
-          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-
-          issuedate             : req.body.issuedate, 
-          maturitydate          : req.body.maturitydate, 
-          issuer                : req.body.issuer, 
-          smartcontractaddress  : newcontractaddress,
-          cashTokenID           : req.body.cashTokenID,
-          CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,    
-          totalsupply           : req.body.totalsupply,
-          prospectusurl         : req.body.prospectusurl, // new
-
+          startdate             : req.body.startdate, 
+          enddate               : req.body.enddate,
+          
           actionby              : req.body.actionby,
-          draftdtscfid           : req.body.id,          
+          draftdtscfid          : req.body.id,             
         }, 
       )
       .then(data => {
@@ -1000,32 +981,17 @@ exports.approveDraftById = async (req, res) => {  //
       await Dtscf.update( // update Dtscf in the database !!!!! 
       { 
         name                  : req.body.name,
-//        securityname          : req.body.securityname,
-        ISIN                  : req.body.ISIN, 
-        tokenname             : req.body.tokenname, 
-        tokensymbol           : req.body.tokensymbol.toUpperCase(),
-        blockchain            : req.body.blockchain,
+        totalBudget           : parseInt(req.body.totalBudget) || 0,
+        blockchain            : req.body.blockchain || 0, // Default or from form
+        underlyingTokenID     : req.body.underlyingTokenID || null,
+        underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+          campaign_id           : req.body.campaign_id || null,
 
-//        datafield1_name       : req.body.datafield1_name,
-//        datafield1_value      : req.body.datafield1_value,
-//        operator1             : req.body.operator1,
-//        datafield2_name       : req.body.datafield2_name,
-//        datafield2_value      : req.body.datafield2_value,
-
-        facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-        couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-        couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-
-        cashTokenID           : req.body.cashTokenID,
-        CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,  
-        issuedate             : req.body.issuedate, 
-        maturitydate          : req.body.maturitydate, 
-        issuer                : req.body.issuer, 
-        totalsupply           : req.body.totalsupply,
-        prospectusurl         : req.body.prospectusurl, // new
+        startdate             : req.body.startdate, 
+        enddate               : req.body.enddate,
         
         actionby              : req.body.actionby,
-        draftdtscfid           : req.body.id,             
+        draftdtscfid          : req.body.id,             
       }, 
       { where:      { id: req.body.approveddtscfid }},
       )
@@ -1148,7 +1114,7 @@ exports.triggerDtscfCouponPaymentById = async (req, res) => {
     const fs = require("fs");
     try {
       console.log("Reading Dtscf ABI JSON file.");
-      ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20Dtscf_new.abi.json").toString());
+      ABI = JSON.parse(fs.readFileSync(abiFile).toString());
     } catch (err) {
       console.error("Err reading ABI:", err);
       if (!errorSent) {
@@ -1346,7 +1312,7 @@ exports.findDraftByNameExact = (req, res) => {
   const name = req.query.name;
   var condition = name ? { 
     name: name, 
-    status : [-1, 0, 1, 2]  // status -1=rejected, 0, drafted not submitted, 1=submitted for checker, 2=submitted for approver, 3=approved
+    status : [-1, 0, 1, 2]  // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
   } : null;
 
   Dtscf_Draft.findAll(
@@ -1370,7 +1336,7 @@ exports.findDraftByApprovedId = (req, res) => {
   const id = req.query.id;
   var condition = id ? { 
     approveddtscfid: id, 
-    status : [-1, 0, 1, 2]  // status -1=rejected, 0, drafted not submitted, 1=submitted for checker, 2=submitted for approver, 3=approved
+    status : [-1, 0, 1, 2]  // status -1=redo, 0, drafted not submitted, 1=pending checker, 2=pending approver, 3=approved
   } : null;
 
   Dtscf_Draft.findAll(
@@ -1425,13 +1391,18 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
   })
   .then(async data => {
 
+    if (!data || data.length === 0) {
+      return res.status(404).send({
+        message: `Dtscf with id=${Id} not found`
+      });
+    }
+
     //console.log("Qery result fo DATA:", data[0].id);
 
     /// Query blockchain
     // Readng ABI from JSON file
     fs = require("fs");
-//     ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenisedDtscf.abi.json").toString());  // <-- dropdown menu
-    ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20Dtscf_new.abi.json").toString());  // <-- dropdown menu
+    ABI = JSON.parse(fs.readFileSync(abiFile).toString());  // <-- dropdown menu
 
     // Creation of Web3 class
     Web3 = require("web3");
@@ -1460,13 +1431,20 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
       }
     )()
 
-    //    const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
+    if (!ETHEREUM_NETWORK) {
+      if (!errorSent) {
+        res.status(400).send({
+          message: "Invalid blockchain network."
+        });
+        errorSent = true;
+      }
+      return;
+    }
+
     const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
     const provider = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
     const Web3Client = new Web3(new Web3.providers.HttpProvider(provider));
     const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
-
-
 
     // Setting up a HttpProvider
     web3 = new Web3( 
@@ -1636,29 +1614,16 @@ exports.getAll = (req, res) => {
   const name = req.query.name;
   var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
 
+  console.log("====== dtscf.getAll() ");
   Dtscf.findAll(
   {
-    include: [
-      {
-        model: db.recipients,
-        on: {
-          id: db.Sequelize.where(db.Sequelize.col("dtscf.issuer"), "=", db.Sequelize.col("recipient.id")),
-        },
-        attributes: ['id','name', 'walletaddress'],
-      },
-      {
-        model: db.campaigns,
-        on: {
-          id: db.Sequelize.where(db.Sequelize.col("dtscf.cashTokenID"), "=", db.Sequelize.col("campaign.id")),
-        },
-        attributes: ['id', 'name', 'tokenname', 'smartcontractaddress', 'blockchain'],
-      }
-    ]
+    where: condition,
   },
   ).then(data => {
     logDataValues("Dtscf.findAll: ", data);
     res.send(data);
   }).catch(err => {
+    console.log("Error while retrieving dtscf4: "+err.message);
     res.status(500).send({
       message:
         err.message || "Some error occurred while retrieving dtscf."
@@ -1807,7 +1772,7 @@ exports.getAllInvestorsById = (req, res) => {
     const fs = require("fs");
     let ABI;
     try {
-      ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20Dtscf_new.abi.json").toString());
+      ABI = JSON.parse(fs.readFileSync(abiFile).toString());
       console.log("ABI loaded successfully.");
     } catch (err) {
       console.error("Error reading ABI:", err.message);
@@ -1832,6 +1797,16 @@ exports.getAllInvestorsById = (req, res) => {
         default: throw new Error(`Invalid blockchain ID: ${data.blockchain}`);
       }
     })();
+
+    if (!ETHEREUM_NETWORK) {
+      if (!errorSent) {
+        res.status(400).send({
+          message: "Invalid blockchain network."
+        });
+        errorSent = true;
+      }
+      return;
+    }
 
     const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
     const ETHERSCAN_API_KEY = process.env.REACT_APP_ETHERSCAN_API_KEY;
@@ -1897,18 +1872,18 @@ exports.getAllInvestorsById = (req, res) => {
           couponRate = Number(config.couponRate);  // in basis points
 
           // Dates are in seconds, convert to milliseconds for JavaScript Date
-          const issueDate = Number(config.issueDate) * 1000; // Seconds to milliseconds
-          const maturityDate = Number(config.maturityDate) * 1000;
+          const startDate = Number(config.startDate) * 1000; // Seconds to milliseconds
+          const endDate = Number(config.endDate) * 1000;
           const couponInterval = Number(config.couponInterval) * 1000; // Seconds to milliseconds
           const couponCount = Number(await retryWithBackoff(() => dtscfContract.methods.couponCount(1).call()));
           console.log("couponCount:", couponCount);
-          console.log("issueDate (seconds):", config.issueDate, "=>", new Date(issueDate).toISOString());
-          console.log("maturityDate (seconds):", config.maturityDate, "=>", new Date(maturityDate).toISOString());
+          console.log("startDate (seconds):", config.startDate, "=>", new Date(startDate).toISOString());
+          console.log("endDate (seconds):", config.endDate, "=>", new Date(endDate).toISOString());
           console.log("couponInterval (seconds):", config.couponInterval);
 
           // Calculate coupon dates
-          let currentCouponDate = issueDate + couponInterval; // First coupon date after issue date
-          for (let i = 0; i < couponCount && currentCouponDate <= maturityDate; i++) {
+          let currentCouponDate = startDate + couponInterval; // First coupon date after issue date
+          for (let i = 0; i < couponCount && currentCouponDate <= endDate; i++) {
             console.log(`Coupon ${i} date:`, new Date(currentCouponDate).toISOString());
             couponDates.push(new Date(currentCouponDate).toISOString());
             console.log(`Fetching status for coupon ${i}...`);
@@ -2059,11 +2034,14 @@ exports.submitDraftById = async (req, res) => {
         name              : req.body.name,
         description       : req.body.description,
         totalBudget       : parseInt(req.body.totalBudget) || 0,
+        blockchain        : req.body.blockchain || 0, // Default or from form
+        underlyingTokenID : req.body.underlyingTokenID || null,
+        underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+        campaign_id       : req.body.campaign_id || null,
         startdate         : req.body.startdate,
         enddate           : req.body.enddate,
-        blockchain        : req.body.blockchain || 0, // Default or from form
         txntype           : 0, // Create
-        status            : 1,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+        status            : 1, // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
         actionby          : req.body.actionby, // Assuming auth service
         actiontimedate    : new Date(),
         maker             : req.body.maker,
@@ -2085,7 +2063,7 @@ exports.submitDraftById = async (req, res) => {
           const milestones = JSON.parse(req.body.milestones || '[]');
           for (const ms of milestones) {
             await db.dtscf_milestones_draft.update({
-              description: ms.description,
+              name: ms.name,
               budget: parseInt(ms.budget) || 0,
               startdate: ms.startdate,
               enddate: ms.enddate,
@@ -2099,16 +2077,23 @@ exports.submitDraftById = async (req, res) => {
           // Parse and update contractors with purchases
           const contractors = JSON.parse(req.body.contractors || '[]');
           for (const [conIndex, con] of contractors.entries()) {
-            const draftContractor = await db.dtscf_contractors_draft.update({
+            const num = await db.dtscf_contractors_draft.update({
               name: con.name,
               budget: parseInt(con.budget) || 0,
+              walletaddress: con.walletaddress,
               dtscf_project_id: draft_id,
               dtscf_parent_contractor_id: con.parent_contractor_id || null
             },
             { 
-              where:      { id: con.id }
+              where: { id: con.id }
             });
 
+            if (num === 1) {
+              console.log("dtscf_contractors_draft updated successfully.");
+            } else {
+              console.log(`Cannot update dtscf_contractors_draft with id=${con.id}.`);
+            }
+            
             for (const [purIndex, pur] of con.purchases.entries()) {
               const invoiceField = `contractor_${conIndex}_purchase_${purIndex}_invoice`;
               const invoiceFile = req.files[invoiceField] ? req.files[invoiceField][0] : null;
@@ -2117,11 +2102,21 @@ exports.submitDraftById = async (req, res) => {
                 description: pur.description,
                 amount: parseFloat(pur.amount) || 0,
                 dtscf_project_id: draft_id,
-                dtscf_contractor_id: draftContractor.id,
+                dtscf_contractor_id: con.id,
                 invoice_blob: invoiceFile ? invoiceFile.buffer : null
               },
               { 
                 where:      { id: pur.id }
+              })
+              .then(async num => {
+                if (num == 1) {
+                  console.log("dtscf_purchases_draft updated successfully.");
+                } else {
+                  console.log(`Cannot update dtscf_purchases_draft with id=${pur.id}.`);
+                }
+              })
+              .catch(err => {
+                console.log("Error while updating dtscf_purchases_draft: "+err.message);
               });
             }
           }
@@ -2153,10 +2148,13 @@ exports.submitDraftById = async (req, res) => {
         }
       })
       .catch(err => {
-        console.log(err);
-        res.status(500).send({
-          message: `Error updating Dtscf. ${err}`
-        });
+        if (!errorSent) {
+          console.log(err);
+          res.status(500).send({
+            message: `Error updating Dtscf. ${err}`
+          });
+          errorSent = true;
+        }
       }); // await Dtscf_Draft.update()
     } catch (err) {
       console.error(err);
@@ -2195,40 +2193,22 @@ exports.acceptDraftById = async (req, res) => {
         { 
           action                : "Dtscf "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - accepted",
           name                  : req.body.name,
-//          securityname          : req.body.securityname,
-          ISIN                  : req.body.ISIN, 
-          tokenname             : req.body.tokenname, 
-          tokensymbol           : req.body.tokensymbol?.toUpperCase(),
-          blockchain            : req.body.blockchain,
+          totalBudget           : req.body.totalBudget,
+          blockchain            : req.body.blockchain || 0, // Default or from form
+          underlyingTokenID     : req.body.underlyingTokenID || null,
+          underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+          campaign_id           : req.body.campaign_id || null,
 
-//          datafield1_name       : req.body.datafield1_name,
-//          datafield1_value      : req.body.datafield1_value,
-//          operator1             : req.body.operator1,
-//          datafield2_name       : req.body.datafield2_name,
-//          datafield2_value      : req.body.datafield2_value,
-
-          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-
-          cashTokenID           : req.body.cashTokenID,
-          CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,    
-          startdate             : req.body.startdate,
+          startdate             : req.body.startdate, 
           enddate               : req.body.enddate,
-          issuer                : req.body.issuer,
-          totalsupply           : req.body.totalsupply,
-          prospectusurl         : req.body.prospectusurl, // new
 
-          txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
-
-          draftdtscfId           : draft_id,
           maker                 : req.body.maker,
           checker               : req.body.checker,
           approver              : req.body.approver,
           actionby              : req.body.actionby,
           checkerComments       : req.body.checkerComments,
           approverComments      : req.body.approverComments,
-          status                : 2,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+          status                : 2,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
         }, 
       )
       .then(auditres => {
@@ -2281,28 +2261,20 @@ exports.rejectDraftById = async (req, res) => {
         { 
           action                : "Dtscf "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - rejected",
           name                  : req.body.name,
-//          securityname          : req.body.securityname,
           blockchain            : req.body.blockchain,
         
-//          datafield1_name       : req.body.datafield1_name,
-//          datafield1_value      : req.body.datafield1_value,
-//          operator1             : req.body.operator1,
-//          datafield2_name       : req.body.datafield2_name,
-//          datafield2_value      : req.body.datafield2_value,
-
           startdate             : req.body.startdate,
           enddate               : req.body.enddate,
 
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
 
-          draftdtscfId           : draft_id,
           maker                 : req.body.maker,
           checker               : req.body.checker,
           approver              : req.body.approver,
           actionby              : req.body.actionby,
           checkerComments       : req.body.checkerComments,
           approverComments      : req.body.approverComments,
-          status                : -1,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+          status                : -1,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
         }, 
       )
       .then(auditres => {
@@ -2374,7 +2346,16 @@ exports.update = async (req, res) => {
   }
   )()
 
-//  const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
+  if (!ETHEREUM_NETWORK) {
+    if (!errorSent) {
+      res.status(400).send({
+        message: "Invalid blockchain network."
+      });
+      errorSent = true;
+    }
+    return;
+  }
+
   const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
@@ -2387,8 +2368,7 @@ exports.update = async (req, res) => {
 
     // Readng ABI from JSON file
     fs = require("fs");
-//     ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenisedDtscf.abi.json").toString());  // <-- dropdown menu
-    ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20Dtscf_new.abi.json").toString());
+    ABI = JSON.parse(fs.readFileSync(abiFile).toString());
 
     // Creation of Web3 class
     Web3 = require("web3");
@@ -2518,31 +2498,15 @@ exports.update = async (req, res) => {
   if (updatestatus) {
     await Dtscf.update(
       {
-          name                  : req.body.name,
-//          securityname          : req.body.securityname,
-          ISIN                  : req.body.ISIN, 
-  // cant update token name once smart contract is deployed
-  //    tokenname             : req.body.tokenname, 
-  //    tokensymbol           : req.body.tokensymbol.toUpperCase(),
-        blockchain            : req.body.blockchain,
-      
-//        datafield1_name       : req.body.datafield1_name,
-//        datafield1_value      : req.body.datafield1_value,
-//        operator1             : req.body.operator1,
-//        datafield2_name       : req.body.datafield2_name,
-//        datafield2_value      : req.body.datafield2_value,
+        name                  : req.body.name,
+        blockchain            : req.body.blockchain || 0, // Default or from form
+        underlyingTokenID     : req.body.underlyingTokenID || null,
+        underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+        campaign_id           : req.body.campaign_id || null,
+        totalBudget           : req.body.totalBudget,
 
-        facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-        couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-        couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-
-        cashTokenID           : req.body.cashTokenID,
-        CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,  
-        issuedate             : req.body.issuedate, 
-        maturitydate          : req.body.maturitydate, 
-        issuer                : req.body.issuer, 
-        totalsupply           : req.body.totalsupply,
-        prospectusurl         : req.body.prospectusurl, // new
+        startdate             : req.body.startdate, 
+        enddate               : req.body.enddate,
       }, 
       { where:      { id: draft_id }},
       )
@@ -2554,41 +2518,25 @@ exports.update = async (req, res) => {
             { 
               action                : "Dtscf "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" update request - approved",
               name                  : req.body.name,
-//              securityname          : req.body.securityname, 
-              ISIN                  : req.body.ISIN, 
-              tokenname             : req.body.tokenname, 
-              tokensymbol           : req.body.tokensymbol, 
-              blockchain            : req.body.blockchain,
-            
-//              datafield1_name       : req.body.datafield1_name,
-//              datafield1_value      : req.body.datafield1_value,
-//              operator1             : req.body.operator1,
-//              datafield2_name       : req.body.datafield2_name,
-//              datafield2_value      : req.body.datafield2_value,
-    
-              facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-              couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-              couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
+              totalBudget           : req.body.totalBudget,
+              blockchain            : req.body.blockchain || 0, // Default or from form
+              underlyingTokenID     : req.body.underlyingTokenID || null,
+              underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+              campaign_id           : req.body.campaign_id || null,
 
-              cashTokenID           : req.body.cashTokenID,
-              CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,
-        
-              startdate             : req.body.startdate,
+              startdate             : req.body.startdate, 
               enddate               : req.body.enddate,
-              issuer                : req.body.issuer,
-              totalsupply           : req.body.totalsupply,
-              prospectusurl         : req.body.prospectusurl, // new
-
+              
               txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
 
-              draftdtscfId           : draft_id,
+              draftdtscfId          : draft_id,
               maker                 : req.body.maker,
               checker               : req.body.checker,
               approver              : req.body.approver,
               actionby              : req.body.actionby,
               checkerComments       : req.body.checkerComments,
               approverComments      : req.body.approverComments,
-              status                : 3,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+              status                : 3,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
             }, 
           )
           .then(auditres => {
@@ -2658,40 +2606,24 @@ exports.approveDeleteDraftById = async (req, res) => {
         { 
           action                : "Dtscf "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - deleted",
           name                  : req.body.name,
-//          securityname          : req.body.securityname, 
-          ISIN                  : req.body.ISIN, 
-          tokenname             : req.body.tokenname, 
-          tokensymbol           : req.body.tokensymbol, 
-          blockchain            : req.body.blockchain,
-        
-//          datafield1_name       : req.body.datafield1_name,
-//          datafield1_value      : req.body.datafield1_value,
-//          operator1             : req.body.operator1,
-//          datafield2_name       : req.body.datafield2_name,
-//          datafield2_value      : req.body.datafield2_value,
+          totalBudget           : req.body.totalBudget,
+          blockchain            : req.body.blockchain || 0, // Default or from form
+          underlyingTokenID     : req.body.underlyingTokenID || null,
+          underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+          campaign_id           : req.body.campaign_id || null,
 
-          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-
-          cashTokenID           : req.body.cashTokenID,
-          CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,    
-          startdate             : req.body.startdate,
+          startdate             : req.body.startdate, 
           enddate               : req.body.enddate,
-          issuer                : req.body.issuer,
-          totalsupply           : req.body.totalsupply,
-          prospectusurl         : req.body.prospectusurl, // new
-
+          
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
 
-          draftdtscfId           : draft_id,
           maker                 : req.body.maker,
           checker               : req.body.checker,
           approver              : req.body.approver,
           actionby              : req.body.actionby,
           checkerComments       : req.body.checkerComments,
           approverComments      : req.body.approverComments,
-          status                : 3,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+          status                : 3,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
         }, 
       )
       .then(auditres => {
@@ -2776,40 +2708,24 @@ exports.dropRequestById = async (req, res) => {
         { 
           action                : "Dtscf "+(req.body.txntype===0?"create":req.body.txntype===1?"update":req.body.txntype===2?"delete":"")+" request - dropped",
           name                  : req.body.name,
-//          securityname          : req.body.securityname, 
-          ISIN                  : req.body.ISIN, 
-          tokenname             : req.body.tokenname, 
-          tokensymbol           : req.body.tokensymbol, 
-          blockchain            : req.body.blockchain,
-        
-//          datafield1_name       : req.body.datafield1_name,
-//          datafield1_value      : req.body.datafield1_value,
-//          operator1             : req.body.operator1,
-//          datafield2_name       : req.body.datafield2_name,
-//          datafield2_value      : req.body.datafield2_value,
+          totalBudget           : req.body.totalBudget,
+          blockchain            : req.body.blockchain || 0, // Default or from form
+          underlyingTokenID     : req.body.underlyingTokenID || null,
+          underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+          campaign_id           : req.body.campaign_id || null,
 
-          facevalue             : (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-          couponrate            : (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-          couponinterval        : (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-
-          cashTokenID           : req.body.cashTokenID,
-          CashTokensmartcontractaddress  : req.body.CashTokensmartcontractaddress,    
-          startdate             : req.body.startdate,
+          startdate             : req.body.startdate, 
           enddate               : req.body.enddate,
-          issuer                : req.body.issuer,
-          totalsupply           : req.body.totalsupply,
-          prospectusurl         : req.body.prospectusurl, // new
-
+          
           txntype               : req.body.txntype,   // 0 - create,  1-edit,  2-delete
 
-          draftdtscfId           : draft_id,
           maker                 : req.body.maker,
           checker               : req.body.checker,
           approver              : req.body.approver,
           actionby              : req.body.actionby,
           checkerComments       : req.body.checkerComments,
           approverComments      : req.body.approverComments,
-          status                : 9,   // 0 = draft; 1 = created pending review; 2 = reviewed pending approval; 3 = approved
+          status                : 9,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
         }, 
       )
       .then(auditres => {

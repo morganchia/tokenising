@@ -222,7 +222,7 @@ export default class Inbox extends Component {
     }
   }
 
-    retrieveDtscf(userid) {
+  retrieveDtscf(userid) {
     if (userid !== undefined) {
       DtscfDataService.getAllDraftsByUserId(userid)
       .then(response => {
@@ -353,7 +353,7 @@ export default class Inbox extends Component {
           <div className="col-md-8">
           </div>
           <div className="col-md-12">
-            { bond.length > 0 || repo.length > 0 || campaigns.length > 0 || mints.length > 0 || transfers.length > 0 || dvp.length > 0 || pbm.length > 0 || wrapmint.length > 0 || recipients.length > 0 || recipients.length > 0? 
+            { bond?.length > 0 || repo?.length > 0 || campaigns?.length > 0 || mints?.length > 0 || transfers?.length > 0 || dvp?.length > 0 || pbm?.length > 0 || wrapmint?.length > 0 || recipients?.length > 0 || dtscf?.length > 0 ? 
             <>
                   {(bond && bond.length > 0)? 
                     <>
@@ -896,7 +896,7 @@ export default class Inbox extends Component {
                   {(bridge &&bridge.length > 0)? 
                     <>
                       <h5>
-                        <strong>Brdige smart contracts</strong>
+                        <strong>Bridge smart contracts</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
                         {(bridge.length > 0)?

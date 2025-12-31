@@ -60,8 +60,8 @@ db.dtscf                   = require("./dtscf.model.js")(sequelize, Sequelize);
 db.dtscf_draft             = require("./dtscf_draft.model.js")(sequelize, Sequelize);
 db.dtscf_contractors       = require("./dtscf_contractors.model.js")(sequelize, Sequelize);
 db.dtscf_contractors_draft = require("./dtscf_contractors_draft.model.js")(sequelize, Sequelize);
-db.dtscf_purchases          = require("./dtscf_purchases.model.js")(sequelize, Sequelize);
-db.dtscf_purchases_draft    = require("./dtscf_purchases_draft.model.js")(sequelize, Sequelize);
+db.dtscf_purchases         = require("./dtscf_purchases.model.js")(sequelize, Sequelize);
+db.dtscf_purchases_draft   = require("./dtscf_purchases_draft.model.js")(sequelize, Sequelize);
 db.dtscf_milestones        = require("./dtscf_milestones.model.js")(sequelize, Sequelize);
 db.dtscf_milestones_draft  = require("./dtscf_milestones_draft.model.js")(sequelize, Sequelize);
 
