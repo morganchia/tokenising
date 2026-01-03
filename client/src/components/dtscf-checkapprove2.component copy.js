@@ -1,4 +1,3 @@
-// dtscf-project-creation.component.js
 import React, { Component } from "react";
 import CampaignDataService from "../services/campaign.service";
 import DtscfDataService from "../services/dtscf.service.js";
@@ -70,7 +69,9 @@ class DTSCFProjectCreation extends Component {
         startDate: getToday(),
         endDate: getToday(),
         milestones: [{name: "", budget: 0, startdate: "", enddate: ""}],
-        contractors: [{name: "", budget: 0, walletaddress: "",purchases: [{description: ""}], amount: 0, invoices: []}], // invoices as File objects
+        contractors: [{name: "", budget: 0, walletaddress: "", purchases: [{description: "", amount: 0, invoices: []}], subcontractors: []}], 
+        checkerComments: "",
+        approverComments: ""
       },
       underlyingDSGDList: [],
       checkerList: {
@@ -148,7 +149,7 @@ class DTSCFProjectCreation extends Component {
   async getProject(user, id) {
     console.log("+++ id:", id);
     this.setState({ isLoading: true });
-    if (id !== undefined && id != 0) {
+    if (id !== undefined && id != 0 && id !== null) {
       console.log("Calling getAllDraftsByDtscfId... ");
 
       await DtscfDataService.getAllDraftsByDtscfId(id)
@@ -214,7 +215,10 @@ class DTSCFProjectCreation extends Component {
         console.log(e);
         this.setState({ isLoading: false, message: "Error fetching project data: " + e.message });
       });
-    }
+    } else {
+      console.log("ID is undefined or invalid, skipping fetch.");
+      this.setState({ isLoading: false });
+    }    
     this.setState({ isLoading: false });
   }
 
@@ -296,7 +300,6 @@ class DTSCFProjectCreation extends Component {
       };
     });
     console.log("New currentProject=", this.state.currentProject);
-
   }
 
   onChangeStartDate(e) {
@@ -355,88 +358,179 @@ class DTSCFProjectCreation extends Component {
     }));
   }
 
+  getContractorAtPath(path) {
+    let current = this.state.currentProject.contractors;
+    for (let i = 0; i < path.length; i++) {
+      current = current[path[i]].subcontractors;
+    }
+    return current;
+  }
+
+  // Add contractor at top level
   addContractor() {
-    this.setState(prevState => ({
-      currentProject: {
-        ...prevState.currentProject,
-        contractors: [...prevState.currentProject.contractors, { name: "", budget: 0, walletaddress: "", purchases: [], invoices: [] }]
-      },
-      datachanged: true
+    this.addSubcontractor([]);
+  }
+
+  // Add subcontractor under a parent path
+  addSubcontractor(parentPath) {
+    this.setState(prevState => {
+      const newProject = {...prevState.currentProject};
+      let currentList = newProject.contractors;
+      for (let i = 0; i < parentPath.length; i++) {
+        currentList = currentList[parentPath[i]].subcontractors;
+      }
+      currentList.push({name: "", budget: 0, walletaddress: "", purchases: [], subcontractors: [], milestone_id: null});
+      return {
+        currentProject: newProject,
+        datachanged: true
+      };
+    });
+  }
+
+  onChangeContractor(path, field, value) {
+    if (field === 'budget') value = parseFloat(value);
+    if (field === 'milestone_id') value = parseInt(value) || null;
+    this.setState(prevState => {
+      const newProject = {...prevState.currentProject};
+      let current = newProject.contractors[path[0]];
+      for (let i = 1; i < path.length; i++) {
+        current = current.subcontractors[path[i]];
+      }
+      current[field] = value;
+      return {
+        currentProject: newProject,
+        datachanged: true
+      };
+    });
+  }
+
+  removeContractor(path) {
+    if (path.length === 0) return;
+    this.setState(prevState => {
+      const newProject = {...prevState.currentProject};
+      let parentList = newProject.contractors;
+      for (let i = 0; i < path.length - 1; i++) {
+        parentList = parentList[path[i]].subcontractors;
+      }
+      parentList.splice(path[path.length - 1], 1);
+      return {
+        currentProject: newProject,
+        datachanged: true
+      };
+    });
+  }
+
+  addPurchase(path) {
+    this.setState(prevState => {
+      const newProject = {...prevState.currentProject};
+      let current = newProject.contractors[path[0]];
+      for (let i = 1; i < path.length; i++) {
+        current = current.subcontractors[path[i]];
+      }
+      current.purchases.push({description: "", amount: 0, invoices: []});
+      return {
+        currentProject: newProject,
+        datachanged: true
+      };
+    });
+  }
+
+  onChangePurchase(path, purIndex, value) {
+    this.setState(prevState => {
+      const newProject = {...prevState.currentProject};
+      let current = newProject.contractors[path[0]];
+      for (let i = 1; i < path.length; i++) {
+        current = current.subcontractors[path[i]];
+      }
+      current.purchases[purIndex].description = value;
+      return {
+        currentProject: newProject,
+        datachanged: true
+      };
+    });
+  }
+
+  onChangePurchaseAmount(path, purIndex, value) {
+    this.setState(prevState => {
+      const newProject = {...prevState.currentProject};
+      let current = newProject.contractors[path[0]];
+      for (let i = 1; i < path.length; i++) {
+        current = current.subcontractors[path[i]];
+      }
+      current.purchases[purIndex].amount = parseFloat(value);
+      return {
+        currentProject: newProject,
+        datachanged: true
+      };
+    });
+  }
+
+  removePurchase(path, purIndex) {
+    this.setState(prevState => {
+      const newProject = {...prevState.currentProject};
+      let current = newProject.contractors[path[0]];
+      for (let i = 1; i < path.length; i++) {
+        current = current.subcontractors[path[i]];
+      }
+      current.purchases.splice(purIndex, 1);
+      return {
+        currentProject: newProject,
+        datachanged: true
+      };
+    });
+  }
+
+  // Recursive append for invoices
+  appendInvoices(formData, contractors, path = []) {
+    contractors.forEach((con, index) => {
+      const currentPath = [...path, index];
+      con.purchases.forEach((pur, purIndex) => {
+        if (pur.invoices && pur.invoices.length > 0) {
+          pur.invoices.forEach((inv, invIndex) => {
+            formData.append(`contractor_${currentPath.join('_')}_purchase_${purIndex}_invoice_${invIndex}`, inv);
+          });
+        }
+      });
+      if (con.subcontractors) {
+        this.appendInvoices(formData, con.subcontractors, currentPath);
+      }
+    });
+  }
+
+  // Recursive clean for JSON
+  cleanContractors(contractors) {
+    return contractors.map(con => ({
+      ...con,
+      purchases: con.purchases.map(pur => ({...pur, invoices: []})),
+      subcontractors: con.subcontractors ? this.cleanContractors(con.subcontractors) : undefined
     }));
   }
 
-  onChangeContractor(index, field, value) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors[index][field] = field === 'budget' ? parseFloat(value) : value;
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  removeContractor(index) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors.splice(index, 1);
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  addPurchase(conIndex) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors[conIndex].purchases.push({ description: "", invoices: [] });
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  onChangePurchase(conIndex, purIndex, value) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors[conIndex].purchases[purIndex].description = value;
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  onChangePurchaseAmount(conIndex, purIndex, value) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors[conIndex].purchases[purIndex].amount = parseFloat(value);
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  removePurchase(conIndex, purIndex) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors[conIndex].purchases.splice(purIndex, 1);
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  handleInvoiceUpload(conIndex, purIndex, e) {
+  handleInvoiceUpload(path, purIndex, e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    const contractors = [...this.state.currentProject.contractors];
-    const purchase = contractors[conIndex].purchases[purIndex];
+    this.setState(prevState => {
+      const newProject = {...prevState.currentProject};
+      let current = newProject.contractors[path[0]];
+      for (let i = 1; i < path.length; i++) {
+        current = current.subcontractors[path[i]];
+      }
+      const purchase = current.purchases[purIndex];
 
-    // FIX: Ensure the invoices array exists before pushing
-    if (!purchase.invoices) {
-      purchase.invoices = [];
-    }
+      // FIX: Ensure the invoices array exists before pushing
+      if (!purchase.invoices) {
+        purchase.invoices = [];
+      }
 
-    purchase.invoices.push(file);
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
+      purchase.invoices.push(file);
+      return {
+        currentProject: newProject,
+        datachanged: true
+      };
+    });
   }
+
   onChangeChecker(e) {
     const checker = e.target.value;
     /*
@@ -499,6 +593,10 @@ class DTSCFProjectCreation extends Component {
     });
   }
 
+  isValidEthereumAddress(address) {
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  }
+
   async validateForm() {    
     var err = "";
 
@@ -510,11 +608,7 @@ class DTSCFProjectCreation extends Component {
       err += "- Contractor's Name cannot be empty\n"; 
     } 
 
-    if (!(typeof this.state.currentProject.contractors[0].walletaddress ==='string' || this.state.currentProject.contractors[0].walletaddress instanceof String) || (this.state.currentProject.contractors[0].walletaddress.trim() === "" || this.state.currentProject.contractors[0].walletaddress === null || this.state.currentProject.contractors[0].walletaddress === undefined)) {
-      err += "- Contractor's Wallet Address cannot be empty\n"; 
-    } 
-
-      // dont need t check description, it can be empty
+      // dont need to check description, it can be empty
     if (! validator.isDate(this.state.currentProject.startdate)) err += "- Start Date is invalid\n";
     if (! validator.isDate(this.state.currentProject.enddate)) err += "- End Date is invalid\n";
     if (this.state.currentProject.underlyingTokenID === 0 || this.state.currentProject.underlyingTokenID === "" || this.state.currentProject.underlyingTokenID === null || this.state.currentProject.underlyingTokenID === undefined) err += "- Underlying Digital Money cannot be empty\n";
@@ -542,6 +636,47 @@ class DTSCFProjectCreation extends Component {
       if (this.state.currentProject.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
       if (this.state.currentProject.checker!==null && this.state.currentProject.checker!=="" && this.state.currentProject.checker !== undefined
             && this.state.currentProject.checker === this.state.currentProject.approver) err += "- Checker and Approver cannot be the same person\n";
+    }
+
+    let walletErrors = '';
+    const checkWallets = (contractors) => {
+      contractors.forEach(con => {
+        if (!(typeof con.walletaddress === 'string' || con.walletaddress instanceof String) || con.walletaddress.trim() === '' || con.walletaddress === null || con.walletaddress === undefined) {
+          walletErrors += "- Contractor's Wallet Address cannot be empty\n";
+        } else if (!this.isValidEthereumAddress(con.walletaddress)) {
+          walletErrors += "- Invalid Wallet Address format: " + con.walletaddress + "\n";
+        }
+        if (con.subcontractors && con.subcontractors.length > 0) {
+          checkWallets(con.subcontractors);
+        }
+      });
+    };
+    checkWallets(this.state.currentProject.contractors);
+    if (walletErrors !== '') {
+      err += walletErrors;
+    }
+
+    // Esnure every contractor has 1 purchase and contractor and sub-contractor cannot have same wallets
+    let purchaseErrors = '';
+    let walletSet = new Set();
+    const checkPurchasesAndWallets = (contractors) => {
+      contractors.forEach(con => {
+        if (con.purchases.length < 1) {
+          purchaseErrors += "- Every contractor must have at least one purchase\n";
+        }
+        if (con.walletaddress && walletSet.has(con.walletaddress)) {
+          purchaseErrors += "- Duplicate wallet address found: " + con.walletaddress + "\n";
+        } else if (con.walletaddress) {
+          walletSet.add(con.walletaddress);
+        }
+        if (con.subcontractors && con.subcontractors.length > 0) {
+          checkPurchasesAndWallets(con.subcontractors);
+        }
+      });
+    };
+    checkPurchasesAndWallets(this.state.currentProject.contractors);
+    if (purchaseErrors !== '') {
+      err += purchaseErrors;
     }
 
     if (err !=="" ) {
@@ -950,28 +1085,112 @@ class DTSCFProjectCreation extends Component {
     this.setState({ showm: false });
   };
 
-  // Modal functions similar to dtscf
+// Recursive render for contractors form
+  renderContractors(contractors, path = [], tier = 1) {
+    return contractors.map((contractor, index) => {
+      const currentPath = [...path, index];
+      return (
+        <div key={index} style={{ marginLeft: `${tier * 20}px` }}>
+          <label>Tier-{tier} Contractor Name</label>
+          <input 
+            type="text" 
+            className="form-control" 
+            value={contractor.name} 
+            onChange={(e) => this.onChangeContractor(currentPath, 'name', e.target.value)} 
+            placeholder="Name" 
+            disabled={!(this.state.currentUser.id === this.state.currentProject.maker && this.state.currentProject.status<=0) && this.state.currentProject.id!==0}
+          />
+          <label>Budget</label>
+          <input 
+            type="number" 
+            className="form-control" 
+            value={contractor.budget} 
+            onChange={(e) => this.onChangeContractor(currentPath, 'budget', e.target.value)} 
+            placeholder="Budget" 
+            disabled={!(this.state.currentUser.id === this.state.currentProject.maker && this.state.currentProject.status<=0) && this.state.currentProject.id!==0}
+          />
+          <label>Wallet Address</label>
+          <input 
+            type="text" 
+            className="form-control" 
+            value={contractor.walletaddress} 
+            onChange={(e) => this.onChangeContractor(currentPath, 'walletaddress', e.target.value)} 
+            placeholder="Wallet Address" 
+            disabled={!(this.state.currentUser.id === this.state.currentProject.maker && this.state.currentProject.status<=0) && this.state.currentProject.id!==0}
+          />
+          <label>Milestone</label>
+          <select
+            className="form-control"
+            value={contractor.milestone_id || ""}
+            onChange={(e) => this.onChangeContractor(currentPath, 'milestone_id', e.target.value)}
+            disabled={!(this.state.currentUser.id === this.state.currentProject.maker && this.state.currentProject.status<=0) && this.state.currentProject.id!==0}
+          >
+            <option value="">Select Milestone</option>
+            {this.state.currentProject.milestones.map((ms, msIndex) => (
+              <option key={msIndex} value={ms.id}>{ms.name}</option>
+            ))}
+          </select>
 
-  renderContractor(contractor, tier = 1) {
-    return (
-      <div key={contractor.id} style={{ marginLeft: `${tier * 20}px` }}>
-        <h5>Tier-{tier} Contractor: {contractor.name} (Budget: {contractor.budget}) (Wallet Address: {contractor.walletaddress})</h5>
-        <h6>Purchases</h6>
-        {contractor.purchases.map((purchase, purIndex) => (
-          <div key={purIndex}>
-            <p>Description: {purchase.description}</p>
-            <p>Amount: {purchase.amount}</p>
-            <p>Invoice: {purchase.invoice_blob ? "Uploaded" : "None"}</p> {/* Placeholder; add download if needed */}
-          </div>
-        ))}
-        {contractor.subcontractors && contractor.subcontractors.length > 0 && (
+          <br />
+          <label>Purchases</label>
+          <table style={{border : '2px solid lightblue', width: '100%'}}>
+            <tr>
+              <td style={{border : '2px solid lightblue', width: '100%'}}>
+                {(contractor.purchases || []).map((purchase, purIndex) => (
+                  <div key={purIndex}>
+                    <label>Purchase #{purIndex+1}</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={purchase.description} 
+                      onChange={(e) => this.onChangePurchase(currentPath, purIndex, e.target.value)} 
+                      placeholder="Purchase Description"
+                      disabled={!(this.state.currentUser.id === this.state.currentProject.maker && this.state.currentProject.status<=0) && this.state.currentProject.id!==0}
+                    />
+                    <label>Invoice(s) Amount</label>
+                    <input 
+                      type="number" 
+                      className="form-control" 
+                      value={purchase.amount} 
+                      onChange={(e) => this.onChangePurchaseAmount(currentPath, purIndex, e.target.value)} 
+                      placeholder="Invoice Amount" 
+                      disabled={!(this.state.currentUser.id === this.state.currentProject.maker && this.state.currentProject.status<=0) && this.state.currentProject.id!==0}
+                    />
+                    <label>Invoice(s)</label>
+                    {purchase.invoices.map((inv, invIndex) => (
+                      <div key={invIndex}>{inv.name}</div>
+                    ))}
+                    <input 
+                      type="file" 
+                      onChange={(e) => this.handleInvoiceUpload(currentPath, purIndex, e)} 
+                      disabled={!(this.state.currentUser.id === this.state.currentProject.maker && this.state.currentProject.status<=0) && this.state.currentProject.id!==0}
+                    /> <i style={{fontSize: 'small'}}>combine multiple invoices into one zip file if needed</i>
+                    {this.state.isMaker && this.state.currentProject.status <= 0 && this.state.currentProject.id!==0 &&
+                    <button type="button" className="m-3 btn btn-sm btn-danger" onClick={() => this.removePurchase(currentPath, purIndex)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && this.state.currentProject.status<=0) && this.state.currentProject.id!==0}>Remove</button>
+                    }
+                    <br/>
+                  </div>
+                ))}
+                {this.state.isMaker && this.state.currentProject.status <= 0 && this.state.currentProject.id!==0 &&
+                <button type="button" className="m-3 btn btn-sm btn-primary" onClick={() => this.addPurchase(currentPath)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && this.state.currentProject.status<=0) && this.state.currentProject.id!==0}>Add Purchase</button>
+                }
+              </td>
+            </tr>
+          </table>
+          {this.state.isMaker && this.state.currentProject.status <= 0 && this.state.currentProject.id!==0 &&
+          <button type="button" className="m-3 btn btn-sm btn-danger" onClick={() => this.removeContractor(currentPath)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && this.state.currentProject.status<=0) && this.state.currentProject.id!==0}>Remove Contractor</button>
+          }
+          <br/>
+          <label>Subcontractors</label>
           <div>
-            <h6>Subcontractors</h6>
-            {contractor.subcontractors.map(sub => this.renderContractor(sub, tier + 1))}
+            {this.renderContractors(contractor.subcontractors || [], currentPath, tier + 1)}
           </div>
-        )}
-      </div>
-    );
+          {this.state.isMaker && this.state.currentProject.status <= 0 && this.state.currentProject.id!==0 &&
+          <button type="button" className="m-3 btn btn-sm btn-primary" onClick={() => this.addSubcontractor(currentPath)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && this.state.currentProject.status<=0) && this.state.currentProject.id!==0}>Add Subcontractor</button>
+          }
+        </div>
+      );
+    });
   }
 
   render() {
@@ -985,7 +1204,7 @@ class DTSCFProjectCreation extends Component {
             <div>
             <header className="jumbotron col-md-8">
               <h3>
-                <strong>{this.state.currentProject.txntype===0?"Create ":(this.state.currentProject.txntype===1?"Update ":(this.state.currentProject.txntype===2?"Delete ":null))}DTSCF Project { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
+                <strong>{this.state.currentProject.txntype===0?"Create ":(this.state.currentProject.txntype===1?"Update ":(this.state.currentProject.txntype===2?"Delete ":null))}Deep-tier Supply Chain Financing Project { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
               </h3>
             </header>
 
@@ -1180,103 +1399,7 @@ class DTSCFProjectCreation extends Component {
           <table style={{border : '1px solid blue', width: '100%'}}>
           <tr>
             <td style={{border : '1px solid blue', width: '100%'}}>
-              {currentProject.contractors && currentProject.contractors.map((contractor, conIndex) => (
-                <div key={conIndex}>
-                  <label htmlFor="contractor.name">Contractor #{conIndex+1} Name</label>
-                  <div>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={contractor.name} 
-                      onChange={(e) => this.onChangeContractor(conIndex, 'name', e.target.value)} 
-                      placeholder="Name" 
-                      disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
-                    />
-                  </div>
-                  <label htmlFor="contractor.budget">Budget</label>
-                  <div>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      value={contractor.budget} 
-                      onChange={(e) => this.onChangeContractor(conIndex, 'budget', e.target.value)} 
-                      placeholder="Budget" 
-                      disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
-                    />
-                  </div>
-                  <label htmlFor="contractor.name">Contractor's Wallet Address</label>
-                  <div>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={contractor.walletaddress} 
-                      onChange={(e) => this.onChangeContractor(conIndex, 'walletaddress', e.target.value)} 
-                      placeholder="Wallet Address" 
-                      disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
-                    />
-                  </div>
-
-                  <br />
-                  <label htmlFor="contractor.name">Purchases</label>
-                  <table style={{border : '2px solid lightblue', width: '100%'}}>
-                  <tr>
-                    <td style={{border : '2px solid lightblue', width: '100%'}}>
-                      {contractor.purchases && contractor.purchases.map((purchase, purIndex) => (
-                      <div key={purIndex}>
-                        <label htmlFor="contractor.name">Purchase #{purIndex+1}</label>
-                        <div>
-                          <input 
-                            type="text" 
-                            className="form-control" 
-                            value={purchase.description} 
-                            onChange={(e) => this.onChangePurchase(conIndex, purIndex, e.target.value)} 
-                            placeholder="Purchase Description"
-                            disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
-                          />
-                        </div>
-                        <label htmlFor="contractor.name">Invoice(s) Amount</label>
-                        <div>
-                          <input 
-                            type="text" 
-                            className="form-control" 
-                            value={purchase.amount} 
-                            onChange={(e) => this.onChangePurchaseAmount(conIndex, purIndex, e.target.value)} 
-                            placeholder="Invoice Amount" 
-                            disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
-                          />
-                        </div>
-                        <label htmlFor="contractor.name">Invoice(s)</label>
-                        {purchase.invoices && purchase.invoices.map((inv, invIndex) => (
-                          <div key={invIndex}>{inv.name}</div>
-                        ))}
-                        <div>
-                          <input 
-                            type="file" 
-                            onChange={(e) => this.handleInvoiceUpload(conIndex, purIndex, e)} 
-                            disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
-                          /> <i style={{fontSize: 'small'}}>combine multiple invoices into one zip file if needed</i>
-                        </div>
-                        {this.state.isMaker && currentProject.status !== null && currentProject.status <= 0 && this.state.currentProject.id!==0 &&
-                        <button type="button" className="m-3 btn btn-sm btn-danger" onClick={() => this.removePurchase(conIndex, purIndex)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Remove</button>
-                        }
-                        <br/>
-                      </div>
-                      ))}
-                      {this.state.isMaker && currentProject.status !== null && currentProject.status <= 0 &&
-                      <button type="button" className="m-3 btn btn-sm btn-primary" onClick={() => this.addPurchase(conIndex)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Add Purchase</button>
-                      }
-                    </td>
-                  </tr>
-                  </table>
-                  {this.state.isMaker && currentProject.status !== null && currentProject.status <= 0 &&
-                  <button type="button" className="m-3 btn btn-sm btn-danger" onClick={() => this.removeContractor(conIndex)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Remove Contractor</button>
-                  }
-                  <br/>
-                </div>
-              ))}
-              {this.state.isMaker && currentProject.status !== null && currentProject.status <= 0 &&
-              <button type="button" className="m-3 btn btn-sm btn-primary" onClick={this.addContractor} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Add Contractor</button>
-              }
+                {this.renderContractors(this.state.currentProject.contractors)}
             </td>
           </tr>
           </table>
@@ -1404,7 +1527,7 @@ class DTSCFProjectCreation extends Component {
                         </>
               }
               {
-                this.state.isChecker && currentProject.status === 1 && 
+                this.state.currentUser.id === currentProject.checker && currentProject.status === 1 && 
                     <button
                       type="submit"
                       className="m-3 btn btn-sm btn-primary"
@@ -1421,7 +1544,7 @@ class DTSCFProjectCreation extends Component {
 
               }
               {
-                    this.state.isApprover && currentProject.status === 2 &&
+                this.state.currentUser.id === currentProject.approver && currentProject.status === 2 && 
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-primary"
@@ -1440,8 +1563,10 @@ class DTSCFProjectCreation extends Component {
               }
 &nbsp;
               {
-                currentProject.id !== 0 && (this.state.isChecker || this.state.isApprover) && 
-                currentProject.status <= 2 &&  currentProject.status >= 1 && // status < 2 still in draft and not deployed yet
+                (this.state.currentUser.id === currentProject.checker && currentProject.status === 1 || 
+                this.state.currentUser.id === currentProject.approver && currentProject.status === 2) && 
+
+                // status < 2 still in draft and not deployed yet
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-danger"

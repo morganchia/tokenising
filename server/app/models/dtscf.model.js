@@ -16,6 +16,11 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.STRING,  // varchar(45)
       allowNull: true
     },
+    anchor_id: {
+      type: Sequelize.INTEGER,  
+      defaultValue: 0,
+      allowNull: false
+    },
     totalBudget: {
       type: Sequelize.INTEGER,  
       defaultValue: 0,
@@ -29,9 +34,11 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.STRING,  // varchar(255)
       allowNull: false
     },
+    smartcontractaddress: {
+      type: Sequelize.STRING  // varchar(255)
+    },
     campaign_id: {
-      type: Sequelize.INTEGER,  
-      allowNull: false
+      type: Sequelize.INTEGER
     },
     blockchain: {
       type: Sequelize.INTEGER   // chain id

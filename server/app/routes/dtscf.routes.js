@@ -27,8 +27,6 @@ module.exports = app => {
   router.get("/getalldraftsbyuserid", dtscf.getAllDraftsByUserId);
 //  router.get("/getallwrapmintdraftsbyuserid", dtscf.getAllWrapMintDraftsByUserId);
 
-  router.get("/getallinvestorsbyid", dtscf.getAllInvestorsById);
-
   router.get("/getalldraftsbydtscfid", dtscf.getAllDraftsByDtscfId);
 //  router.get("/getallwrapmintdraftsbyid", dtscf.getAllWrapMintDraftsById);
 
@@ -50,7 +48,6 @@ module.exports = app => {
   router.put("/submitdraftbyid/:id", dtscf.submitDraftById);
   router.put("/acceptdraftbyid/:id", dtscf.acceptDraftById);
   router.put("/approvedraftbyid/:id", dtscf.approveDraftById);
-  router.put("/triggerDtscfCouponPaymentById/:id", dtscf.triggerDtscfCouponPaymentById);
   router.put("/rejectdraftbyid/:id", dtscf.rejectDraftById);
   router.put("/approvedeletedraftbyid/:id", dtscf.approveDeleteDraftById); 
   router.put("/droprequestbyid/:id", dtscf.dropRequestById);

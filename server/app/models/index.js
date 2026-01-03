@@ -539,4 +539,29 @@ db.dtscf_contractors_draft.hasMany(db.dtscf_purchases_draft, {
 db.dtscf_purchases_draft.belongsTo(db.dtscf_contractors_draft, {
   foreignKey: "dtscf_contractor_id"
 });
+
+db.dtscf.belongsTo(db.campaigns, {
+  foreignKey: "underlyingTokenID",
+  targetKey: "id",
+  as: "underlyingToken"
+});
+
+db.dtscf_draft.belongsTo(db.campaigns, {
+  foreignKey: "underlyingTokenID",
+  targetKey: "id",
+  as: "underlyingToken"
+});
+
+db.dtscf.belongsTo(db.recipients, {
+  foreignKey: "anchor_id",
+  targetKey: "id",
+  as: "anchor"
+});
+
+db.dtscf_draft.belongsTo(db.recipients, {
+  foreignKey: "anchor_id",
+  targetKey: "id",
+  as: "anchor"
+});
+
 module.exports = db;

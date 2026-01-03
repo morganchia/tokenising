@@ -13,11 +13,22 @@ const upload = multer({ dest: 'uploads/' }); // Assume configured
 const Op = db.Sequelize.Op;
 const { logDataValues } = require('../utils/logDataValues');
 
-const smartContractFile = "./server/app/contracts/ERC20Dtscf_new.sol";
-const abiFile = "./server/app/abis/ERC20Dtscf_new.abi.json";
-const byteCodeFile = "./server/app/abis/ERC20Dtscf_new.bytecode.json";
-const smartContractFileName = "ERC20Dtscf_new.sol";
-const TokenName = "DTS-CF Token";
+// Absolute paths from __dirname (server/app/controllers)
+/*
+const smartContractFile = "./server/app/contracts/ERC1155Tokenised_Payable.sol";
+const abiFile = "./server/app/abis/ERC1155Tokenised_Payable.abi.json";
+const byteCodeFile = "./server/app/abis/ERC1155Tokenised_Payable.bytecode.json";
+const smartContractFileName = "ERC1155Tokenised_Payable.sol";
+const TokenName = "TokenizedPayable";
+*/
+const smartContractFile = path.join(__dirname, '../contracts/ERC1155Tokenised_Payable.sol');
+const abiFile = path.join(__dirname, '../abis/ERC1155Tokenised_Payable.abi.json');
+const byteCodeFile = path.join(__dirname, '../abis/ERC1155Tokenised_Payable.bytecode.json');
+const smartContractFileName = "ERC1155Tokenised_Payable.sol";
+const TokenName = "TokenizedPayable";
+const tokenizedBank_abiFile = path.join(__dirname, '../abis/ERC20TokenDSGD.abi.json');
+const tokenizedBank_byteCodeFile = path.join(__dirname, '../abis/ERC20TokenDSGD.bytecode.json');
+
 
 var newcontractaddress = null;
 const adjustdecimals = 18;
@@ -48,21 +59,108 @@ function scaleToWei(value) {
     return web3.utils.toWei(parsed.toFixed(3), 'ether');
 }
 
-// Function to scale coupon rate to 0.001% units
-function scaleCouponRate(value) {
-    let parsed = parseFloat(value);
-    if (isNaN(parsed)) {
-        throw new Error('Coupon rate must be a valid number');
+// Recursive function to update or create contractors and subcontractors
+async function updateOrCreateContractors(contractors, projectId, files, parentId = null, path = []) {
+  for (const [index, con] of contractors.entries()) {
+    let contractorId;
+    if (con.id) {
+      // Update existing
+      const num = await db.dtscf_contractors_draft.update({
+        name: con.name,
+        budget: parseInt(con.budget) || 0,
+        walletaddress: con.walletaddress || '',
+        dtscf_milestone_id: con.milestone_id || null
+      }, { where: { id: con.id } });
+      if (num[0] === 1) {
+        console.log(`Updated contractor with id=${con.id}`);
+      } else {
+        console.log(`No changes or cannot update contractor with id=${con.id}. Rows affected: ${num[0]}`);
+      }
+      contractorId = con.id;
+    } else {
+      // Create new
+      const draftContractor = await db.dtscf_contractors_draft.create({
+        name: con.name,
+        budget: parseInt(con.budget) || 0,
+        walletaddress: con.walletaddress || '',
+        dtscf_project_id: projectId,
+        dtscf_parent_contractor_id: parentId,
+        dtscf_milestone_id: con.milestone_id || null
+      });
+      console.log(`Created new contractor with id=${draftContractor.id}`);
+      contractorId = draftContractor.id;
     }
-    // If couponrate > 100, assume it's in basis points (e.g., 262.5 = 2.625%) and convert to percentage
-    if (parsed > 100) {
-        parsed = parsed / 100; // Convert basis points to percentage (e.g., 262.5 → 2.625)
+
+    const currentPath = [...path, index];
+
+    for (const [purIndex, pur] of (con.purchases || []).entries()) {
+      const fieldBase = `contractor_${currentPath.join('_')}_purchase_${purIndex}_invoice`;
+      const invoiceFile = files[fieldBase] ? files[fieldBase][0] : null;
+
+      if (pur.id) {
+        // Update existing purchase
+        const num = await db.dtscf_purchases_draft.update({
+          description: pur.description,
+          amount: parseFloat(pur.amount) || 0,
+          invoice_blob: invoiceFile ? invoiceFile.buffer : undefined  // Skip if no new file
+        }, { where: { id: pur.id } });
+        if (num[0] === 1) {
+          console.log(`Updated purchase with id=${pur.id}`);
+        } else {
+          console.log(`No changes or cannot update purchase with id=${pur.id}. Rows affected: ${num[0]}`);
+        }
+      } else {
+        // Create new purchase
+        const newPurchase = await db.dtscf_purchases_draft.create({
+          description: pur.description,
+          amount: parseFloat(pur.amount) || 0,
+          dtscf_project_id: projectId,
+          dtscf_contractor_id: contractorId,
+          invoice_blob: invoiceFile ? invoiceFile.buffer : null
+        });
+        console.log(`Created new purchase with id=${newPurchase.id}`);
+      }
     }
-    if (parsed < 0 || parsed > 100) {
-        throw new Error('Coupon rate must be a valid percentage between 0 and 100');
+
+    if (con.subcontractors && con.subcontractors.length > 0) {
+      await updateOrCreateContractors(con.subcontractors, projectId, files, contractorId, currentPath);
     }
-    // Multiply by 1,000,000 to convert percentage to 0.001% units (e.g., 2.625% → 2625000)
-    return Math.round(parsed * 1000000);
+  }
+}
+
+// Recursive function to create contractors and subcontractors
+async function createContractors(contractors, projectId, files, parentId = null, path = []) {
+  for (const [index, con] of contractors.entries()) {
+    const draftContractor = await db.dtscf_contractors_draft.create({
+      name: con.name,
+      budget: parseInt(con.budget) || 0,
+      walletaddress: con.walletaddress || '',
+      dtscf_project_id: projectId,
+      dtscf_parent_contractor_id: parentId,
+      dtscf_milestone_id: con.milestone_id || null  // New field for milestone association
+    });
+    console.log(`Created new contractor with id=${draftContractor.id}`);
+
+    const currentPath = [...path, index];
+
+    for (const [purIndex, pur] of (con.purchases || []).entries()) {
+      const fieldBase = `contractor_${currentPath.join('_')}_purchase_${purIndex}_invoice`;
+      const invoiceFile = files[fieldBase] ? files[fieldBase][0] : null;
+
+      const newPurchase = await db.dtscf_purchases_draft.create({
+        description: pur.description,
+        amount: parseFloat(pur.amount) || 0,
+        dtscf_project_id: projectId,
+        dtscf_contractor_id: draftContractor.id,
+        invoice_blob: invoiceFile ? invoiceFile.buffer : null
+      });
+      console.log(`Created new purchase with id=${newPurchase.id}`);    
+    }
+
+    if (con.subcontractors && con.subcontractors.length > 0) {
+      await createContractors(con.subcontractors, projectId, files, draftContractor.id, currentPath);
+    }
+  }
 }
 
 // Create and Save a new Dtscf draft
@@ -127,29 +225,9 @@ exports.draftCreate = async (req, res) => {
         });
       }
 
-      // Parse and create contractors with purchases
+      // Parse and create contractors with purchases recursively
       const contractors = JSON.parse(req.body.contractors || '[]');
-      for (const [conIndex, con] of contractors.entries()) {
-        const draftContractor = await db.dtscf_contractors_draft.create({
-          name: con.name,
-          budget: parseInt(con.budget) || 0,
-          dtscf_project_id: draftProject.id,
-          dtscf_parent_contractor_id: con.parent_contractor_id || null
-        });
-
-        for (const [purIndex, pur] of con.purchases.entries()) {
-          const invoiceField = `contractor_${conIndex}_purchase_${purIndex}_invoice`;
-          const invoiceFile = req.files[invoiceField] ? req.files[invoiceField][0] : null;
-
-          await db.dtscf_purchases_draft.create({
-            description: pur.description,
-            amount: parseFloat(pur.amount) || 0,
-            dtscf_project_id: draftProject.id,
-            dtscf_contractor_id: draftContractor.id,
-            invoice_blob: invoiceFile ? invoiceFile.buffer : null
-          });
-        }
-      }
+      await createContractors(contractors, draftProject.id, req.files);
 
       // Log to audittrail
       await AuditTrail.create({
@@ -192,6 +270,9 @@ exports.create_review = async (req, res) => {
 
   console.log("Received for Dtscf Review:");
   console.log(req.body);
+
+  const id = req.params.id;
+  const checkercomments = req.body.checkerComments || '';
 
   await Dtscf_Draft.update(
       { 
@@ -249,6 +330,8 @@ exports.approveDraftById = async (req, res) => {  //
   
   const draft_id = req.params.id;
 
+  console.log("Input data for approveDraftById(), ", req.body);
+
   if (req.body.txntype !==0     // create dtscf
     && req.body.txntype !==1    // update dtscf
     ) {
@@ -260,10 +343,9 @@ exports.approveDraftById = async (req, res) => {  //
       }
       return;  
   }
-  const isNewDtscf = (req.body.smartcontractaddress === "" || req.body.smartcontractaddress === null? true : false); // Create = true, Edit/Update = false
+  const isNewDtscf = (req.body.txntype === 0? true : false); // Create = true, Edit/Update = false
 
   console.log("Received approveDraftById for Create/Update:");
-  console.log(req.body);
 
 ////////////////////////////// Blockchain ////////////////////////
 
@@ -271,7 +353,7 @@ exports.approveDraftById = async (req, res) => {  //
 
   require('dotenv').config();
   const ETHEREUM_NETWORK = (() => {
-    switch (req.body.campaign.blockchain) {
+    switch (req.body.blockchain) {
     case 80001:
       return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
     case 80002:
@@ -305,15 +387,18 @@ exports.approveDraftById = async (req, res) => {  //
   const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
+  const ANCHOR_PRIVATE_KEY = process.env.REACT_APP_ANCHOR_PRIVATE_KEY;
+  const ANCHOR_WALLET = process.env.REACT_APP_ANCHOR_WALLET;
 
   console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
 
       async function compileSmartContract() {
         // solc compiler
         solc = require("solc");
+        const solcVersion = 'v0.8.20+commit.a1b79de6';  // Matches pragma ^0.8.20; check https://github.com/ethereum/solc-bin for exact tag
 
         // file reader
-        fs = require("fs");
+        //fs = require("fs");
 
         console.log("Reading smart contract file... ");
         file = fs.readFileSync(smartContractFile).toString();
@@ -324,7 +409,7 @@ exports.approveDraftById = async (req, res) => {  //
             language: 'Solidity',
             sources: {
 //                'ERC20Dtscf_new.sol': {  
-                smartContractFileName: {  
+                [smartContractFileName]: {  
                     content: file
                 }
             },
@@ -346,39 +431,72 @@ exports.approveDraftById = async (req, res) => {  //
         // https://stackoverflow.com/questions/67321111/file-import-callback-not-supported/68459731#68459731
 
         function findImports(relativePath) {
-          //my imported sources are stored under the node_modules folder!
-          const absolutePath = path.resolve(__dirname, '../../../node_modules', relativePath);
-          const source = fs.readFileSync(absolutePath, 'utf8');
-          console.log("reading file: ", absolutePath);
-          return { contents: source };
-        }
-          
-        console.log("Compiling smart contract file... ");
-        var output = JSON.parse(solc.compile(JSON.stringify(input), { import: findImports }));
-        console.log("Compilation done... ");
-        console.log("Result of compilation: ", output);
+          let absolutePath;
+          if (!relativePath.startsWith('@')) {
+            // Local imports (bare filenames or relative paths)
+            const mainDir = path.dirname(smartContractFile);
+            absolutePath = path.resolve(mainDir, relativePath);
+          } else {
+            // External libs (e.g., @openzeppelin) from project root's node_modules
+            absolutePath = path.resolve(__dirname, '../../../node_modules', relativePath);
+          }
 
-        console.log("Generating bytecode from smart contract file ");
-        ABI = output.contracts[smartContractFileName][TokenName].abi;
-        bytecode = output.contracts[smartContractFileName][TokenName].evm.bytecode.object;
-        // console.log("solc.compile output: ", output);
-        // console.log("ABI: ", ABI);
-        // console.log("Bytecode: ", bytecode);
-                
-        await fs.writeFile(abiFile, JSON.stringify(ABI) , 'utf8', function (err) {
-          if (err) {
-            console.log("An error occured while writing Dtscf ABI JSON Object to File.");
-            return console.log(err);
+          console.log("Reading imported file: ", absolutePath);
+          try {
+            const source = fs.readFileSync(absolutePath, 'utf8');
+            return { contents: source };
+          } catch (err) {
+            console.error(`Failed to read import: ${relativePath} at ${absolutePath}`, err);
+            return { error: 'File not found' };
           }
-          console.log("Dtscf ABI JSON file has been saved.");
+        }
+
+        return new Promise((resolve, reject) => {
+          solc.loadRemoteVersion(solcVersion, (err, solcSnapshot) => {
+            if (err) {
+              return reject(new Error(`Failed to load solc version ${solcVersion}: ${err.message}`));
+            }
+
+            console.log(`Compiling with solc ${solcVersion}...`);
+            const outputStr = solcSnapshot.compile(JSON.stringify(input), { import: findImports });
+            const output = JSON.parse(outputStr);
+
+            if (output.errors) {
+              const severeErrors = output.errors.filter(e => e.severity === 'error');
+              if (severeErrors.length > 0) {
+                console.error("Compilation errors:", severeErrors);
+                return reject(new Error("Compilation failed with errors."));
+              }
+              console.warn("Compilation warnings:", output.errors);
+            }
+
+            if (!output.contracts || !output.contracts[smartContractFileName] || !output.contracts[smartContractFileName][TokenName]) {
+              return reject(new Error("No compiled contract found. Check contract name and sources."));
+            }
+
+            console.log("Generating bytecode from smart contract file ");
+            ABI = output.contracts[smartContractFileName][TokenName].abi;
+            bytecode = output.contracts[smartContractFileName][TokenName].evm.bytecode.object;
+                    
+            fs.writeFileSync(abiFile, JSON.stringify(ABI) , 'utf8', function (err) {
+              if (err) {
+                console.log("An error occured while writing Dtscf ABI JSON Object to File.");
+                return console.log(err);
+              }
+              console.log("Dtscf ABI JSON file has been saved.");
+            });
+            fs.writeFileSync(byteCodeFile, JSON.stringify(bytecode) , 'utf8', function (err) {
+              if (err) {
+                console.log("An error occured while writing Dtscf bytecode JSON Object to File.");
+                return console.log(err);
+              }
+              console.log("Dtscf Bytecode JSON file has been saved.");
+            });
+
+            resolve({ ABI, bytecode });
+          });
         });
-        await fs.writeFile(byteCodeFile, JSON.stringify(bytecode) , 'utf8', function (err) {
-          if (err) {
-            console.log("An error occured while writing Dtscf bytecode JSON Object to File.");
-            return console.log(err);
-          }
-          console.log("Dtscf Bytecode JSON file has been saved.");
-        });
+
       }
 
       async function dAppCreate() {
@@ -391,22 +509,28 @@ exports.approveDraftById = async (req, res) => {  //
         // 6. call method wrapDepositToPayable() which pulls TBD from system wallet into the TP smart contract
 
         updatestatus = false;
-        fs = require("fs");
+        //fs = require("fs");
 
+        let ABI, bytecode;
         try {
-          await compileSmartContract();
-        } catch(err) {
-          console.error("Err7: ",err);
+          if (! (fs.existsSync(abiFile) && fs.existsSync(byteCodeFile))) {
+            const compiled = await compileSmartContract();
+            ABI = compiled.ABI;
+            bytecode = compiled.bytecode;
+          } else {
+            ABI = JSON.parse(fs.readFileSync(abiFile, 'utf8').toString());
+            bytecode = JSON.parse(fs.readFileSync(byteCodeFile, 'utf8').toString());
+          }
+          console.log("Compilation completed successfully.");
+        } catch (err) {
+          console.error("Compilation error:", err);
           if (!errorSent) {
-            console.log("Sending error 400 back to client");
-            res.status(400).send({ 
-              message: "Error when compiling Tokenised Payable smart contract. Please contact your tech support."
-            });
+            res.status(400).send({ message: "Error compiling Tokenised Payable smart contract. Please check logs and contact tech support." });
             errorSent = true;
           }
           return false;
         }
-            
+
         Web3 = require("web3");
         web3 = new Web3( 
           Web3.providers.HttpProvider(
@@ -416,330 +540,438 @@ exports.approveDraftById = async (req, res) => {  //
 
         console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
         const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY);
-        const totalSupply = (typeof req.body.totalsupply === 'string' || req.body.totalsupply instanceof String) ? req.body.totalsupply : req.body.totalsupply.toString();
+        const anchor = web3.eth.accounts.privateKeyToAccount(ANCHOR_PRIVATE_KEY);
 
         web3.setProvider(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
 
         console.log("Enddate (unix time) = ", Number(new Date(req.body.enddate)));
         try {
+
+          // Deploy contract
           const deployContract = async () => {
-            console.log('Attempting to deploy from account:', signer.address);
-            const ERC20TokenisedDtscfcontract = new web3.eth.Contract(ABI);
 
-            console.log("Extracting issuer name from id...");
-            const recipient = await Recipients.findByPk(req.body.issuerId || req.body.issuer);
-            console.log('Recipient.findByPk issuer:', recipient);
+                // Step 1: Validate inputs
+                const totalBudget = (typeof req.body.totalBudget === 'string' || req.body.totalBudget instanceof String) ? req.body.totalBudget : req.body.totalBudget.toString();
+                const requiredFields = {
+                  totalBudget                         : totalBudget,
+                  underlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,
+                  enddate                             : req.body.enddate,
+                };
 
-            if (!recipient || !recipient.name) {
-              console.error('Error: No valid issuer found for ID:', req.body.issuerId || req.body.issuer);
-              res.status(400).send({
-                message: 'Invalid issuer ID or no issuer name found.',
-              });
-              return;
-            }
+                console.log('Proj inputs:', requiredFields);
 
-            console.log('Updated req.body.issuer:', recipient.name);
-
-            const requiredFields = {
-              tokenname: req.body.tokenname,
-              tokensymbol: req.body.tokensymbol,
-              ISIN: req.body.ISIN,
-              facevalue: (typeof req.body.facevalue === 'string' || req.body.facevalue instanceof String)? parseFloat(req.body.facevalue): req.body.facevalue,
-              couponrate: (typeof req.body.couponrate === 'string' || req.body.couponrate instanceof String)? parseFloat(req.body.couponrate): req.body.couponrate,
-              couponinterval: (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-              startdate: req.body.startdate,
-              enddate: req.body.enddate,
-              issuer: recipient.name,
-              CashTokensmartcontractaddress: req.body.CashTokensmartcontractaddress,
-              prospectusurl: req.body.prospectusurl,
-              totalsupply: req.body.totalsupply,
-            };
-
-            console.log('Constructor inputs:', requiredFields);
-
-            for (const [key, value] of Object.entries(requiredFields)) {
-              if (value === null || value === undefined) {
-                console.error(`Error: ${key} is ${value}`);
-                if (!errorSent) {
-                  res.status(400).send({
-                    message: `Invalid input: ${key} cannot be ${value}. Please provide a valid value.`,
-                  });
-                  errorSent = true;
+                for (const [key, value] of Object.entries(requiredFields)) {
+                  if (value === null || value === undefined) {
+                    console.error(`Error: ${key} is ${value}`);
+                    if (!errorSent) {
+                      res.status(400).send({
+                        message: `Invalid input: ${key} cannot be ${value}. Please provide a valid value.`,
+                      });
+                      errorSent = true;
+                    }
+                    return false;
+                  }
                 }
-                return false;
-              }
-            }
 
-            const stringFields = ['tokenname', 'tokensymbol', 'ISIN', 'issuer', 'prospectusurl'];
-            for (const field of stringFields) {
-              if (typeof requiredFields[field] !== 'string' || requiredFields[field].trim() === '') {
-                console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
-                if (!errorSent) {
-                  res.status(400).send({
-                    message: `Invalid input: ${field} must be a non-empty string.`,
-                  });
-                  errorSent = true;
+                const stringFields = ['underlyingDSGDsmartcontractaddress'];
+                for (const field of stringFields) {
+                  if (typeof requiredFields[field] !== 'string' || requiredFields[field].trim() === '') {
+                    console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
+                    if (!errorSent) {
+                      res.status(400).send({
+                        message: `Invalid input: ${field} must be a non-empty string.`,
+                      });
+                      errorSent = true;
+                    }
+                    return false;
+                  }
                 }
-                return false;
-              }
-            }
 
-            const numericFields = ['facevalue', 'totalsupply'];
-            for (const field of numericFields) {
-              const value = Number(requiredFields[field]);
-              if (isNaN(value) || value <= 0) {
-                console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
-                if (!errorSent) {
-                  res.status(400).send({
-                    message: `Invalid input: ${field} must be a positive number.`,
-                  });
-                  errorSent = true;
+                const numericFields = ['totalBudget'];
+                for (const field of numericFields) {
+                  const value = Number(requiredFields[field]);
+                  if (isNaN(value) || value <= 0) {
+                    console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
+                    if (!errorSent) {
+                      res.status(400).send({
+                        message: `Invalid input: ${field} must be a positive number.`,
+                      });
+                      errorSent = true;
+                    }
+                    return false;
+                  }
                 }
-                return false;
-              }
-            }
 
-            if (isNaN(req.body.couponrate) || req.body.couponrate < 0) {
-              console.log("Coupon rate is invalid: ", req.body.couponrate);
-              if (!errorSent) {
-                res.status(400).send({
-                  message: `Invalid input: couponrate must be a positive number.`,
+                if (isNaN(req.body.totalBudget) || req.body.totalBudget < 0) {
+                  console.log("Total budget is invalid: ", req.body.totalBudget);
+                  if (!errorSent) {
+                    res.status(400).send({
+                      message: `Invalid input: totalBudget must be a positive number.`,
+                    });
+                    errorSent = true;
+                  }
+                  return false;
+                }
+
+                if (!web3.utils.isAddress(requiredFields.underlyingDSGDsmartcontractaddress)) {
+                  console.error(`Error: Invalid underlyingDSGDsmartcontractaddress: ${requiredFields.underlyingDSGDsmartcontractaddress}`);
+                  if (!errorSent) {
+                    res.status(400).send({
+                      message: 'Invalid input: underlyingDSGDsmartcontractaddress must be a valid Ethereum address.',
+                    });
+                    errorSent = true;
+                  }
+                  return false;
+                }
+
+                const startDate = Number(new Date(req.body.startdate));
+                const endDate = Number(new Date(req.body.enddate));
+                if (isNaN(startDate) || isNaN(endDate) || endDate <= startDate) {
+                  console.error(`Error: Invalid dates - startDate: ${req.body.startdate}, endDate: ${req.body.enddate}`);
+                  if (!errorSent) {
+                    res.status(400).send({
+                      message: 'Invalid input: Dates must be valid and maturity date must be after issue date.',
+                    });
+                    errorSent = true;
+                  }
+                  return false;
+                }
+
+                // Validation for milestones mandatory fields
+                console.log("Milestones: ", req.body.milestones);
+                let milestones = req.body.milestones || [];
+                if (typeof milestones === 'string') {
+                  milestones = JSON.parse(milestones);
+                }
+                for (const ms of milestones) {
+                  const requiredMilestoneFields = ['id', 'name', 'budget', 'startdate', 'enddate', 'dtscf_project_id'];
+                  for (const field of requiredMilestoneFields) {
+                    if (!ms[field] || (typeof ms[field] === 'string' && ms[field].trim() === '')) {
+                      throw new Error(`Missing or empty required field '${field}' in milestone '${ms.name || 'unnamed'}'`);
+                    }
+                  }
+                  // Add stricter checks, e.g., if (isNaN(ms.budget) || ms.budget <= 0) throw new Error(...);
+                }
+
+                // Validation for contractors mandatory fields (extends existing wallet check)
+                console.log("Contractors: ", req.body.contractors);
+                let contractors = req.body.contractors || [];
+                if (typeof contractors === 'string') {
+                  contractors = JSON.parse(contractors);
+                }
+                for (const con of contractors) {
+                  const requiredContractorFields = ['id', 'name', 'budget', 'walletaddress', 'dtscf_project_id'];
+                  for (const field of requiredContractorFields) {
+                    if (!con[field] || (typeof con[field] === 'string' && con[field].trim() === '')) {
+                      throw new Error(`Missing or empty required field '${field}' in contractor '${con.name || 'unnamed'}'`);
+                    }
+                  }
+                  // Validate walletaddress is a valid Ethereum address
+                  if (!web3.utils.isAddress(con.walletaddress)) {
+                    throw new Error(`Invalid Ethereum wallet address for contractor '${con.name || 'unnamed'}': ${con.walletaddress}`);
+                  }
+                  // Add stricter checks, e.g., if (isNaN(con.budget) || con.budget <= 0) throw new Error(...);
+                }
+
+                // exit first see how
+                throw new Error(`exit!!!!!!!!!!!`);
+
+                const dtscfConfig = [
+                  req.body.underlyingDSGDsmartcontractaddress,
+                  scaleToWei(req.body.totalBudget),
+                  Math.floor(Number(new Date(req.body.enddate)) / 1000),
+                ];
+                console.log('DtscfConfig:', dtscfConfig);
+
+
+                // Step 2: Prepare for deployment, estimate gas fees
+
+                console.log('Attempting to deploy from account:', signer.address);
+                const tokenisedPayableContract = new web3.eth.Contract(ABI);
+                const payableDeployTx = tokenisedPayableContract.deploy({
+                  data: bytecode,
+                  arguments: ['https://tokenising.herokuapp.com/', req.body.underlyingDSGDsmartcontractaddress],
                 });
-                errorSent = true;
-              }
-              return false;
-            }
 
-            if (isNaN(req.body.couponinterval) || req.body.couponinterval < 0) {
-              console.log("Coupon interval is invalid: ", req.body.couponinterval);
-              if (!errorSent) {
-                res.status(400).send({
-                  message: "Coupon interval must be 0 or positive."
+                let gasEstimate = await payableDeployTx.estimateGas({ from: signer.address }).catch((error) => {
+                  console.log("Error while estimating Gas fee: ", error);
+                  return 2100000;  // default if cannot estimate
                 });
-                errorSent = true;
-              }
-              return false;
-            }
 
-            if (req.body.couponinterval === 0 && req.body.couponrate > 0) {
-              console.log("Coupon interval is zero but coupon rate is positive: ", req.body.couponinterval);
-              if (!errorSent) {
-                res.status(400).send({
-                  message: "Coupon interval is zero but coupon rate is positive.",
-                });
-                errorSent = true;
-              }
-              return false;
-            }
+                console.log("Initial estimated gas fee: ", gasEstimate);
 
-            if (!web3.utils.isAddress(requiredFields.CashTokensmartcontractaddress)) {
-              console.error(`Error: Invalid CashTokensmartcontractaddress: ${requiredFields.CashTokensmartcontractaddress}`);
-              if (!errorSent) {
-                res.status(400).send({
-                  message: 'Invalid input: CashTokensmartcontractaddress must be a valid Ethereum address.',
-                });
-                errorSent = true;
-              }
-              return false;
-            }
+                const balance = await web3.eth.getBalance(signer.address);
+                console.log("Signer balance:", web3.utils.fromWei(balance, "ether"), "ETH");
+                if (web3.utils.toBN(balance).lt(web3.utils.toBN(gasEstimate).mul(web3.utils.toBN("1000000000")))) {
+                  res.status(400).send({ message: "Insufficient funds for gas." });
+                  return false;
+                }
 
-            const startDate = Number(new Date(req.body.startdate));
-            const endDate = Number(new Date(req.body.enddate));
-            if (isNaN(startDate) || isNaN(endDate) || endDate <= startDate) {
-              console.error(`Error: Invalid dates - startDate: ${req.body.startdate}, endDate: ${req.body.enddate}`);
-              if (!errorSent) {
-                res.status(400).send({
-                  message: 'Invalid input: Dates must be valid and maturity date must be after issue date.',
-                });
-                errorSent = true;
-              }
-              return false;
-            }
+                let gasMultiplier = 1.1; // Initial 10% buffer
+                const gasIncreaseInterval = 30000; // Increase gas every 30 seconds if pending
+                const maxWaitTime = TIMEOUT * 1000; // Total timeout in ms
+                let startTime = Date.now();
 
-            const dtscfConfig = [
-              req.body.tokenname,
-              req.body.tokensymbol,
-              req.body.ISIN,
-              scaleToWei(req.body.facevalue),
-              scaleCouponRate(req.body.couponrate),
-              (typeof req.body.couponinterval === 'string' || req.body.couponinterval instanceof String)? parseInt(req.body.couponinterval): req.body.couponinterval,
-              Math.floor(Number(new Date(req.body.startdate)) / 1000),
-              Math.floor(Number(new Date(req.body.enddate)) / 1000),
-              recipient.name,
-              scaleToWei(totalSupply),
-              req.body.CashTokensmartcontractaddress,
-              req.body.prospectusurl,
-            ];
 
-            console.log('DtscfConfig:', dtscfConfig);
 
-            let gasFees = await retryWithBackoff(() => ERC20TokenisedDtscfcontract.deploy({
-              data: bytecode,
-              arguments: [dtscfConfig],
-            })
-            .estimateGas({ from: signer.address })
-            .then((gasAmount) => {
-              console.log("Estimated gas amount for signTransaction: ", gasAmount);
-              return gasAmount;
-            })
-            .catch((error2) => {
-              console.log("Error while estimating Gas fee: ", error2);
-              return 2100000;
-            }));
 
-            console.log("Initial estimated gas fee: ", gasFees);
+                // Step 3: Deployment with retry and gas increase
+                const deployWithRetry = async () => {
+                  let currentGas = Math.floor(gasEstimate * gasMultiplier);
+                  console.log(`Attempting deployment with gas: ${currentGas} (multiplier: ${gasMultiplier})`);
 
-            const balance = await web3.eth.getBalance(signer.address);
-            console.log("Signer balance:", web3.utils.fromWei(balance, "ether"), "ETH");
-            if (web3.utils.toBN(balance).lt(web3.utils.toBN(gasFees).mul(web3.utils.toBN("1000000000")))) {
-              res.status(400).send({ message: "Insufficient funds for gas." });
-              return false;
-            }
+                  try {
+                    return await retryWithBackoff(async () => {
+                      const deployTxData = payableDeployTx.encodeABI();  // Get the encoded deployment data
 
-            const contractTx = await retryWithBackoff(() => ERC20TokenisedDtscfcontract.deploy({
-              data: bytecode,
-              arguments: [dtscfConfig],
-            }));
+                      const tx = {
+                        from: signer.address,
+                        data: deployTxData,
+                        gas: currentGas,
+                        // Add gasPrice or maxFeePerGas/maxPriorityFeePerGas as needed for the network
+                      };
 
-            const nonce = await web3.eth.getTransactionCount(signer.address, "pending");
-            console.log("Using nonce:", nonce);
+                      const signedTx = await web3.eth.accounts.signTransaction(tx, signer.privateKey);
+                      
+                      // Await the receipt directly (waits for mining)
+                      const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+                      
+                      console.log('Deployment receipt:', receipt);
+                      
+                      if (receipt.status) {
+                        newcontractaddress = receipt.contractAddress;
+                        updatestatus = true;
+                        return true;  // Success
+                      } else {
+                        throw new Error('Deployment failed (status false)');
+                      }
+                    }, 3);  // 3 retries
+                  } catch (err) {
+                    console.error('Deployment attempt failed:', err.message);
+                    if (Date.now() - startTime > maxWaitTime) {
+                      throw new Error(`Timeout after ${TIMEOUT} seconds`);
+                    }
+                    gasMultiplier += 0.15;  // Increase for next attempt
+                    return await deployWithRetry();  // Recursive retry
+                  }
+                };
 
-            let gasMultiplier = 1.1; // Initial 10% increase
-            const gasIncreaseInterval = 30000; // 30 seconds in milliseconds
-            const maxWaitTime = TIMEOUT * 1000; // 700 seconds in milliseconds
-            let startTime = Date.now();
+                await deployWithRetry();
+          } // deployContract = async ()
+          await deployContract();
+          
+          const wrapDepositToPayable = async () => {
+                console.log('Calling wrapDepositToPayable to fund the contract from anchor account');
+                
+                if (!newcontractaddress) {
+                  throw new Error('Contract address not set after deployment');
+                }
+                
+                const tokenizedBankDeposit_ABI = JSON.parse(fs.readFileSync(tokenizedBank_abiFile, 'utf8').toString());
+                const depositContract = new web3.eth.Contract(tokenizedBankDeposit_ABI, req.body.underlyingDSGDsmartcontractaddress);
+                
+                const tokenisedPayableContract = new web3.eth.Contract(ABI, newcontractaddress);
 
-            const attemptTransaction = async () => {
-              const currentGas = Math.floor(gasFees * gasMultiplier);
-              console.log(`Attempting transaction with gas: ${currentGas} (multiplier: ${gasMultiplier})`);
+                // Add balance check
+                const requiredAmount = web3.utils.toWei(req.body.totalBudget.toString(), 'ether');
+                const anchorBalance = await depositContract.methods.balanceOf(anchor.address).call();
+                if (web3.utils.toBN(anchorBalance).lt(web3.utils.toBN(requiredAmount))) {
+                  throw new Error(`Insufficient DSGD balance in anchor wallet: ${web3.utils.fromWei(anchorBalance, 'ether')} < ${req.body.totalBudget}`);
+                }
+                console.log(`Anchor DSGD balance sufficient: ${web3.utils.fromWei(anchorBalance, 'ether')}`);
 
-              const createTransaction = await retryWithBackoff(() => web3.eth.accounts.signTransaction(
-                {
-                  from: signer.address,
-                  data: contractTx.encodeABI(),
-                  gas: currentGas,
-                  nonce: nonce
-                },
-                signer.privateKey
-              ));
+                const gasPrice = await web3.eth.getGasPrice();  
+                console.log('Current gas price:', gasPrice);
 
-              console.log('Sending signed txn...');
-              return new Promise((resolve, reject) => {
-                let timer = 0;
-                const interval = setInterval(async () => {
-                  if (Date.now() - startTime > maxWaitTime) {
-                    clearInterval(interval);
-                    reject(new Error(`Timeout after ${TIMEOUT} seconds`));
-                    return;
+                // Step 4: Approve (sign and send signed tx)
+                const approveGas = await depositContract.methods.approve(newcontractaddress, requiredAmount)
+                  .estimateGas({ from: anchor.address })
+                  .catch(err => { throw new Error(`Estimate gas for approve failed: ${err.message}`); });
+                
+                const approveData = depositContract.methods.approve(newcontractaddress, requiredAmount).encodeABI();
+                
+                const approveTx = {
+                  from: anchor.address,
+                  to: req.body.underlyingDSGDsmartcontractaddress,
+                  data: approveData,
+                  gas: Math.floor(approveGas * 1.2),  
+                  gasPrice: gasPrice,
+                };
+                
+                const signedApprove = await web3.eth.accounts.signTransaction(approveTx, ANCHOR_PRIVATE_KEY);
+                
+                const approveReceipt = await web3.eth.sendSignedTransaction(signedApprove.rawTransaction)
+                  .catch(err => { throw new Error(`Approve transaction failed: ${err.message}`); });
+
+                console.log("Approved Tokenised Payable contract to pull funds. Receipt:", approveReceipt);
+
+                // Safely parse milestones (assuming first one; adjust if multiple)
+                let milestones = req.body.milestones || [];
+                if (typeof milestones === 'string') {
+                  milestones = JSON.parse(milestones);
+                }
+                const milestoneId = milestones.length > 0 ? milestones[0].id : 1;  
+
+                // Step 5: Wrap (sign and send signed tx)
+                const endDateUnix = Math.floor(new Date(req.body.enddate).getTime() / 1000);
+                const wrapGas = await tokenisedPayableContract.methods.wrapDepositToPayable(
+                  requiredAmount,
+                  endDateUnix,
+                  '{"milestone": "structure complete"}',  
+                  milestoneId
+                ).estimateGas({ from: anchor.address })
+                  .catch(err => { throw new Error(`Estimate gas for wrap failed: ${err.message}`); });
+                
+                const wrapData = tokenisedPayableContract.methods.wrapDepositToPayable(
+                  requiredAmount,
+                  endDateUnix,
+                  '{"milestone": "structure complete"}',
+                  milestoneId
+                ).encodeABI();
+                
+                const wrapTx = {
+                  from: anchor.address,
+                  to: newcontractaddress,
+                  data: wrapData,
+                  gas: Math.floor(wrapGas * 1.2),  
+                  gasPrice: gasPrice,
+                };
+                
+                const signedWrap = await web3.eth.accounts.signTransaction(wrapTx, ANCHOR_PRIVATE_KEY);
+                
+                const wrapReceipt = await web3.eth.sendSignedTransaction(signedWrap.rawTransaction)
+                  .catch(err => { throw new Error(`Wrap transaction failed: ${err.message}`); });
+
+                console.log("Funds wrapped successfully. Receipt:", wrapReceipt);
+
+                // Return needed values for transfer logic
+                return { wrapReceipt, gasPrice, tokenisedPayableContract, milestoneId };
+          }; // wrapDepositToPayable
+          const { wrapReceipt, gasPrice, tokenisedPayableContract, milestoneId } = await wrapDepositToPayable();
+
+          const transferTPtoContractors = async (wrapReceipt, gasPrice, tokenisedPayableContract, milestoneId) => {
+                console.log("Transferring Tokenised Payable tokens to contractors as per milestones");
+                try {
+                  // Fetch all token IDs from the contract (robust alternative to event parsing)
+                  const allIds = await tokenisedPayableContract.methods.getAllTokenIds().call();
+                  if (allIds.length === 0) {
+                    throw new Error('No payable tokens found after wrap - deployment may have failed');
+                  }
+                  // Assume the last (most recent) ID is the original wrapped one, as contract is new
+                  let originalId = allIds[allIds.length - 1];
+                  console.log(`Original payable ID: ${originalId}`);
+
+                  // Parse contractors to calculate and split/transfer portions
+                  let contractors = req.body.contractors || [];
+                  if (typeof contractors === 'string') {
+                    contractors = JSON.parse(contractors);
                   }
 
-                  if (timer % gasIncreaseInterval === 0 && timer > 0) {
-                    gasMultiplier += 0.15; // Increase gas by 15%, lower than 10% may get "replace transaction underpriced" error
-                    console.log(`Increasing gas multiplier to ${gasMultiplier}`);
-                    const newGas = Math.floor(gasFees * gasMultiplier);
-                    const newTransaction = await retryWithBackoff(() => web3.eth.accounts.signTransaction(
-                      {
-                        from: signer.address,
-                        data: contractTx.encodeABI(),
-                        gas: newGas,
-                        nonce: nonce
-                      },
-                      signer.privateKey
-                    ));
-                    web3.eth.sendSignedTransaction(newTransaction.rawTransaction, (error1, hash) => {
-                      if (error1 && error1.message.includes("replacement transaction underpriced")) {
-                        console.log("Transaction replacement failed: replacement transaction underpriced!");
-                      } else {
-                        if (error1) {
-                          console.log("Error when submitting signed transaction:", error1);
-                          clearInterval(interval);
-                          reject(error1);
-                        } else {
-                          console.log("Txn sent!, hash: ", hash);
-                          handleReceipt(hash, interval, resolve, reject);
+                  for (const con of contractors) {
+                    let contractorAmount = 0;
+                    for (const pur of con.purchases || []) {
+                      contractorAmount += parseFloat(pur.amount) || 0;
+                    }
+                    const amountWei = web3.utils.toWei(contractorAmount.toString(), 'ether');
+
+                    if (web3.utils.toBN(amountWei).gt(0)) {
+                      if (!con.walletaddress) {
+                        throw new Error(`Contractor wallet address not found for ${con.name}`);
+                      }
+
+                      // Step 1: Split to create new payable with contractor's amount
+                      const splitGas = await tokenisedPayableContract.methods.splitPayable(originalId, amountWei)
+                        .estimateGas({ from: anchor.address })
+                        .catch(err => { throw new Error(`Estimate gas for split failed: ${err.message}`); });
+                      
+                      const splitData = tokenisedPayableContract.methods.splitPayable(originalId, amountWei).encodeABI();
+                      
+                      const splitTx = {
+                        from: anchor.address,
+                        to: newcontractaddress,
+                        data: splitData,
+                        gas: Math.floor(splitGas * 1.2),
+                        gasPrice: gasPrice,
+                      };
+                      
+                      const signedSplit = await web3.eth.accounts.signTransaction(splitTx, ANCHOR_PRIVATE_KEY);
+                      
+                      const splitReceipt = await web3.eth.sendSignedTransaction(signedSplit.rawTransaction)
+                        .catch(err => { throw new Error(`Split transaction failed: ${err.message}`); });
+
+                      // Extract newId from PayableSplit event in splitReceipt
+                      let newId;
+                      for (const log of splitReceipt.logs) {
+                        if (log.topics[0] === web3.utils.keccak256('PayableSplit(uint256,uint256,uint256)')) {
+                          const decoded = web3.eth.abi.decodeLog([
+                            { type: 'uint256', name: 'originalId', indexed: true },
+                            { type: 'uint256', name: 'newId' },
+                            { type: 'uint256', name: 'splitValue' }
+                          ], log.data, log.topics);
+                          newId = decoded.newId;
+                          break;
                         }
                       }
-                    });
-                  }
-                  timer += 1000;
-                }, 1000);
+                      if (!newId) {
+                        throw new Error('Failed to extract new payable ID from split receipt');
+                      }
+                      console.log(`Split new payable ID ${newId} with value ${contractorAmount} for contractor ${con.name}`);
 
-                web3.eth.sendSignedTransaction(createTransaction.rawTransaction, (error1, hash) => {
-                  if (error1) {
-                    console.log("Error when submitting initial signed transaction:", error1);
-                    if (timer >= gasIncreaseInterval) {
-                      return; // Let interval handle retry
+                      // Step 2: Transfer the new payable (amount=1) to contractor
+                      const transferGas = await tokenisedPayableContract.methods.safeTransferFrom(
+                        anchor.address,
+                        con.walletaddress,
+                        newId,
+                        1,
+                        '0x'
+                      ).estimateGas({ from: anchor.address })
+                        .catch(err => { throw new Error(`Estimate gas for transfer failed: ${err.message}`); });
+                      
+                      const transferData = tokenisedPayableContract.methods.safeTransferFrom(
+                        anchor.address,
+                        con.walletaddress,
+                        newId,
+                        1,
+                        '0x'
+                      ).encodeABI();
+                      
+                      const transferTx = {
+                        from: anchor.address,
+                        to: newcontractaddress,
+                        data: transferData,
+                        gas: Math.floor(transferGas * 1.2),
+                        gasPrice: gasPrice,
+                      };
+                      
+                      const signedTransfer = await web3.eth.accounts.signTransaction(transferTx, ANCHOR_PRIVATE_KEY);
+                      
+                      const transferReceipt = await web3.eth.sendSignedTransaction(signedTransfer.rawTransaction)
+                        .catch(err => { throw new Error(`Transfer transaction failed: ${err.message}`); });
+
+                      console.log(`Transferred payable ID ${newId} (${contractorAmount} value) to contractor ${con.name}. Receipt:`, transferReceipt);
                     }
-                    clearInterval(interval);
-                    reject(error1);
-                  } else {
-                    console.log("Txn sent!, hash: ", hash);
-                    handleReceipt(hash, interval, resolve, reject);
                   }
-                });
-              });
-            };
-
-            const handleReceipt = (hash, interval, resolve, reject) => {
-              let receiptTimer = 0;
-              const receiptInterval = setInterval(async () => {
-                if (Date.now() - startTime > maxWaitTime) {
-                  clearInterval(interval);
-                  clearInterval(receiptInterval);
-                  reject(new Error(`Timeout after ${TIMEOUT} seconds`));
-                  return;
+                } catch (err) {
+                  console.error('Error in transferTPtoContractors:', err.message);
+                  throw err;
                 }
+          };  // transferTPtoContractors
+          await transferTPtoContractors(wrapReceipt, gasPrice, tokenisedPayableContract, milestoneId);
 
-                const receipt = await web3.eth.getTransactionReceipt(hash);
-                if (receipt) {
-                  console.log('>> GOT RECEIPT!!!!!!!!!!!!!!!!!!!!!!!');
-                  clearInterval(interval);
-                  clearInterval(receiptInterval);
-                  console.log('Receipt -->>: ', receipt);
-                  const trx = await web3.eth.getTransaction(hash);
-                  console.log('trx.status -->>: ', trx);
-                  newcontractaddress = receipt.contractAddress;
-                  resolve(receipt.status);
-                }
-                receiptTimer += 1000;
-              }, 1000);
-            };
-
-            try {
-              const status = await attemptTransaction();
-              console.log('**** Txn executed:', status);
-              console.log('New Contract deployed at address', newcontractaddress);
-              return true;
-            } catch (err) {
-              console.error("Transaction error:", err);
-              if (!errorSent) {
-                console.log("Sending error 400 back to client");
-                res.status(400).send({
-                  message: err.message || 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
-                });
-                errorSent = true;
-              }
-              return false;
-            }
-          };
-
-          return (await deployContract());
-        } catch(err) {
-          console.error("Err8: ", err);
+        } catch (error) {
+          console.error('Error in dAppCreate:', error);
           if (!errorSent) {
-            console.log("Sending error 400 back to client");
-            res.status(400).send({ 
-              message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
-            });
+            res.status(500).send({ message: "Error during contract deployment: " + error.message });
             errorSent = true;
           }
           return false;
-        }        
+        }
+        return updatestatus;
       } //dAppCreate
 
       async function dAppUpdate() {
         updatestatus = false;
-    
+   
         // Readng ABI from JSON file
         fs = require("fs");
         ABI = JSON.parse(fs.readFileSync(abiFile).toString());
@@ -764,7 +996,7 @@ exports.approveDraftById = async (req, res) => {  //
         const UpdateContract = async () => {
           try {
             console.log('Creating Dtscf contract with ABI');
-            const ERC20TokenisedDtscfcontract = new web3.eth.Contract(ABI);
+            const tokenisedPayableContract = new web3.eth.Contract(ABI);
     
             // https://github.com/web3/web3.js/issues/1001
             web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
@@ -780,7 +1012,7 @@ exports.approveDraftById = async (req, res) => {  //
                 nonce: nonce,
                 from: signer.address,
                 to: req.body.smartcontractaddress,
-                data: ERC20TokenisedDtscfcontract.methods.updateTotalSupply(
+                data: tokenisedPayableContract.methods.updateTotalSupply(
                         1,  // dtscfId
                         web3.utils.toBN( setToTalSupply )
                       ).encodeABI(),
@@ -879,21 +1111,13 @@ exports.approveDraftById = async (req, res) => {  //
             }
             return false;
           } // try catch
-    
         }; // UpdateContract()
     
         return ( await UpdateContract() );
       } // dAppUpdate
 
-      
   console.log("*** isNewDtscf = ", isNewDtscf);
-  console.log("*** req.body.smartcontractaddress = ", req.body.smartcontractaddress);
-/*
-  res.status(400).send({
-    message: "ENDDD!"
-  });
-  return;
-*/
+  console.log("*** req.body.underlyingDSGDsmartcontractaddress = ", req.body.underlyingDSGDsmartcontractaddress);
 
   if (isNewDtscf) {   // new dtscf
     updatestatus = await dAppCreate();
@@ -949,6 +1173,8 @@ exports.approveDraftById = async (req, res) => {  //
           blockchain            : req.body.blockchain || 0, // Default or from form
           underlyingTokenID     : req.body.underlyingTokenID || null,
           underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+          smartcontractaddress  : newcontractaddress,
+
           campaign_id           : req.body.campaign_id || null,
 
           startdate             : req.body.startdate, 
@@ -985,7 +1211,7 @@ exports.approveDraftById = async (req, res) => {  //
         blockchain            : req.body.blockchain || 0, // Default or from form
         underlyingTokenID     : req.body.underlyingTokenID || null,
         underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
-          campaign_id           : req.body.campaign_id || null,
+        campaign_id           : req.body.campaign_id || null,
 
         startdate             : req.body.startdate, 
         enddate               : req.body.enddate,
@@ -1505,130 +1731,133 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
 }; // getInWalletMintedTotalSupply
 
 // Retrieve all Dtscf from the database.
-exports.findByName = (req, res) => {
+exports.findByName = async (req, res) => {
   const name = req.query.name;
-  var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
-/*
-  Dtscf.findAll(
-    { include: db.recipients,
-      where: condition
-    },
-    )
-    .then(data => {
-      logDataValues("Dtscf.findByName: ", data);
-      res.send(data);
-    })
-    .catch(err => {
-      console.log("Error while retreiving dtscf3: "+err.message);
+  var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;  
+  
+  try {
+    console.log("====== dtscf.findByName() ");
 
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving dtscf."
-      });
+    const dtscfs = await Dtscf.findAll({
+        where: condition,
+        include: 
+          [
+            {
+              model: db.recipients,
+              as: 'anchor',
+              attributes: ['name']
+            },
+            {
+              model: db.campaigns,
+              as: 'underlyingToken',
+              attributes: ['tokenname']
+            }
+          ]
     });
-*/
-  Dtscf.findAll(
-  {
-    where: condition,
-    include: [
-      {
-        model: db.recipients,
-        on: {
-          id: db.Sequelize.where(db.Sequelize.col("dtscf.issuer"), "=", db.Sequelize.col("recipient.id")),
-        },
-        attributes: ['id','name', 'walletaddress'],
-      },
-      {
-        model: db.campaigns,
-        on: {
-          id: db.Sequelize.where(db.Sequelize.col("dtscf.cashTokenID"), "=", db.Sequelize.col("campaign.id")),
-        },
-        attributes: ['id', 'name', 'tokenname', 'smartcontractaddress', 'blockchain'],
-      }
-    ]
-  },
-  ).then(data => {
-    logDataValues("Dtscf.findAll: ", data);
-    res.send(data);
-  }).catch(err => {
+
+    const formattedData = dtscfs.map(dtscf => {
+      const json = dtscf.toJSON();
+      json.anchorName = dtscf.anchor ? dtscf.anchor.name : null;
+      json.tokenName = dtscf.underlyingToken ? dtscf.underlyingToken.tokenname : null;
+      delete json.anchor;
+      delete json.underlyingToken;
+      return json;
+    });
+
+    logDataValues("Dtscf.findAll: ", formattedData);
+    res.send(formattedData);
+  } catch (err) {
+    console.log("Error while retrieving findByName: "+err.message);
     res.status(500).send({
-      message:
-        err.message || "Some error occurred while retrieving dtscf."
+      message: err.message || "Some error occurred while retrieving dtscf project records."
     });
-  }); // findAll
-
+  }
 }; // findByName
 
-exports.getAllByDtscfId = (req, res) => {
+exports.getAllByDtscfId = async (req, res) => {
   const id = req.query.id;
   console.log("====== dtscf.getAllByDtscfId(id) ",id);
-  var condition = id ? 
-       {id : id}
-      : null;
 
-  Dtscf.findAll(
-    { 
-      where: condition,
-      //include: db.recipients
-      include: [
-        {
-          model: db.recipients,
-          on: {
-            id: db.Sequelize.where(db.Sequelize.col("dtscfs.issuer"), "=", db.Sequelize.col("recipient.id")),
-          },
-          attributes: ['id','name'],
-        },
-        {
-          model: db.campaigns,
-          on: {
-            id: db.Sequelize.where(db.Sequelize.col("dtscfs.cashTokenID"), "=", db.Sequelize.col("campaign.id")),
-          },
-          attributes: ['id', 'name', 'tokenname', 'smartcontractaddress','blockchain'],
-        }
-      ]
-    },
-    )
-    .then(data => {
-      logDataValues("Dtscf.findAll: ", data);
+  if (!id) {
+    console.log("ID is required for fetching record.");
+    return res.status(400).send({ message: "ID is required" });
+  }
+  const rec = await Dtscf.findByPk(id, {
+    include: [
+      { model: db.dtscf_milestones, as: 'dtscf_milestones' }
+    ]
+  });
 
-      if (data.length === 0) {
-        console.log("Data is empyty!!!");
-        res.status(500).send({
-          message: "No such record in the system" 
-        });
-      } else
-      res.send(data);
-    })
-    .catch(err => {
-      console.log("Error while retreiving dtscf5a: "+err.message);
+  if (!rec) {
+    return res.status(404).send({ message: "Record not found" });
+  }
 
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving dtscf."
-      });
-    });
+  const allContractors = await db.dtscf_contractors.findAll({
+    where: { dtscf_project_id: id },
+    include: { model: db.dtscf_purchases, as: 'dtscf_purchases' }
+  });
+
+  const contractorMap = {};
+  allContractors.forEach(con => {
+    con.dataValues.subcontractors = [];  // Add dataValues for plain object
+    contractorMap[con.id] = con;
+  });
+
+  const topLevel = [];
+  allContractors.forEach(con => {
+    if (con.dtscf_parent_contractor_id) {
+      if (contractorMap[con.dtscf_parent_contractor_id]) {
+        contractorMap[con.dtscf_parent_contractor_id].dataValues.subcontractors.push(con);
+      }
+    } else {
+      topLevel.push(con);
+    }
+  });
+
+  rec.dataValues.dtscf_contractors = topLevel;
+
+  res.send(rec);
+
 }; // getAllByDtscfId
 
 // Retrieve all Dtscf from the database.
-exports.getAll = (req, res) => {
-  const name = req.query.name;
-  var condition = name ? { name: { [Op.like]: `%${name}%` } } : null;
+exports.getAll = async (req, res) => {
+  try {
+    console.log("====== dtscf.getAll() ");
 
-  console.log("====== dtscf.getAll() ");
-  Dtscf.findAll(
-  {
-    where: condition,
-  },
-  ).then(data => {
-    logDataValues("Dtscf.findAll: ", data);
-    res.send(data);
-  }).catch(err => {
+    const dtscfs = await Dtscf.findAll({
+    include: 
+      [
+        {
+          model: db.recipients,
+          as: 'anchor',
+          attributes: ['name']
+        },
+        {
+          model: db.campaigns,
+          as: 'underlyingToken',
+          attributes: ['tokenname']
+        }
+      ]
+    });
+
+    const formattedData = dtscfs.map(dtscf => {
+      const json = dtscf.toJSON();
+      json.anchorName = dtscf.anchor ? dtscf.anchor.name : null;
+      json.tokenName = dtscf.underlyingToken ? dtscf.underlyingToken.tokenname : null;
+      delete json.anchor;
+      delete json.underlyingToken;
+      return json;
+    });
+
+    logDataValues("Dtscf.findAll: ", formattedData);
+    res.send(formattedData);
+  } catch (err) {
     console.log("Error while retrieving dtscf4: "+err.message);
     res.status(500).send({
-      message:
-        err.message || "Some error occurred while retrieving dtscf."
+      message: err.message || "Some error occurred while retrieving dtscf project records."
     });
-  }); // findAll
+  }
 }; // getAll
 
 exports.getAllDraftsByUserId = (req, res) => {
@@ -1684,48 +1913,49 @@ exports.getAllDraftsByUserId = (req, res) => {
   );
 }; // getAllDraftsByUserId
 
-exports.getAllDraftsByDtscfId = (req, res) => {
+exports.getAllDraftsByDtscfId = async (req, res) => {
   const id = req.query.id;
   console.log("====== dtscf.getAllDraftsByDtscfId(id) ",id);
-  Dtscf_Draft.findByPk(id, {
-      include: [
-        {
-          model: db.dtscf_milestones_draft,
-          as: 'dtscf_milestones_drafts'  // Use the plural alias
-        },
-        {
-          model: db.dtscf_contractors_draft,
-          as: 'dtscf_contractors_drafts',
-          include: [
-            {
-              model: db.dtscf_contractors_draft,
-              as: 'subcontractors'
-            },
-            {
-              model: db.dtscf_purchases_draft,
-              as: 'dtscf_purchases_drafts'
-            }
-          ]
-        }
-      ]
-    })
-    .then(data => {
-    if (data) {
-      logDataValues("Dtscf_Draft.findByPk: ", data);
-      res.send(data);
+  if (!id) {
+    console.log("ID is required for fetching drafts.");
+    return res.status(400).send({ message: "ID is required" });
+  }
+  const draft = await Dtscf_Draft.findByPk(id, {
+    include: [
+      { model: db.dtscf_milestones_draft, as: 'dtscf_milestones_drafts' }
+    ]
+  });
+
+  if (!draft) {
+    return res.status(404).send({ message: "Draft not found" });
+  }
+
+  const allContractors = await db.dtscf_contractors_draft.findAll({
+    where: { dtscf_project_id: id },
+    include: { model: db.dtscf_purchases_draft, as: 'dtscf_purchases_drafts' }
+  });
+
+  const contractorMap = {};
+  allContractors.forEach(con => {
+    con.dataValues.subcontractors = [];  // Add dataValues for plain object
+    contractorMap[con.id] = con;
+  });
+
+  const topLevel = [];
+  allContractors.forEach(con => {
+    if (con.dtscf_parent_contractor_id) {
+      if (contractorMap[con.dtscf_parent_contractor_id]) {
+        contractorMap[con.dtscf_parent_contractor_id].dataValues.subcontractors.push(con);
+      }
     } else {
-      logDataValues("Dtscf_Draft.findByPk: ", data);
-      res.status(404).send({
-        message: `Cannot find Dtscf draft with id=${id}.`
-      });
+      topLevel.push(con);
     }
-  })
-  .catch(err => {
-    console.log("Error while retreiving dtscf draft: "+err.message);
-    res.status(500).send({
-      message: "Error retrieving Dtscf draft with id=" + id
-    });
-  });}; // getAllDraftsByDtscfId
+  });
+
+  draft.dataValues.dtscf_contractors_drafts = topLevel;
+
+  res.send(draft);
+}; // getAllDraftsByDtscfId
 
 // Find a single Dtscf with an id
 exports.findOne = (req, res) => {
@@ -2001,19 +2231,74 @@ exports.getAllInvestorsById = (req, res) => {
   });
 }; // getAllInvestorsById
 
-exports.submitDraftById = async (req, res) => {  
-  const id = req.params.id;
-  const draft_id = req.params.id;
+// Recursive function for update or create contractors
+async function updateOrCreateContractors(contractors, projectId, files, parentId = null, path = []) {
+  for (const [index, con] of contractors.entries()) {
+    let contractorId;
+    if (con.id) {
+      // Update existing
+      await db.dtscf_contractors_draft.update({
+        name: con.name,
+        budget: parseInt(con.budget) || 0,
+        walletaddress: con.walletaddress || '',
+      }, { where: { id: con.id } });
+      contractorId = con.id;
+    } else {
+      // Create new
+      const draftContractor = await db.dtscf_contractors_draft.create({
+        name: con.name,
+        budget: parseInt(con.budget) || 0,
+        walletaddress: con.walletaddress || '',
+        dtscf_project_id: projectId,
+        dtscf_parent_contractor_id: parentId
+      });
+      contractorId = draftContractor.id;
+    }
 
-  console.log("Received1 submitDraftById:");
-  console.log("id=", draft_id);
+    const currentPath = [...path, index];
 
+    for (const [purIndex, pur] of (con.purchases || []).entries()) {
+      const fieldBase = `contractor_${currentPath.join('_')}_purchase_${purIndex}_invoice`;
+      const invoiceFile = files[fieldBase] ? files[fieldBase][0] : null;
+
+      if (pur.id) {
+        // Update existing purchase
+        const num = await db.dtscf_purchases_draft.update({
+          description: pur.description,
+          amount: parseFloat(pur.amount) || 0,
+          invoice_blob: invoiceFile ? invoiceFile.buffer : undefined  // Skip if no new file
+        }, { where: { id: pur.id } });
+        if (num[0] === 1) {
+          console.log(`Updated purchase with id=${pur.id}`);
+        } else {
+          console.log(`No changes or cannot update purchase with id=${pur.id}. Rows affected: ${num[0]}`);
+        }      } else {
+        // Create new purchase
+        const newPurchase = await db.dtscf_purchases_draft.create({
+          description: pur.description,
+          amount: parseFloat(pur.amount) || 0,
+          dtscf_project_id: projectId,
+          dtscf_contractor_id: contractorId,
+          invoice_blob: invoiceFile ? invoiceFile.buffer : null
+        });
+        console.log(`Created new purchase with id=${newPurchase.id}`);      }
+    }
+
+    if (con.subcontractors && con.subcontractors.length > 0) {
+      await updateOrCreateContractors(con.subcontractors, projectId, files, contractorId, currentPath);
+    }
+  }
+}
+
+exports.submitDraftById = async (req, res) => {
   upload.any()(req, res, async (err) => {
     if (err) {
       return res.status(500).send({ message: "Error parsing form data" });
     }
 
     var errorSent = false;
+
+    const draft_id = req.params.id;
 
     if (!req.body.name) {
       if (!errorSent) {
@@ -2025,142 +2310,100 @@ exports.submitDraftById = async (req, res) => {
       return;
     }
 
+    console.log("Received1 submitDraftById:");
+    console.log("id=",req.params.id);
     console.log("Received for Dtscf draft Update:");
     console.log(req.body);
 
     try {
-      // Parse main project data
-      const projectData = {
-        name              : req.body.name,
-        description       : req.body.description,
-        totalBudget       : parseInt(req.body.totalBudget) || 0,
-        blockchain        : req.body.blockchain || 0, // Default or from form
-        underlyingTokenID : req.body.underlyingTokenID || null,
-        underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
-        campaign_id       : req.body.campaign_id || null,
-        startdate         : req.body.startdate,
-        enddate           : req.body.enddate,
-        txntype           : 0, // Create
-        status            : 1, // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
-        actionby          : req.body.actionby, // Assuming auth service
-        actiontimedate    : new Date(),
-        maker             : req.body.maker,
-        checker           : req.body.checker,
-        approver          : req.body.approver,
-        checkerComments   : req.body.checkerComments || '',
-        approverComments  : req.body.approverComments || ''
-      };
+      // Update the draft project
+      await Dtscf_Draft.update(
+        {
+          name              : req.body.name,
+          description       : req.body.description,
+          totalBudget       : parseInt(req.body.totalBudget) || 0,
+          blockchain        : req.body.blockchain || 0, // Default or from form
+          underlyingTokenID : req.body.underlyingTokenID || null,
+          underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+          campaign_id        : req.body.campaign_id || null,
+          startdate         : req.body.startdate,
+          enddate           : req.body.enddate,
+          txntype           : req.body.txntype, // Create
+          status            : 1,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
+          actionby          : req.body.actionby, // Assuming auth service
+          actiontimedate    : new Date(),
+          maker             : req.body.maker,
+          checker           : req.body.checker,
+          approver          : req.body.approver,
+          checkerComments   : req.body.checkerComments || '',
+          approverComments  : req.body.approverComments || ''
+        },
+        { where: { id: draft_id } }
+      );
 
-      // Create the draft project
-      const draftProject = await Dtscf_Draft.update(projectData, 
-      { where:      { id: draft_id }}
-      )
-      .then(async num => {
-        if (num == 1) {
-          console.log("Dtscf draft project updated successfully.");
+      console.log("Dtscf draft project updated successfully.");
 
-          // Parse and update milestones
-          const milestones = JSON.parse(req.body.milestones || '[]');
-          for (const ms of milestones) {
-            await db.dtscf_milestones_draft.update({
-              name: ms.name,
-              budget: parseInt(ms.budget) || 0,
-              startdate: ms.startdate,
-              enddate: ms.enddate,
-            },
-            { 
-              where:      { id: ms.id }
-            }
-            );
-          }
-
-          // Parse and update contractors with purchases
-          const contractors = JSON.parse(req.body.contractors || '[]');
-          for (const [conIndex, con] of contractors.entries()) {
-            const num = await db.dtscf_contractors_draft.update({
-              name: con.name,
-              budget: parseInt(con.budget) || 0,
-              walletaddress: con.walletaddress,
-              dtscf_project_id: draft_id,
-              dtscf_parent_contractor_id: con.parent_contractor_id || null
-            },
-            { 
-              where: { id: con.id }
-            });
-
-            if (num === 1) {
-              console.log("dtscf_contractors_draft updated successfully.");
-            } else {
-              console.log(`Cannot update dtscf_contractors_draft with id=${con.id}.`);
-            }
-            
-            for (const [purIndex, pur] of con.purchases.entries()) {
-              const invoiceField = `contractor_${conIndex}_purchase_${purIndex}_invoice`;
-              const invoiceFile = req.files[invoiceField] ? req.files[invoiceField][0] : null;
-
-              await db.dtscf_purchases_draft.update({
-                description: pur.description,
-                amount: parseFloat(pur.amount) || 0,
-                dtscf_project_id: draft_id,
-                dtscf_contractor_id: con.id,
-                invoice_blob: invoiceFile ? invoiceFile.buffer : null
-              },
-              { 
-                where:      { id: pur.id }
-              })
-              .then(async num => {
-                if (num == 1) {
-                  console.log("dtscf_purchases_draft updated successfully.");
-                } else {
-                  console.log(`Cannot update dtscf_purchases_draft with id=${pur.id}.`);
-                }
-              })
-              .catch(err => {
-                console.log("Error while updating dtscf_purchases_draft: "+err.message);
-              });
-            }
-          }
-
-          // write to audit
-          AuditTrail.create(
-          { 
-            tablename: 'dtscf_draft',
-            action: 'update - resubmitted',
-            actionby: projectData.actionby,
-            actiontimedate: projectData.actiontimedate,
-            data: logDataValues(projectData)
-          })
-          .then(auditres => {
-            console.log("Data written to audittrail for resubmitting dtscf request:", auditres);
-
-          })
-          .catch(err => {
-            console.log("Error while logging to audittrail for resubmitting dtscf request: "+err.message);
-          });
-          
-          res.send({
-            message: "Dtscf resubmitted successfully."
-          });
+      // Parse and update/create milestones
+      const milestones = JSON.parse(req.body.milestones || '[]');
+      for (const ms of milestones) {
+        if (ms.id) {
+          await db.dtscf_milestones_draft.update({
+            name: ms.name,
+            budget: parseInt(ms.budget) || 0,
+            startdate: ms.startdate,
+            enddate: ms.enddate,
+          }, { where: { id: ms.id } });
         } else {
-          res.send({
-            message: `${req.body}. Record updated =${num}. Cannot update Dtscf with id=${draft_id}. Maybe Dtscf was not found or req.body is empty!`
+          await db.dtscf_milestones_draft.create({
+            name: ms.name,
+            budget: parseInt(ms.budget) || 0,
+            startdate: ms.startdate,
+            enddate: ms.enddate,
+            dtscf_project_id: draft_id
           });
         }
+      }
+
+// Parse and update/create contractors with purchases recursively
+      const contractors = JSON.parse(req.body.contractors || '[]');
+      await updateOrCreateContractors(contractors, draft_id, req.files);
+
+      // Log to audittrail
+      await AuditTrail.create({
+        action: req.body.txntype===0?"create - resubmitted":req.body.txntype===1?"update - resubmitted":req.body.txntype===2?"delete - resubmitted":"",
+        name: req.body.name,
+        totalBudget: req.body.totalBudget,
+        blockchain: req.body.blockchain || 0,
+        underlyingTokenID: req.body.underlyingTokenID || null,
+        underlyingDSGDsmartcontractaddress: req.body.underlyingDSGDsmartcontractaddress || '',
+        campaign_id: req.body.campaign_id || null,
+        startdate: req.body.startdate,
+        enddate: req.body.enddate,
+        txntype: req.body.txntype,
+        draftdtscfId: draft_id,
+        maker: req.body.maker,
+        checker: req.body.checker,
+        approver: req.body.approver,
+        actionby: req.body.actionby,
+        checkerComments: req.body.checkerComments,
+        approverComments: req.body.approverComments,
+        status: 1,   // pending checker
+      })
+      .then(auditres => {
+        console.log("Data written to audittrail for resubmitting dtscf request:", auditres);
       })
       .catch(err => {
-        if (!errorSent) {
-          console.log(err);
-          res.status(500).send({
-            message: `Error updating Dtscf. ${err}`
-          });
-          errorSent = true;
-        }
-      }); // await Dtscf_Draft.update()
+        console.log("Error while logging to audittrail for resubmitting dtscf request: "+err.message);
+      });
+
+      res.send({
+        message: "Dtscf draft updated successfully."
+      });
     } catch (err) {
       console.error(err);
       if (!errorSent) {
         res.status(500).send({
-          message: err.message || "Some error occurred while creating the draft."
+          message: err.message || "Some error occurred while updating the draft."
         });
         errorSent = true;
       }
@@ -2390,7 +2633,7 @@ exports.update = async (req, res) => {
     const UpdateContract = async () => {
       try {
         console.log('Creating contract with ABI');
-        const ERC20TokenisedDtscfcontract = new web3.eth.Contract(ABI);
+        const tokenisedPayableContract = new web3.eth.Contract(ABI);
 
         // https://github.com/web3/web3.js/issues/1001
         web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
@@ -2406,7 +2649,7 @@ exports.update = async (req, res) => {
             nonce: nonce,
             from: signer.address,
             to: req.body.smartcontractaddress,
-            data: ERC20TokenisedDtscfcontract.methods.updateTotalSupply(
+            data: tokenisedPayableContract.methods.updateTotalSupply(
                     1,  // dtscfId
                     web3.utils.toBN( setToTalSupply )
                   ).encodeABI(),

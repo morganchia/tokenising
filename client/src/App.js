@@ -77,6 +77,7 @@ import DTSCFProjectCreation from "./components/dtscf-project-creation.component"
 import DTSCFContractorList from "./components/dtscf-dashboard-contractor.component";
 import DTSCFBankList from "./components/dtscf-dashboard-bank.component";
 import DTSCFCheckApprove from "./components/dtscf-checkapprove.component";
+import DTSCFCheckApprove2 from "./components/dtscf-checkapprove2.component";
 
 //import PayableList from "./components/payable-list.component";
 //import PayableCheckApprove from "./components/payable-checkapprove.component";
@@ -477,7 +478,7 @@ class App extends Component {
             <Route path="/pbmwraplist" element={<PBMWrapList/>} />
             <Route path="/dtscf" element={<DTSCFProjectList/>} />
             <Route path="/dtscfcheckapprove/:id" element={<DTSCFCheckApprove/>} />
-
+            <Route path="/dtscfcheckapprove2/:id" element={<DTSCFCheckApprove2/>} />
 {
 /*
             <Route path="/payable" element={<PayableList/>} />

@@ -191,7 +191,7 @@ export default class DtscfList extends Component {
           <div>
           <header className="jumbotron col-md-8">
             <h3>
-              <strong>Deployed Dtscf { (this.state.isMaker? "(Maker)" : (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null))) }</strong>
+              <strong>Deployed Deep-Tier Supply Chain Financing Projects { (this.state.isMaker? "(Maker)" : (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null))) }</strong>
             </h3>
           </header>
 
@@ -227,19 +227,18 @@ export default class DtscfList extends Component {
               <table style={{ border:"1px solid"}}>
                 {(dtscf.length > 0)?
                 <tr>
-                  <th>Dtscf Name</th>
-                  <th>Token Symbol</th>
+                  <th>Project Name</th>
+                  <th>Anchor</th>
+                  <th>Total Budget</th>
                   <th>Cash Token</th>
                   <th>Blockchain</th>
-                  <th>Issue Date</th>
+                  <th>Start Date</th>
                   <th>Maturity Date</th>
-                  <th>Issuer</th>
-                  <th>Total Issue Size</th>
-                  <th>Dtscf Smart Contract</th>
+                  <th>Tokenised Payable Smart Contract</th>
                   <th>Cash Token Smart Contract</th>
                   <th>View Details</th>
                   <th>View on Blockchain explorer</th>
-                  <th>Issuer Fund Coupon</th>
+                  <th>Add Sub-Contractors and Purchases</th>
                   <th>Action</th>
 {/*
                   <th>Action</th>
@@ -251,12 +250,13 @@ export default class DtscfList extends Component {
                   dtscf.map((dtscf1, index) => (
                     <tr>
                       <td>{dtscf1.name}</td>
-                      <td>{dtscf1.tokensymbol}</td>
+                      <td>{dtscf1.anchorName}</td>
+                      <td>{dtscf1.totalBudget.toLocaleString()}</td>
                       <td>{
                             (
-                              dtscf1.campaign &&
-                                dtscf1.campaign.tokenname !== undefined)
-                              ? dtscf1.campaign.tokenname  :null
+                              dtscf1 &&
+                                dtscf1.tokenName !== undefined)
+                              ? dtscf1.tokenName  :null
                         
                           }
                       </td>
@@ -282,26 +282,17 @@ export default class DtscfList extends Component {
                         }
                       )()}
                       </td>
-                      <td>{dtscf1.issuedate}</td>
-                      <td>{dtscf1.maturitydate}</td>
-                      <td>
-                          {
-                            (
-                              dtscf1.recipient &&
-                               dtscf1.recipient.name !== undefined)
-                              ? dtscf1.recipient.name  :null
-                          }
-                      </td>
-                      <td>{dtscf1.totalsupply.toLocaleString()}</td>
+                      <td>{dtscf1.startdate}</td>
+                      <td>{dtscf1.enddate}</td>
                       <td>{
                             (dtscf1.smartcontractaddress !== undefined && typeof dtscf1.smartcontractaddress === "string")? this.shorten(dtscf1.smartcontractaddress): null
                           }
                       </td>
                       <td>{
                             (
-                              dtscf1.campaign &&
-                                dtscf1.campaign.smartcontractaddress !== undefined && typeof dtscf1.campaign.smartcontractaddress === "string")
-                              ? this.shorten(dtscf1.campaign.smartcontractaddress)  :null
+                              dtscf1 &&
+                                dtscf1.underlyingDSGDsmartcontractaddress !== undefined && typeof dtscf1.underlyingDSGDsmartcontractaddress === "string")
+                              ? this.shorten(dtscf1.underlyingDSGDsmartcontractaddress)  :null
                           }
                       </td>
                       <td>
@@ -341,14 +332,19 @@ export default class DtscfList extends Component {
                         +dtscf1.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
                       </td>
                       <td>
-                        <a href={window.location.origin + "/dtscfcouponallowance/" + dtscf1.id} target="_blank" rel="noreferrer">Issuer Set Fund Pull <i className='bx bx-link-external'></i></a>
+                        <Link
+                          to={"/dtscfcheckapprove/" + dtscf1.id}
+                          className="badge badge-warning"
+                        >
+                           {this.state.isMaker? "Add Contractors" : null}
+                        </Link>
                       </td>
                       <td>
                         <Link
-                          to={"/dtscfcoupontrigger/" + dtscf1.id}
+                          to={"/dtscfrealisemilestone/" + dtscf1.id}
                           className="badge badge-warning"
                         >
-                           {this.state.isMaker? "Trigger Coupon Payment" : null}
+                           {this.state.isMaker? "Set Milestone Completion" : null}
                         </Link>
                       </td>
 {/*
@@ -373,7 +369,7 @@ export default class DtscfList extends Component {
                   <button
                     className="m-3 btn btn-sm btn-primary"
                   >
-                    Create Dtscf
+                    Create Project
                   </button>
                 </Link>
 

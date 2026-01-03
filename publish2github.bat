@@ -1,3 +1,3 @@
 git add .
-git commit -m "Added dtscf_update"
+git commit -m "Added added sub-contractors"
 git push github master

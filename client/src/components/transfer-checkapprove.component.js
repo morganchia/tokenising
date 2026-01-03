@@ -1350,14 +1350,14 @@ async acceptTransfer() {
                     Cancel
                   </button>
                   : 
-                  <Link to="/transfer">
+                  <Link to="/transfers">
                   <button className="m-3 btn btn-sm btn-secondary">
                     Cancel
                   </button>
                   </Link>
                 )
               : 
-                <Link to="/transfer">
+                <Link to="/transfers">
                 <button className="m-3 btn btn-sm btn-secondary">
                   Cancel
                 </button>
@@ -1366,7 +1366,7 @@ async acceptTransfer() {
 
               {this.state.isLoading ? <LoadingSpinner /> : null}
 
-              <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/transfer'} handleProceed2={this.deleteTransfer} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
+              <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/transfers'} handleProceed2={this.deleteTransfer} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
                 {this.state.modalmsg}
               </Modal>
 
