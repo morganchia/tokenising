@@ -775,6 +775,7 @@ exports.approveDraftById = async (req, res) => {  //
 
 
                 // Do balance check before deployment
+                const depositContract = new web3.eth.Contract(tokenizedBankDeposit_ABI, req.body.underlyingDSGDsmartcontractaddress);
                 const requiredAmount = web3.utils.toWei(req.body.totalBudget.toString(), 'ether');
                 const anchorBalance = await depositContract.methods.balanceOf(anchor.address).call();
                 if (web3.utils.toBN(anchorBalance).lt(web3.utils.toBN(requiredAmount))) {
