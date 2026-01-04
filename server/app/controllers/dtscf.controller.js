@@ -74,7 +74,7 @@ async function generateImage(value, outputPath) {
     throw error;
   }
 }
-
+/*
 // Amended function to generate JSON metadata file (now calls generateImage and includes imageUrl)
 async function generateMetadataFile(contractAddress, id, value, milestoneId, maturityDate, conditions, baseImageUrl = 'https://tokenising.herokuapp.com', outputDir = './public/metadata') {
   if (!contractAddress || !id) {
@@ -124,6 +124,76 @@ async function generateMetadataFile(contractAddress, id, value, milestoneId, mat
   fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2));
   console.log(`Generated metadata file with image: ${filePath}`);
   return filePath;
+}
+*/
+
+async function generateMetadataFile(contractAddress, id, value, milestoneId, maturityDate, conditions, tempDir = '/tmp') {
+  if (!contractAddress || !id) {
+    throw new Error('Missing required parameters: contractAddress or id');
+  }
+
+  const sanitizedAddress = contractAddress.toLowerCase();
+
+  // Generate image
+  const imageFileName = `${id}.png`;
+  const imageOutputPath = path.join(tempDir, imageFileName);  // Use /tmp for Heroku ephemeral storage
+  await generateImage(value, imageOutputPath);
+
+  require('dotenv').config();
+
+  // Upload image to Infura IPFS
+  const imageUrl = await uploadToInfuraIPFS(imageOutputPath, process.env.INFURA_API_KEY, process.env.INFURA_API_SECRET);
+
+  // Convert maturityDate to readable ISO format
+  const readableMaturity = new Date(maturityDate * 1000).toISOString();
+
+  // Metadata structure (ERC-1155 compliant; now with image)
+  const metadata = {
+    name: `Tokenized Payable #${id}`,
+    description: `A tokenized payable asset with value ${value}, linked to milestone ${milestoneId}. Conditions: ${conditions}.`,
+    image: imageUrl,  // IPFS-hosted image URL
+    attributes: [
+      { trait_type: "Value", value: value.toString() },
+      { trait_type: "Milestone ID", value: milestoneId.toString() },
+      { trait_type: "Maturity Date", value: readableMaturity },
+      { trait_type: "Conditions", value: conditions }
+    ]
+  };
+
+  // Write temp JSON file
+  const jsonFileName = `${id}.json`;
+  const jsonOutputPath = path.join(tempDir, jsonFileName);
+  fs.writeFileSync(jsonOutputPath, JSON.stringify(metadata, null, 2));
+
+  // Upload JSON to Infura IPFS
+  const jsonUrl = await uploadToInfuraIPFS(jsonOutputPath, process.env.INFURA_API_KEY, process.env.INFURA_API_SECRET);
+
+  // Clean up temp files
+  fs.unlinkSync(imageOutputPath);
+  fs.unlinkSync(jsonOutputPath);
+
+  console.log(`Generated and uploaded metadata to IPFS: ${jsonUrl}`);
+  return jsonUrl;  // Return IPFS URL for contract URI or logging
+}
+
+// Upload file to Infura IPFS
+async function uploadToInfuraIPFS(filePath, apiKey, apiSecret) {
+  const form = new FormData();
+  form.append('file', fs.createReadStream(filePath));
+
+  try {
+    const response = await axios.post('https://ipfs.infura.io:5001/api/v0/add', form, {
+      headers: {
+        ...form.getHeaders(),
+        Authorization: `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`
+      }
+    });
+    const cid = response.data.Hash;
+    return `https://ipfs.infura.io/ipfs/${cid}`;
+  } catch (error) {
+    console.error('Error uploading to IPFS:', error.message);
+    throw error;
+  }
 }
 
 retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000, shouldRetry = () => true) => {
