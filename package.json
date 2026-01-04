@@ -33,7 +33,7 @@
     "http-proxy-middleware": "^2.0.6",
     "jsonwebtoken": "^8.5.1",
     "multer": "^2.0.2",
-    "mysql2": "^2.1.0",
+    "mysql2": "^3.9.8",
     "os": "^0.1.2",
     "react-organizational-chart": "^2.2.1",
     "sequelize": "^5.21.3",
