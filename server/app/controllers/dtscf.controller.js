@@ -36,13 +36,13 @@ const TIMEOUT = 700;
 
 function createStringWithZeros(num) { return ("0".repeat(num)); }
 
-// Function to generate a PNG image with text "Tokenised Payable valued ${value}"
+// Function to generate a PNG image with text "Tokenised Payable ${value}"
 async function generateImage(value, outputPath) {
   try {
     // Create a blank canvas (e.g., 400x200 white background)
-    const width = 400;
+    const width = 600;
     const height = 200;
-    const text = `Tokenised Payable valued ${value}`;
+    const text = `Tokenised Payable $${value}`;
 
     // Generate SVG with text (Sharp can composite SVG buffers)
     const svgText = `
@@ -946,7 +946,7 @@ exports.approveDraftById = async (req, res) => {  //
                 const metadataPath = generateMetadataFile(
                   newcontractaddress,  // Contract address
                   1, 
-                  requiredAmount.toString(), 
+                  req.body.totalBudget.toString(), 
                   milestoneId, 
                   Math.floor(new Date(req.body.enddate).getTime() / 1000),
                   `Completion of milestone #${milestoneId}`
