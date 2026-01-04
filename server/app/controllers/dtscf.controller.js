@@ -674,7 +674,7 @@ exports.approveDraftById = async (req, res) => {  //
                 }
 
                 // exit first see how
-                throw new Error(`exit!!!!!!!!!!!`);
+                //throw new Error(`exit!!!!!!!!!!!`);
 
                 const dtscfConfig = [
                   req.body.underlyingDSGDsmartcontractaddress,
@@ -776,9 +776,9 @@ exports.approveDraftById = async (req, res) => {  //
                 const requiredAmount = web3.utils.toWei(req.body.totalBudget.toString(), 'ether');
                 const anchorBalance = await depositContract.methods.balanceOf(anchor.address).call();
                 if (web3.utils.toBN(anchorBalance).lt(web3.utils.toBN(requiredAmount))) {
-                  throw new Error(`Insufficient DSGD balance in anchor wallet: ${web3.utils.fromWei(anchorBalance, 'ether')} < ${req.body.totalBudget}`);
+                  throw new Error(`Insufficient Tokenised Deposit balance in anchor wallet: ${web3.utils.fromWei(anchorBalance, 'ether')} < ${req.body.totalBudget}`);
                 }
-                console.log(`Anchor DSGD balance sufficient: ${web3.utils.fromWei(anchorBalance, 'ether')}`);
+                console.log(`Anchor Tokenised Deposit balance sufficient: ${web3.utils.fromWei(anchorBalance, 'ether')}`);
 
                 const gasPrice = await web3.eth.getGasPrice();  
                 console.log('Current gas price:', gasPrice);
@@ -1132,6 +1132,7 @@ exports.approveDraftById = async (req, res) => {  //
 
   if (updatestatus) {
   // update draft table
+    console.log("Updating row in dtscf draft table with status=3 and newcontractaddress("+newcontractaddress+").");
     await Dtscf_Draft.update(  // update draft table status to "3"
     { 
       status                : 3,
@@ -1165,16 +1166,127 @@ exports.approveDraftById = async (req, res) => {  //
       return false;
     });
 
-    if (isNewDtscf) {
-      await Dtscf.create( // create Dtscf in the database !!!!!
+    try {
+      if (isNewDtscf) {
+        console.log("Creating row in dtscf prod table.");
+        var approved_id;
+        const newDtscf =await Dtscf.create( // create Dtscf in the database !!!!!
+          { 
+            name                  : req.body.name,
+            description           : req.body.description,
+            totalBudget           : parseInt(req.body.totalBudget) || 0,
+            blockchain            : req.body.blockchain || 0, // Default or from form
+            underlyingTokenID     : req.body.underlyingTokenID || null,
+            underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
+            smartcontractaddress  : newcontractaddress,
+            campaign_id           : req.body.campaign_id || null,
+            startdate             : req.body.startdate, 
+            enddate               : req.body.enddate,
+            draftdtscfid          : draft_id,
+            actionby              : req.body.actionby,
+            draftdtscfid          : req.body.id,             
+          }, 
+        )
+        .then(data => {
+          logDataValues("Dtscf create success: ", data);
+          approved_id = data.id;
+        })
+        .catch(err => {
+          console.log("Error while creating dtscf row: "+err.message);
+          throw new Error('Error when signing transaction. Please try again. Report to tech support if problem is recurring.');
+        });
+        console.log("newDtscf:", newDtscf);
+
+        console.log("Updating draft table to prod ID:", approved_id);
+        await Dtscf_Draft.update(  // update draft table with dtscf project id
+        { 
+          approveddtscfid       : approved_id,
+        }, 
+        { where:      { id: draft_id }},
+        )
+        .then(num => {
+          if (num == 1) {
+            console.log("Updated dtscf draft table with dtscf project id.");
+          } else {
+            throw new Error(`${req.body}. Record updated =${num}. Cannot update Dtscf draft with id=${id}.`);
+          }
+        })
+        .catch(err => {
+          console.log(err);
+          throw new Error('Error when signing transaction. Please try again. Report to tech support if problem is recurring.');
+        });
+
+        // copy draft milestones to prod table
+        const draftMilestones = await db.dtscf_milestones_draft.findAll({ where: { dtscf_project_id: draft_id } });
+        for (const dm of draftMilestones) {
+          console.log("Creating milestone:", dm);
+          await db.dtscf_milestones.create({
+            name: dm.name,
+            budget: dm.budget,
+            startdate: dm.startdate,
+            enddate: dm.enddate,
+            dtscf_project_id: approved_id,
+          });
+        }
+        console.log("Finished creating milestones.");
+
+        // copy draft contractors and purchases to prod tables
+        async function copyContractorsAndPurchases(draftParentId = null, newParentId = null) {
+          const draftContractors = await db.dtscf_contractors_draft.findAll({
+            where: {
+              dtscf_project_id: draft_id,
+              dtscf_parent_contractor_id: draftParentId
+            }
+          });
+          for (const dc of draftContractors) {
+            console.log("Creating contractor:", dc);
+            const newContractor = await db.dtscf_contractors.create({
+              name: dc.name,
+              budget: dc.budget,
+              walletaddress: dc.walletaddress,
+              dtscf_project_id: approved_id,
+              dtscf_parent_contractor_id: newParentId,
+              dtscf_milestone_id: dc.dtscf_milestone_id || null
+            });
+            const newConId = newContractor.id;
+            console.log("newConId:", newConId);
+            console.log("Finished creating contractor.");
+
+            // Copy purchases
+            const draftPurchases = await db.dtscf_purchases_draft.findAll({
+              where: { dtscf_contractor_id: dc.id }
+            });
+            for (const dp of draftPurchases) {
+              console.log("Creating purchase:", dp);
+              await db.dtscf_purchases.create({
+                description: dp.description,
+                amount: dp.amount,
+                dtscf_project_id: approved_id,
+                dtscf_contractor_id: newConId,
+                invoice_blob: dp.invoice_blob
+              });
+            }
+            // Recurse for subcontractors
+            await copyContractorsAndPurchases(dc.id, newConId);
+            console.log("Finished creating purchase.");
+          }
+        }
+        await copyContractorsAndPurchases();
+        console.log("Finished creating milestones, contractor and purchase.");
+
+        if (!errorSent) {
+          res.send({ id: approved_id, smartcontractaddress: newcontractaddress, message: "Tokenised Payable created successfully."});
+          errorSent = true;
+        }
+        return true;
+      } else { // not isNewDtscf
+        await Dtscf.update( // update Dtscf in the database !!!!! 
         { 
           name                  : req.body.name,
           totalBudget           : parseInt(req.body.totalBudget) || 0,
           blockchain            : req.body.blockchain || 0, // Default or from form
           underlyingTokenID     : req.body.underlyingTokenID || null,
           underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
-          smartcontractaddress  : newcontractaddress,
-
           campaign_id           : req.body.campaign_id || null,
 
           startdate             : req.body.startdate, 
@@ -1183,63 +1295,28 @@ exports.approveDraftById = async (req, res) => {  //
           actionby              : req.body.actionby,
           draftdtscfid          : req.body.id,             
         }, 
-      )
-      .then(data => {
-        logDataValues("Dtscf create success: ", data);
+        { where:      { id: req.body.approveddtscfid }},
+        )
+        .then(data => {
+          logDataValues("Dtscf update success: ", data);
 
-        if (!errorSent) {
-          res.send(data);
-          errorSent = true;
-        }
-      })
-      .catch(err => {
-        console.log("Error while creating dtscf: "+err.message);
-        if (!errorSent) {
-          console.log("Sending error 400 back to client");
-          res.status(400).send({ 
-            message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
-          });
-          errorSent = true;
-        }
-        return false;
-      });
-    } else { // not isNewDtscf
-      await Dtscf.update( // update Dtscf in the database !!!!! 
-      { 
-        name                  : req.body.name,
-        totalBudget           : parseInt(req.body.totalBudget) || 0,
-        blockchain            : req.body.blockchain || 0, // Default or from form
-        underlyingTokenID     : req.body.underlyingTokenID || null,
-        underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
-        campaign_id           : req.body.campaign_id || null,
-
-        startdate             : req.body.startdate, 
-        enddate               : req.body.enddate,
-        
-        actionby              : req.body.actionby,
-        draftdtscfid          : req.body.id,             
-      }, 
-      { where:      { id: req.body.approveddtscfid }},
-      )
-      .then(data => {
-        logDataValues("Dtscf update success: ", data);
-
-        if (!errorSent) {
-          res.send(data);
-          errorSent = true;
-        }
-      })
-      .catch(err => {
-        console.log("Error while updating dtscf: "+err.message);
-        if (!errorSent) {
-          console.log("Sending error 400 back to client");
-          res.status(400).send({ 
-            message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
-          });
-          errorSent = true;
-        }
-        return false;
-      });
+          if (!errorSent) {
+            res.send(data);
+            errorSent = true;
+          }
+        })
+        .catch(err => {
+          console.log("Error while updating dtscf: "+err.message);
+          throw new Error('Please try again. Report to tech support if problem is recurring.');
+        });
+      }
+    } catch(err) {
+      if (!errorSent) {
+        console.log("Sending error 400 back to client");
+        res.status(400).send({ message: "Error during contract deployment: " + err.message });
+        errorSent = true;
+      }
+      return false;   
     }
   } // updatestatus
 }; // approveDraftById

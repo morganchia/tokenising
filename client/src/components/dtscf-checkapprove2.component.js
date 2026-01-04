@@ -373,7 +373,7 @@ class DTSCFProjectCreation extends Component {
     }));
   }
 
-getContractorAtPath(path) {
+  getContractorAtPath(path) {
     let current = this.state.currentProject.contractors;
     for (let i = 0; i < path.length; i++) {
       current = current[path[i]].subcontractors;
