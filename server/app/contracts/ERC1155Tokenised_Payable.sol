@@ -24,6 +24,7 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
 
     mapping(uint256 => Payable) public payables; // Token ID => Payable
     mapping(uint256 => EnumerableSet.UintSet) private milestoneToTokens; // Milestone ID => Set of token IDs
+    mapping(uint256 => string) private _tokenURIs;
     EnumerableSet.UintSet private tokenIds;
     mapping(uint256 => address) public tokenOwners; // Track owner per token ID (NFT-like)
     uint256 private nextTokenId = 1;  // Start from 1
@@ -40,12 +41,22 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
         depositContract = ERC20TokenDSGD(_depositContract);
     }
 
+    function uri(uint256 tokenId) public view override returns (string memory) {
+        return _tokenURIs[tokenId];
+    }
+
+    function setTokenURI(uint256 tokenId, string memory newuri) public onlyOwner {
+        _tokenURIs[tokenId] = newuri;
+        emit URI(newuri, tokenId); // This tells wallets the URI has changed
+    }
+
     // Create a new tokenized payable with milestone grouping without wrapping/escrow
     function createPayable(
         uint256 value,
         uint256 maturityDate,
         string memory conditions,
-        uint256 milestoneId
+        uint256 milestoneId,
+        string memory tokenMetadataUri
     ) external onlyOwner whenNotPaused returns (uint256 id) {
         id = nextTokenId++;
         require(payables[id].value == 0, "Payable ID already exists");
@@ -59,6 +70,7 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
             milestoneId: milestoneId
         });
         _mint(msg.sender, id, 1, "");
+        _tokenURIs[id] = tokenMetadataUri; // Save the unique IPFS link
         tokenOwners[id] = msg.sender;
         tokenIds.add(id);
         milestoneToTokens[milestoneId].add(id);
@@ -71,7 +83,8 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
         uint256 depositAmount,
         uint256 maturityDate,
         string memory conditions,
-        uint256 milestoneId
+        uint256 milestoneId,
+        string memory tokenMetadataUri
     ) external whenNotPaused returns (uint256 id) {
         if (depositAmount > 0) {  // Optional escrow
             depositContract.transferFrom(msg.sender, address(this), depositAmount);
@@ -88,6 +101,7 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
             milestoneId: milestoneId
         });
         _mint(msg.sender, id, 1, "");
+        _tokenURIs[id] = tokenMetadataUri; // Save the unique IPFS link
         tokenIds.add(id);
         milestoneToTokens[milestoneId].add(id);
         emit WrappedDeposit(id, depositAmount, milestoneId);
@@ -96,7 +110,7 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
     }
 
     // Split a payable (inherits milestoneId)
-    function splitPayable(uint256 originalId, uint256 splitValue) external whenNotPaused returns (uint256 newId) {
+    function splitPayable(uint256 originalId, uint256 splitValue, string memory newMetadataUri) external whenNotPaused returns (uint256 newId) {
         require(balanceOf(msg.sender, originalId) == 1, "Not owner of payable");
         require(splitValue < payables[originalId].value, "Split value too large");
 
@@ -118,6 +132,8 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
             milestoneId: milestoneId
         });
         _mint(msg.sender, newId, 1, "");
+        _tokenURIs[newId] = newMetadataUri;
+
         tokenIds.add(newId);
         milestoneToTokens[milestoneId].add(newId);
         emit PayableSplit(originalId, newId, splitValue);

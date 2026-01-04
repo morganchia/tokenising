@@ -40,6 +40,60 @@ const TIMEOUT = 700;
 
 function createStringWithZeros(num) { return ("0".repeat(num)); }
 
+/*
+// Amended function to generate JSON metadata file (now calls generateImage and includes imageUrl)
+async function generateMetadataFile(contractAddress, id, value, milestoneId, maturityDate, conditions, baseImageUrl = 'https://tokenising.herokuapp.com', outputDir = './public/metadata') {
+  if (!contractAddress || !id) {
+    throw new Error('Missing required parameters: contractAddress or id');
+  }
+
+  // Sanitize address (e.g., lowercase, trim if needed)
+  const sanitizedAddress = contractAddress.toLowerCase();
+
+  // Create contract-specific folders if not exists
+  const contractFolder = path.join(outputDir, sanitizedAddress);
+  const metadataFolder = path.join(contractFolder, 'metadata');
+  const imagesFolder = path.join(contractFolder, 'images');
+  if (!fs.existsSync(metadataFolder)) {
+    fs.mkdirSync(metadataFolder, { recursive: true });
+  }
+  if (!fs.existsSync(imagesFolder)) {
+    fs.mkdirSync(imagesFolder, { recursive: true });
+  }
+
+  // Generate image
+  const imageFileName = `${id}.png`;
+  const imageOutputPath = path.join(imagesFolder, imageFileName);
+  await generateImage(value, imageOutputPath);  // Call generateImage
+
+  // Construct image URL (assuming images are hosted at baseImageUrl/{contractAddress}/images/{id}.png)
+  const imageUrl = `${baseImageUrl}/${sanitizedAddress}/images/${imageFileName}`;
+
+  // Convert maturityDate (Unix timestamp) to readable ISO format
+  const readableMaturity = new Date(maturityDate * 1000).toISOString();
+
+  // Metadata structure (ERC-1155 compliant; now with image)
+  const metadata = {
+    name: `Tokenized Payable #${id}`,
+    description: `A tokenized payable asset with value ${value}, linked to milestone ${milestoneId}. Conditions: ${conditions}.`,
+    image: imageUrl,  // Include generated image URL
+    attributes: [
+      { trait_type: "Value", value: value.toString() },
+      { trait_type: "Milestone ID", value: milestoneId.toString() },
+      { trait_type: "Maturity Date", value: readableMaturity },
+      { trait_type: "Conditions", value: conditions }
+    ]
+  };
+
+  // Write to file
+  const filePath = path.join(metadataFolder, `${id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2));
+  console.log(`Generated metadata file with image: ${filePath}`);
+  return filePath;
+}
+*/
+
+
 // Function to generate a PNG image with text "Tokenised Payable ${value}"
 /*
 async function generateImage(value, outputPath) {
@@ -122,59 +176,6 @@ async function generateImage(value, outputPath) {
   }
 }
 
-/*
-// Amended function to generate JSON metadata file (now calls generateImage and includes imageUrl)
-async function generateMetadataFile(contractAddress, id, value, milestoneId, maturityDate, conditions, baseImageUrl = 'https://tokenising.herokuapp.com', outputDir = './public/metadata') {
-  if (!contractAddress || !id) {
-    throw new Error('Missing required parameters: contractAddress or id');
-  }
-
-  // Sanitize address (e.g., lowercase, trim if needed)
-  const sanitizedAddress = contractAddress.toLowerCase();
-
-  // Create contract-specific folders if not exists
-  const contractFolder = path.join(outputDir, sanitizedAddress);
-  const metadataFolder = path.join(contractFolder, 'metadata');
-  const imagesFolder = path.join(contractFolder, 'images');
-  if (!fs.existsSync(metadataFolder)) {
-    fs.mkdirSync(metadataFolder, { recursive: true });
-  }
-  if (!fs.existsSync(imagesFolder)) {
-    fs.mkdirSync(imagesFolder, { recursive: true });
-  }
-
-  // Generate image
-  const imageFileName = `${id}.png`;
-  const imageOutputPath = path.join(imagesFolder, imageFileName);
-  await generateImage(value, imageOutputPath);  // Call generateImage
-
-  // Construct image URL (assuming images are hosted at baseImageUrl/{contractAddress}/images/{id}.png)
-  const imageUrl = `${baseImageUrl}/${sanitizedAddress}/images/${imageFileName}`;
-
-  // Convert maturityDate (Unix timestamp) to readable ISO format
-  const readableMaturity = new Date(maturityDate * 1000).toISOString();
-
-  // Metadata structure (ERC-1155 compliant; now with image)
-  const metadata = {
-    name: `Tokenized Payable #${id}`,
-    description: `A tokenized payable asset with value ${value}, linked to milestone ${milestoneId}. Conditions: ${conditions}.`,
-    image: imageUrl,  // Include generated image URL
-    attributes: [
-      { trait_type: "Value", value: value.toString() },
-      { trait_type: "Milestone ID", value: milestoneId.toString() },
-      { trait_type: "Maturity Date", value: readableMaturity },
-      { trait_type: "Conditions", value: conditions }
-    ]
-  };
-
-  // Write to file
-  const filePath = path.join(metadataFolder, `${id}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2));
-  console.log(`Generated metadata file with image: ${filePath}`);
-  return filePath;
-}
-*/
-
 // Amended function (now async, with Infura IPFS upload for JSON and image)
 async function generateMetadataFile(contractAddress, id, value, milestoneId, maturityDate, conditions, tempDir = os.tmpdir()) {
   if (!contractAddress || !id) {
@@ -239,6 +240,28 @@ async function generateMetadataFile(contractAddress, id, value, milestoneId, mat
   return jsonUrl;  // Return IPFS URL for contract URI or logging
 }
 
+async function uploadToInfuraIPFS(filePath, apiKey, apiSecret) {
+  const form = new FormData();
+  form.append('file', fs.createReadStream(filePath));
+
+  try {
+    const response = await axios.post('https://ipfs.infura.io:5001/api/v0/add', form, {
+      headers: {
+        ...form.getHeaders(),
+        Authorization: `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`
+      }
+    });
+    const cid = response.data.Hash;
+    
+    // Use the native IPFS protocol for better compatibility with wallets
+    return `ipfs://${cid}`; 
+  } catch (error) {
+    console.error('Error uploading to IPFS:', error.message);
+    throw error;
+  }
+}
+
+/*
 // Upload file to Infura IPFS
 async function uploadToInfuraIPFS(filePath, apiKey, apiSecret) {
   const form = new FormData();
@@ -258,6 +281,7 @@ async function uploadToInfuraIPFS(filePath, apiKey, apiSecret) {
     throw error;
   }
 }
+*/
 /*
 retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000, shouldRetry = () => true) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -567,7 +591,7 @@ exports.approveDraftById = async (req, res) => {  //
     }
     return;
   }
-  
+  /*
   const metadataPath = await generateMetadataFile(
                   "0x0D2AA083E7cDA7B03C099381956F4147a32eaF67",  // Contract address
                   1, 
@@ -577,6 +601,7 @@ exports.approveDraftById = async (req, res) => {  //
                   `Completion of milestone #1`
                 );
 console.log("testing infura!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+*/
   const draft_id = req.params.id;
 
   console.log("Input data for approveDraftById(), ", req.body);
@@ -1079,6 +1104,17 @@ console.log("testing infura!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                 }
                 const milestoneId = milestones.length > 0 ? milestones[0].id : 1;  
 
+                            // Call generateMetadataFile BEFORE wrapDepositToPayable
+                            const metadataPath = await generateMetadataFile(
+                              newcontractaddress,  // Contract address
+                              1, 
+                              req.body.totalBudget.toString(), 
+                              milestoneId, 
+                              Math.floor(new Date(req.body.enddate).getTime() / 1000),
+                              `Completion of milestone #${milestoneId}`
+                            );
+                            console.log("Image and metadata file for TP is created:", metadataPath);
+
                 // Step 5: Wrap (sign and send signed tx)
                 const wrapReceipt =  await retryWithBackoff(async (gasMultiplier) => {
                     let gasPrice = await web3.eth.getGasPrice();
@@ -1089,7 +1125,8 @@ console.log("testing infura!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                       requiredAmount,
                       endDateUnix,
                       '{"milestone": "structure complete"}',  
-                      milestoneId
+                      milestoneId,
+                      metadataPath
                     ).estimateGas({ from: anchor.address })
                       .catch(err => { throw new Error(`Estimate gas for wrap failed: ${err.message}`); });
                     
@@ -1097,7 +1134,8 @@ console.log("testing infura!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                       requiredAmount,
                       endDateUnix,
                       '{"milestone": "structure complete"}',
-                      milestoneId
+                      milestoneId,
+                      metadataPath
                     ).encodeABI();
                     
                     const wrapTx = {
@@ -1117,17 +1155,6 @@ console.log("testing infura!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 
                     return wrapReceipt;
                 }, 5, 5000, (err) => err.message.includes('underpriced'));  // Retry up to 5 times, only on underpriced errors
-
-                // Call generateMetadataFile after wrapDepositToPayable
-                const metadataPath = generateMetadataFile(
-                  newcontractaddress,  // Contract address
-                  1, 
-                  req.body.totalBudget.toString(), 
-                  milestoneId, 
-                  Math.floor(new Date(req.body.enddate).getTime() / 1000),
-                  `Completion of milestone #${milestoneId}`
-                );
-                console.log("Image and metadata file for TP is created:", metadataPath);
 
                 // Return needed values for transfer logic
                 return { wrapReceipt, gasPrice, tokenisedPayableContract, milestoneId };
@@ -1171,12 +1198,24 @@ console.log("testing infura!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                           gasPrice = (BigInt(gasPrice) * BigInt(Math.floor(gasMultiplier * 100))) / BigInt(100);  // Apply multiplier
                           gasPrice = gasPrice.toString();
 
+                                // Call generateMetadataFile BEFORE splitPayable
+                                const metadataPath = await generateMetadataFile(
+                                  newcontractaddress,  // Contract address
+                                  parseInt(originalId)+1, // make assumption, make be risky leading to bug
+                                  contractorAmount.toString(), 
+                                  milestoneId, 
+                                  Math.floor(new Date(req.body.enddate).getTime() / 1000),
+                                  `Completion of milestone #${milestoneId}`
+                                );
+                                console.log("Image and metadata file for TP is created:", metadataPath);
+
+
                           // Step 1: Split to create new payable with contractor's amount
-                          const splitGas = await tokenisedPayableContract.methods.splitPayable(originalId, amountWei)
+                          const splitGas = await tokenisedPayableContract.methods.splitPayable(originalId, amountWei, metadataPath)
                             .estimateGas({ from: anchor.address })
                             .catch(err => { throw new Error(`Estimate gas for split failed: ${err.message}`); });
                           
-                          const splitData = tokenisedPayableContract.methods.splitPayable(originalId, amountWei).encodeABI();
+                          const splitData = tokenisedPayableContract.methods.splitPayable(originalId, amountWei, metadataPath).encodeABI();
                           
                           const splitTx = {
                             from: anchor.address,
@@ -1212,17 +1251,6 @@ console.log("testing infura!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                       }
 
                       console.log(`Split new payable ID ${newId} with value ${contractorAmount} for contractor ${con.name}`);
-
-                      // Call generateMetadataFile after splitPayable
-                      const metadataPath = generateMetadataFile(
-                        newcontractaddress,  // Contract address
-                        newId, 
-                        contractorAmount.toString(), 
-                        milestoneId, 
-                        Math.floor(new Date(req.body.enddate).getTime() / 1000),
-                        `Completion of milestone #${milestoneId}`
-                      );
-                      console.log("Image and metadata file for TP is created:", metadataPath);
 
                       // Step 2: Transfer the new payable (amount=1) to contractor
                       const transferGas = await tokenisedPayableContract.methods.safeTransferFrom(
