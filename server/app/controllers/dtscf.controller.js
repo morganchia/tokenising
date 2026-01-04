@@ -774,6 +774,15 @@ exports.approveDraftById = async (req, res) => {  //
                 console.log('DtscfConfig:', dtscfConfig);
 
 
+                // Do balance check before deployment
+                const requiredAmount = web3.utils.toWei(req.body.totalBudget.toString(), 'ether');
+                const anchorBalance = await depositContract.methods.balanceOf(anchor.address).call();
+                if (web3.utils.toBN(anchorBalance).lt(web3.utils.toBN(requiredAmount))) {
+                  throw new Error(`Insufficient Tokenised Deposit balance in anchor wallet: ${web3.utils.fromWei(anchorBalance, 'ether')} < ${req.body.totalBudget}`);
+                }
+                console.log(`Anchor Tokenised Deposit balance sufficient: ${web3.utils.fromWei(anchorBalance, 'ether')}`);
+
+
                 // Step 2: Prepare for deployment, estimate gas fees
 
                 console.log('Attempting to deploy from account:', signer.address);
@@ -862,7 +871,7 @@ exports.approveDraftById = async (req, res) => {  //
                 
                 const tokenisedPayableContract = new web3.eth.Contract(ABI, newcontractaddress);
 
-                // Add balance check
+                // Do balance check
                 const requiredAmount = web3.utils.toWei(req.body.totalBudget.toString(), 'ether');
                 const anchorBalance = await depositContract.methods.balanceOf(anchor.address).call();
                 if (web3.utils.toBN(anchorBalance).lt(web3.utils.toBN(requiredAmount))) {
