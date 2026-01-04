@@ -12,6 +12,10 @@ const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); // Assume configured
 const Op = db.Sequelize.Op;
 const { logDataValues } = require('../utils/logDataValues');
+const os = require('os');
+const axios = require('axios');
+const FormData = require('form-data');
+
 
 // Absolute paths from __dirname (server/app/controllers)
 /*
@@ -37,6 +41,7 @@ const TIMEOUT = 700;
 function createStringWithZeros(num) { return ("0".repeat(num)); }
 
 // Function to generate a PNG image with text "Tokenised Payable ${value}"
+/*
 async function generateImage(value, outputPath) {
   try {
     // Create a blank canvas (e.g., 400x200 white background)
@@ -74,6 +79,49 @@ async function generateImage(value, outputPath) {
     throw error;
   }
 }
+*/
+async function generateImage(value, outputPath) {
+  try {
+    const backgroundUrl = 'https://tokenising.herokuapp.com/tokenisedpayable_bg.png';
+    const text = `Tokenised Payable $${value}`;
+
+    // 1. Fetch the background image as a buffer
+    const response = await axios.get(backgroundUrl, { responseType: 'arraybuffer' });
+    const bgBuffer = Buffer.from(response.data);
+
+    // 2. Get metadata of the background to match dimensions
+    const metadata = await sharp(bgBuffer).metadata();
+    const { width, height } = metadata;
+
+    // 3. Generate SVG with text (scaled to background size)
+    const svgText = `
+      <svg width="${width}" height="${height}">
+        <style>
+          .title { fill: #000; font-size: 32px; font-weight: bold; font-family: sans-serif; }
+        </style>
+        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" class="title">
+          ${text}
+        </text>
+      </svg>
+    `;
+
+    // 4. Composite the text over the background buffer
+    await sharp(bgBuffer)
+      .composite([{ 
+        input: Buffer.from(svgText), 
+        gravity: 'center' 
+      }])
+      .png()
+      .toFile(outputPath);
+
+    console.log(`Image generated and saved to ${outputPath}`);
+    return outputPath;
+  } catch (error) {
+    console.error('Error generating image:', error.message);
+    throw error;
+  }
+}
+
 /*
 // Amended function to generate JSON metadata file (now calls generateImage and includes imageUrl)
 async function generateMetadataFile(contractAddress, id, value, milestoneId, maturityDate, conditions, baseImageUrl = 'https://tokenising.herokuapp.com', outputDir = './public/metadata') {
@@ -127,22 +175,33 @@ async function generateMetadataFile(contractAddress, id, value, milestoneId, mat
 }
 */
 
-async function generateMetadataFile(contractAddress, id, value, milestoneId, maturityDate, conditions, tempDir = '/tmp') {
+// Amended function (now async, with Infura IPFS upload for JSON and image)
+async function generateMetadataFile(contractAddress, id, value, milestoneId, maturityDate, conditions, tempDir = os.tmpdir()) {
   if (!contractAddress || !id) {
     throw new Error('Missing required parameters: contractAddress or id');
   }
 
   const sanitizedAddress = contractAddress.toLowerCase();
 
-  // Generate image
-  const imageFileName = `${id}.png`;
-  const imageOutputPath = path.join(tempDir, imageFileName);  // Use /tmp for Heroku ephemeral storage
-  await generateImage(value, imageOutputPath);
-
   require('dotenv').config();
 
-  // Upload image to Infura IPFS
-  const imageUrl = await uploadToInfuraIPFS(imageOutputPath, process.env.INFURA_API_KEY, process.env.INFURA_API_SECRET);
+  // Load credentials
+  const projectId = process.env.REACT_APP_PROJECTID;
+  const projectSecret = process.env.REACT_APP_PROJECTSECRET;
+  console.log("********************** projectId = ", projectId)
+  console.log("********************** projectSecret = ", projectSecret)
+
+  // Generate image with try-catch (continue if fails, set default imageUrl)
+  const imageFileName = `${id}.png`;
+  const imageOutputPath = path.join(tempDir, imageFileName);
+  let imageUrl = 'https://tokenising.herokuapp.com/tokenisedpayable0.png';  // Fallback if generation fails
+  try {
+    await generateImage(value, imageOutputPath);
+    // Upload image to Infura IPFS
+    imageUrl = await uploadToInfuraIPFS(imageOutputPath, projectId, projectSecret);
+  } catch (imgErr) {
+    console.error('Image generation/upload failed (continuing with default):', imgErr.message);
+  }
 
   // Convert maturityDate to readable ISO format
   const readableMaturity = new Date(maturityDate * 1000).toISOString();
@@ -150,8 +209,8 @@ async function generateMetadataFile(contractAddress, id, value, milestoneId, mat
   // Metadata structure (ERC-1155 compliant; now with image)
   const metadata = {
     name: `Tokenized Payable #${id}`,
-    description: `A tokenized payable asset with value ${value}, linked to milestone ${milestoneId}. Conditions: ${conditions}.`,
-    image: imageUrl,  // IPFS-hosted image URL
+    description: `A tokenized payable asset with value $${value}, linked to milestone ${milestoneId}. Conditions: ${conditions}.`,
+    image: imageUrl,  // Use generated or fallback
     attributes: [
       { trait_type: "Value", value: value.toString() },
       { trait_type: "Milestone ID", value: milestoneId.toString() },
@@ -166,11 +225,15 @@ async function generateMetadataFile(contractAddress, id, value, milestoneId, mat
   fs.writeFileSync(jsonOutputPath, JSON.stringify(metadata, null, 2));
 
   // Upload JSON to Infura IPFS
-  const jsonUrl = await uploadToInfuraIPFS(jsonOutputPath, process.env.INFURA_API_KEY, process.env.INFURA_API_SECRET);
+  const jsonUrl = await uploadToInfuraIPFS(jsonOutputPath, projectId, projectSecret);
 
   // Clean up temp files
-  fs.unlinkSync(imageOutputPath);
-  fs.unlinkSync(jsonOutputPath);
+  try {
+    fs.unlinkSync(imageOutputPath);
+    fs.unlinkSync(jsonOutputPath);
+  } catch (cleanupErr) {
+    console.warn('Temp file cleanup failed:', cleanupErr.message);
+  }
 
   console.log(`Generated and uploaded metadata to IPFS: ${jsonUrl}`);
   return jsonUrl;  // Return IPFS URL for contract URI or logging
@@ -195,7 +258,7 @@ async function uploadToInfuraIPFS(filePath, apiKey, apiSecret) {
     throw error;
   }
 }
-
+/*
 retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000, shouldRetry = () => true) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -205,6 +268,23 @@ retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000, shouldRetry = ()
       const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 100;
       await new Promise(resolve => setTimeout(resolve, delay));
       console.warn(`Retry attempt ${attempt} after ${delay}ms: ${err.message}`);
+    }
+  }
+};
+*/
+
+retryWithBackoff = async (fn, maxRetries = 5, baseDelay = 1000, shouldRetry = () => true) => {
+  let gasMultiplier = 1.0;  // Start at 100% of base gas price
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Pass current gasMultiplier to fn if it needs it (e.g., fn could use it to calc gasPrice)
+      return await fn(gasMultiplier);
+    } catch (err) {
+      if (!shouldRetry(err) || attempt === maxRetries) throw err;
+      const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 100;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      console.warn(`Retry attempt ${attempt} after ${delay}ms: ${err.message}`);
+      gasMultiplier += 0.1;  // Increase by 10% each retry
     }
   }
 };
@@ -488,6 +568,15 @@ exports.approveDraftById = async (req, res) => {  //
     return;
   }
   
+  const metadataPath = await generateMetadataFile(
+                  "0x0D2AA083E7cDA7B03C099381956F4147a32eaF67",  // Contract address
+                  1, 
+                  "100", 
+                  1, 
+                  Math.floor(new Date(req.body.enddate).getTime() / 1000),
+                  `Completion of milestone #1`
+                );
+console.log("testing infura!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
   const draft_id = req.params.id;
 
   console.log("Input data for approveDraftById(), ", req.body);
@@ -955,8 +1044,11 @@ exports.approveDraftById = async (req, res) => {  //
                 console.log('Current gas price:', gasPrice);
                 
                 // Step 4: Approve (sign and send signed tx)
-                const approveReceipt = await retryWithBackoff(async () => {
-                    const approveGas = await depositContract.methods.approve(newcontractaddress, requiredAmount)
+                const approveReceipt = await retryWithBackoff(async (gasMultiplier) => {
+                    let gasPrice = await web3.eth.getGasPrice();
+                    gasPrice = (BigInt(gasPrice) * BigInt(Math.floor(gasMultiplier * 100))) / BigInt(100);  // Apply multiplier
+                    gasPrice = gasPrice.toString();
+                    const estGas = await depositContract.methods.approve(newcontractaddress, requiredAmount)
                       .estimateGas({ from: anchor.address })
                       .catch(err => { throw new Error(`Estimate gas for approve failed: ${err.message}`); });
                     
@@ -966,7 +1058,7 @@ exports.approveDraftById = async (req, res) => {  //
                       from: anchor.address,
                       to: req.body.underlyingDSGDsmartcontractaddress,
                       data: approveData,
-                      gas: Math.floor(approveGas * 1.2),  
+                      gas: estGas,  
                       gasPrice: gasPrice,
                     };
                     
@@ -988,7 +1080,10 @@ exports.approveDraftById = async (req, res) => {  //
                 const milestoneId = milestones.length > 0 ? milestones[0].id : 1;  
 
                 // Step 5: Wrap (sign and send signed tx)
-                const wrapReceipt =  await retryWithBackoff(async () => {
+                const wrapReceipt =  await retryWithBackoff(async (gasMultiplier) => {
+                    let gasPrice = await web3.eth.getGasPrice();
+                    gasPrice = (BigInt(gasPrice) * BigInt(Math.floor(gasMultiplier * 100))) / BigInt(100);  // Apply multiplier
+                    gasPrice = gasPrice.toString();
                     const endDateUnix = Math.floor(new Date(req.body.enddate).getTime() / 1000);
                     const wrapGas = await tokenisedPayableContract.methods.wrapDepositToPayable(
                       requiredAmount,
@@ -1009,7 +1104,7 @@ exports.approveDraftById = async (req, res) => {  //
                       from: anchor.address,
                       to: newcontractaddress,
                       data: wrapData,
-                      gas: Math.floor(wrapGas * 1.2),  
+                      gas: wrapGas,  
                       gasPrice: gasPrice,
                     };
                     
@@ -1070,7 +1165,11 @@ exports.approveDraftById = async (req, res) => {  //
                         throw new Error(`Contractor wallet address not found for ${con.name}`);
                       }
 
-                      const splitReceipt =  await retryWithBackoff(async () => {
+                      const splitReceipt =  await retryWithBackoff(async (gasMultiplier) => {
+
+                          let gasPrice = await web3.eth.getGasPrice();
+                          gasPrice = (BigInt(gasPrice) * BigInt(Math.floor(gasMultiplier * 100))) / BigInt(100);  // Apply multiplier
+                          gasPrice = gasPrice.toString();
 
                           // Step 1: Split to create new payable with contractor's amount
                           const splitGas = await tokenisedPayableContract.methods.splitPayable(originalId, amountWei)
@@ -1083,7 +1182,7 @@ exports.approveDraftById = async (req, res) => {  //
                             from: anchor.address,
                             to: newcontractaddress,
                             data: splitData,
-                            gas: Math.floor(splitGas * 1.2),
+                            gas: splitGas,
                             gasPrice: gasPrice,
                           };
                           
