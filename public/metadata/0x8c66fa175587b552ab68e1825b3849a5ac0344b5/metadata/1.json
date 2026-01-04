@@ -1,0 +1,23 @@
+{
+  "name": "Tokenized Payable #1",
+  "description": "A tokenized payable asset with value 1000000000000000000000, linked to milestone 24. Conditions: Completion of milestone #24.",
+  "image": "https://tokenising.herokuapp.com/0x8c66fa175587b552ab68e1825b3849a5ac0344b5/images/1.png",
+  "attributes": [
+    {
+      "trait_type": "Value",
+      "value": "1000000000000000000000"
+    },
+    {
+      "trait_type": "Milestone ID",
+      "value": "24"
+    },
+    {
+      "trait_type": "Maturity Date",
+      "value": "2030-01-04T00:00:00.000Z"
+    },
+    {
+      "trait_type": "Conditions",
+      "value": "Completion of milestone #24"
+    }
+  ]
+}

@@ -948,7 +948,7 @@ exports.approveDraftById = async (req, res) => {  //
                   1, 
                   requiredAmount.toString(), 
                   milestoneId, 
-                  endDateUnix,
+                  Math.floor(new Date(req.body.enddate).getTime() / 1000),
                   `Completion of milestone #${milestoneId}`
                 );
                 console.log("Image and metadata file for TP is created:", metadataPath);
