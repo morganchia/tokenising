@@ -872,28 +872,32 @@ exports.approveDraftById = async (req, res) => {  //
 
                 const gasPrice = await web3.eth.getGasPrice();  
                 console.log('Current gas price:', gasPrice);
-
+                
                 // Step 4: Approve (sign and send signed tx)
-                const approveGas = await depositContract.methods.approve(newcontractaddress, requiredAmount)
-                  .estimateGas({ from: anchor.address })
-                  .catch(err => { throw new Error(`Estimate gas for approve failed: ${err.message}`); });
-                
-                const approveData = depositContract.methods.approve(newcontractaddress, requiredAmount).encodeABI();
-                
-                const approveTx = {
-                  from: anchor.address,
-                  to: req.body.underlyingDSGDsmartcontractaddress,
-                  data: approveData,
-                  gas: Math.floor(approveGas * 1.2),  
-                  gasPrice: gasPrice,
-                };
-                
-                const signedApprove = await web3.eth.accounts.signTransaction(approveTx, ANCHOR_PRIVATE_KEY);
-                
-                const approveReceipt = await web3.eth.sendSignedTransaction(signedApprove.rawTransaction)
-                  .catch(err => { throw new Error(`Approve transaction failed: ${err.message}`); });
+                const approveReceipt = await retryWithBackoff(async () => {
+                    const approveGas = await depositContract.methods.approve(newcontractaddress, requiredAmount)
+                      .estimateGas({ from: anchor.address })
+                      .catch(err => { throw new Error(`Estimate gas for approve failed: ${err.message}`); });
+                    
+                    const approveData = depositContract.methods.approve(newcontractaddress, requiredAmount).encodeABI();
+                    
+                    const approveTx = {
+                      from: anchor.address,
+                      to: req.body.underlyingDSGDsmartcontractaddress,
+                      data: approveData,
+                      gas: Math.floor(approveGas * 1.2),  
+                      gasPrice: gasPrice,
+                    };
+                    
+                    const signedApprove = await web3.eth.accounts.signTransaction(approveTx, ANCHOR_PRIVATE_KEY);
+                    
+                    const approveReceipt = await web3.eth.sendSignedTransaction(signedApprove.rawTransaction)
+                      .catch(err => { throw new Error(`Approve transaction failed: ${err.message}`); });
 
-                console.log("Approved Tokenised Payable contract to pull funds. Receipt:", approveReceipt);
+                    console.log("Approved Tokenised Payable contract to pull funds. approveReceipt:", approveReceipt);
+
+                    return approveReceipt;
+                }, 5, 5000, (err) => err.message.includes('underpriced'));  // Retry up to 5 times, only on underpriced errors
 
                 // Safely parse milestones (assuming first one; adjust if multiple)
                 let milestones = req.body.milestones || [];
@@ -903,36 +907,40 @@ exports.approveDraftById = async (req, res) => {  //
                 const milestoneId = milestones.length > 0 ? milestones[0].id : 1;  
 
                 // Step 5: Wrap (sign and send signed tx)
-                const endDateUnix = Math.floor(new Date(req.body.enddate).getTime() / 1000);
-                const wrapGas = await tokenisedPayableContract.methods.wrapDepositToPayable(
-                  requiredAmount,
-                  endDateUnix,
-                  '{"milestone": "structure complete"}',  
-                  milestoneId
-                ).estimateGas({ from: anchor.address })
-                  .catch(err => { throw new Error(`Estimate gas for wrap failed: ${err.message}`); });
-                
-                const wrapData = tokenisedPayableContract.methods.wrapDepositToPayable(
-                  requiredAmount,
-                  endDateUnix,
-                  '{"milestone": "structure complete"}',
-                  milestoneId
-                ).encodeABI();
-                
-                const wrapTx = {
-                  from: anchor.address,
-                  to: newcontractaddress,
-                  data: wrapData,
-                  gas: Math.floor(wrapGas * 1.2),  
-                  gasPrice: gasPrice,
-                };
-                
-                const signedWrap = await web3.eth.accounts.signTransaction(wrapTx, ANCHOR_PRIVATE_KEY);
-                
-                const wrapReceipt = await web3.eth.sendSignedTransaction(signedWrap.rawTransaction)
-                  .catch(err => { throw new Error(`Wrap transaction failed: ${err.message}`); });
-                
-                console.log("Funds wrapped successfully. wrapReceipt:", wrapReceipt);
+                const wrapReceipt =  await retryWithBackoff(async () => {
+                    const endDateUnix = Math.floor(new Date(req.body.enddate).getTime() / 1000);
+                    const wrapGas = await tokenisedPayableContract.methods.wrapDepositToPayable(
+                      requiredAmount,
+                      endDateUnix,
+                      '{"milestone": "structure complete"}',  
+                      milestoneId
+                    ).estimateGas({ from: anchor.address })
+                      .catch(err => { throw new Error(`Estimate gas for wrap failed: ${err.message}`); });
+                    
+                    const wrapData = tokenisedPayableContract.methods.wrapDepositToPayable(
+                      requiredAmount,
+                      endDateUnix,
+                      '{"milestone": "structure complete"}',
+                      milestoneId
+                    ).encodeABI();
+                    
+                    const wrapTx = {
+                      from: anchor.address,
+                      to: newcontractaddress,
+                      data: wrapData,
+                      gas: Math.floor(wrapGas * 1.2),  
+                      gasPrice: gasPrice,
+                    };
+                    
+                    const signedWrap = await web3.eth.accounts.signTransaction(wrapTx, ANCHOR_PRIVATE_KEY);
+                    
+                    const wrapReceipt = await web3.eth.sendSignedTransaction(signedWrap.rawTransaction)
+                      .catch(err => { throw new Error(`Wrap transaction failed: ${err.message}`); });
+                    
+                    console.log("Funds wrapped successfully. wrapReceipt:", wrapReceipt);
+
+                    return wrapReceipt;
+                }, 5, 5000, (err) => err.message.includes('underpriced'));  // Retry up to 5 times, only on underpriced errors
 
                 // Call generateMetadataFile after wrapDepositToPayable
                 const metadataPath = generateMetadataFile(
@@ -981,25 +989,30 @@ exports.approveDraftById = async (req, res) => {  //
                         throw new Error(`Contractor wallet address not found for ${con.name}`);
                       }
 
-                      // Step 1: Split to create new payable with contractor's amount
-                      const splitGas = await tokenisedPayableContract.methods.splitPayable(originalId, amountWei)
-                        .estimateGas({ from: anchor.address })
-                        .catch(err => { throw new Error(`Estimate gas for split failed: ${err.message}`); });
-                      
-                      const splitData = tokenisedPayableContract.methods.splitPayable(originalId, amountWei).encodeABI();
-                      
-                      const splitTx = {
-                        from: anchor.address,
-                        to: newcontractaddress,
-                        data: splitData,
-                        gas: Math.floor(splitGas * 1.2),
-                        gasPrice: gasPrice,
-                      };
-                      
-                      const signedSplit = await web3.eth.accounts.signTransaction(splitTx, ANCHOR_PRIVATE_KEY);
-                      
-                      const splitReceipt = await web3.eth.sendSignedTransaction(signedSplit.rawTransaction)
-                        .catch(err => { throw new Error(`Split transaction failed: ${err.message}`); });
+                      const splitReceipt =  await retryWithBackoff(async () => {
+
+                          // Step 1: Split to create new payable with contractor's amount
+                          const splitGas = await tokenisedPayableContract.methods.splitPayable(originalId, amountWei)
+                            .estimateGas({ from: anchor.address })
+                            .catch(err => { throw new Error(`Estimate gas for split failed: ${err.message}`); });
+                          
+                          const splitData = tokenisedPayableContract.methods.splitPayable(originalId, amountWei).encodeABI();
+                          
+                          const splitTx = {
+                            from: anchor.address,
+                            to: newcontractaddress,
+                            data: splitData,
+                            gas: Math.floor(splitGas * 1.2),
+                            gasPrice: gasPrice,
+                          };
+                          
+                          const signedSplit = await web3.eth.accounts.signTransaction(splitTx, ANCHOR_PRIVATE_KEY);
+                          
+                          const splitReceipt = await web3.eth.sendSignedTransaction(signedSplit.rawTransaction)
+                            .catch(err => { throw new Error(`Split transaction failed: ${err.message}`); });
+
+                        return splitReceipt;
+                      }, 5, 5000, (err) => err.message.includes('underpriced'));  // Retry up to 5 times, only on underpriced errors
 
                       // Extract newId from PayableSplit event in splitReceipt
                       let newId;
