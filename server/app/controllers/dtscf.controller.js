@@ -28,13 +28,103 @@ const smartContractFileName = "ERC1155Tokenised_Payable.sol";
 const TokenName = "TokenizedPayable";
 const tokenizedBank_abiFile = path.join(__dirname, '../abis/ERC20TokenDSGD.abi.json');
 const tokenizedBank_byteCodeFile = path.join(__dirname, '../abis/ERC20TokenDSGD.bytecode.json');
-
+const sharp = require('sharp');
 
 var newcontractaddress = null;
 const adjustdecimals = 18;
 const TIMEOUT = 700;
 
 function createStringWithZeros(num) { return ("0".repeat(num)); }
+
+// Function to generate a PNG image with text "Tokenised Payable valued ${value}"
+async function generateImage(value, outputPath) {
+  try {
+    // Create a blank canvas (e.g., 400x200 white background)
+    const width = 400;
+    const height = 200;
+    const text = `Tokenised Payable valued ${value}`;
+
+    // Generate SVG with text (Sharp can composite SVG buffers)
+    const svgText = `
+      <svg width="${width}" height="${height}">
+        <style>
+          .title { fill: #000; font-size: 24px; font-weight: bold; }
+        </style>
+        <text x="50%" y="50%" text-anchor="middle" class="title">${text}</text>
+      </svg>
+    `;
+
+    // Create image from SVG
+    await sharp({
+      create: {
+        width: width,
+        height: height,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 1 }  // White background
+      }
+    })
+    .composite([{ input: Buffer.from(svgText), gravity: 'center' }])
+    .png()
+    .toFile(outputPath);
+
+    console.log(`Image generated and saved to ${outputPath}`);
+    return outputPath;
+  } catch (error) {
+    console.error('Error generating image:', error.message);
+    throw error;
+  }
+}
+
+// Amended function to generate JSON metadata file (now calls generateImage and includes imageUrl)
+async function generateMetadataFile(contractAddress, id, value, milestoneId, maturityDate, conditions, baseImageUrl = 'https://tokenising.herokuapp.com', outputDir = './public/metadata') {
+  if (!contractAddress || !id) {
+    throw new Error('Missing required parameters: contractAddress or id');
+  }
+
+  // Sanitize address (e.g., lowercase, trim if needed)
+  const sanitizedAddress = contractAddress.toLowerCase();
+
+  // Create contract-specific folders if not exists
+  const contractFolder = path.join(outputDir, sanitizedAddress);
+  const metadataFolder = path.join(contractFolder, 'metadata');
+  const imagesFolder = path.join(contractFolder, 'images');
+  if (!fs.existsSync(metadataFolder)) {
+    fs.mkdirSync(metadataFolder, { recursive: true });
+  }
+  if (!fs.existsSync(imagesFolder)) {
+    fs.mkdirSync(imagesFolder, { recursive: true });
+  }
+
+  // Generate image
+  const imageFileName = `${id}.png`;
+  const imageOutputPath = path.join(imagesFolder, imageFileName);
+  await generateImage(value, imageOutputPath);  // Call generateImage
+
+  // Construct image URL (assuming images are hosted at baseImageUrl/{contractAddress}/images/{id}.png)
+  const imageUrl = `${baseImageUrl}/${sanitizedAddress}/images/${imageFileName}`;
+
+  // Convert maturityDate (Unix timestamp) to readable ISO format
+  const readableMaturity = new Date(maturityDate * 1000).toISOString();
+
+  // Metadata structure (ERC-1155 compliant; now with image)
+  const metadata = {
+    name: `Tokenized Payable #${id}`,
+    description: `A tokenized payable asset with value ${value}, linked to milestone ${milestoneId}. Conditions: ${conditions}.`,
+    image: imageUrl,  // Include generated image URL
+    attributes: [
+      { trait_type: "Value", value: value.toString() },
+      { trait_type: "Milestone ID", value: milestoneId.toString() },
+      { trait_type: "Maturity Date", value: readableMaturity },
+      { trait_type: "Conditions", value: conditions }
+    ]
+  };
+
+  // Write to file
+  const filePath = path.join(metadataFolder, `${id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2));
+  console.log(`Generated metadata file with image: ${filePath}`);
+  return filePath;
+}
 
 retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000, shouldRetry = () => true) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -841,8 +931,19 @@ exports.approveDraftById = async (req, res) => {  //
                 
                 const wrapReceipt = await web3.eth.sendSignedTransaction(signedWrap.rawTransaction)
                   .catch(err => { throw new Error(`Wrap transaction failed: ${err.message}`); });
+                
+                console.log("Funds wrapped successfully. wrapReceipt:", wrapReceipt);
 
-                console.log("Funds wrapped successfully. Receipt:", wrapReceipt);
+                // Call generateMetadataFile after wrapDepositToPayable
+                const metadataPath = generateMetadataFile(
+                  newcontractaddress,  // Contract address
+                  1, 
+                  requiredAmount.toString(), 
+                  milestoneId, 
+                  endDateUnix,
+                  `Completion of milestone #${milestoneId}`
+                );
+                console.log("Image and metadata file for TP is created:", metadataPath);
 
                 // Return needed values for transfer logic
                 return { wrapReceipt, gasPrice, tokenisedPayableContract, milestoneId };
@@ -851,6 +952,7 @@ exports.approveDraftById = async (req, res) => {  //
 
           const transferTPtoContractors = async (wrapReceipt, gasPrice, tokenisedPayableContract, milestoneId) => {
                 console.log("Transferring Tokenised Payable tokens to contractors as per milestones");
+                console.log("wrapReceipt:", wrapReceipt);
                 try {
                   // Fetch all token IDs from the contract (robust alternative to event parsing)
                   const allIds = await tokenisedPayableContract.methods.getAllTokenIds().call();
@@ -915,7 +1017,19 @@ exports.approveDraftById = async (req, res) => {  //
                       if (!newId) {
                         throw new Error('Failed to extract new payable ID from split receipt');
                       }
+
                       console.log(`Split new payable ID ${newId} with value ${contractorAmount} for contractor ${con.name}`);
+
+                      // Call generateMetadataFile after splitPayable
+                      const metadataPath = generateMetadataFile(
+                        newcontractaddress,  // Contract address
+                        newId, 
+                        contractorAmount.toString(), 
+                        milestoneId, 
+                        Math.floor(new Date(req.body.enddate).getTime() / 1000),
+                        `Completion of milestone #${milestoneId}`
+                      );
+                      console.log("Image and metadata file for TP is created:", metadataPath);
 
                       // Step 2: Transfer the new payable (amount=1) to contractor
                       const transferGas = await tokenisedPayableContract.methods.safeTransferFrom(
