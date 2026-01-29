@@ -809,7 +809,7 @@ class DTSCFProjectCreation extends Component {
         this.hide_loading();
 
         console.log("Error: ",e);
-        if (typeof (e.response.data.message) !== "undefined" && e.response.data.message !== null && e.response.data.message !== "" ) {
+        if (e.response.data && e.response.data.message && typeof (e.response.data.message) !== "undefined" && e.response.data.message !== null && e.response.data.message !== "" ) {
           console.log("Response error:", e.response.data.message);
           this.displayModal("Error: "+e.response.data.message+". Please contact tech support.", null, null, null, "OK");
         } else
