@@ -9,6 +9,10 @@ class RecipientDataService {
   draftCreate(data) {
     return http.post("/recipients/draftcreate", data);
   }
+  
+  findOne(id) {
+    return http.get(`/recipients/findOne?id=${id}`);
+  }
 
   getAllDraftsByUserId(id) {
     return http.get(`/recipients/getalldraftsbyuserid?id=${id}`);
@@ -48,15 +52,11 @@ class RecipientDataService {
     return http.put(`/recipients/droprequestbyid/${id}`, data);
   }
 
-
 /*
   getAll() {
     return http.get("/recipients");
   }
 
-  get(id) {
-    return http.get(`/recipients/${id}`);
-  }
 
   create(data) {
     return http.post("/recipients", data);

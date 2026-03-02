@@ -341,7 +341,6 @@ exports.findDraftByApprovedId = (req, res) => {
     });
 };
 
-
 exports.findExact = (req, res) => {
   const name = req.query.name;
   var condition = name ? { name: name } : null;
@@ -484,7 +483,6 @@ exports.findAllRecipients = (req, res) => {
     });
 };
 
-
 exports.getAllDraftsByUserId = (req, res) => {
   const id = req.query.id;
   console.log("====== recipient.getAllDraftsByUserId(id) ",id);
@@ -567,12 +565,14 @@ exports.getAllDraftsByRecipientId = (req, res) => {
 
 // Find a single Recipient with an id
 exports.findOne = (req, res) => {
-  const id = req.params.id;
+  const id = req.query.id;
+  console.log("====== recipient.findOne(id) query id: ",id);
 
-  Recipients.findByPk(id, {
-    include: db.recipients
-  })
+  Recipients.findByPk(id)
     .then(data => {
+
+      console.log("Recipient with id="+id+": " + data);
+
       if (data) {      
         logDataValues("Recipient.findByPk: ", data);
         res.send(data);
@@ -583,6 +583,7 @@ exports.findOne = (req, res) => {
       }
     })
     .catch(err => {
+      console.log("Error while retreiving Recipient with id="+id+": "+err.message);
       res.status(500).send({
         message: "Error retrieving Recipient with id=" + id
       });

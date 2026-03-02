@@ -564,4 +564,10 @@ db.dtscf_draft.belongsTo(db.recipients, {
   as: "anchor"
 });
 
+db.user.belongsTo(db.recipients, {
+  foreignKey: "organisation_id",
+  targetKey: "id",
+  as: "organisation"
+});
+
 module.exports = db;

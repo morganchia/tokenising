@@ -183,9 +183,9 @@ retryWithBackoff = async (fn, maxRetries = 5, baseDelay = 10000, shouldRetry = (
       const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 100;
       await new Promise(resolve => setTimeout(resolve, delay));
       console.warn(`Retry attempt ${attempt} after ${delay}ms: ${err.message}`);
-      gasMultiplier += 0.05;  // Increase gasPrice/baseFee by 5%
-      priorityMultiplier += 0.05;  // Increase maxPriorityFee by 5%
-      gasLimitMultiplier += 0.05;  // Increase gas limit by 5% (for underestimation)
+      gasMultiplier += 0.1;  // Increase gasPrice/baseFee by 10%
+      priorityMultiplier += 0.1;  // Increase maxPriorityFee by 10%
+      gasLimitMultiplier += 0.1;  // Increase gas limit by 10% (for underestimation)
     }
   }
 };
@@ -336,13 +336,12 @@ exports.draftCreate = async (req, res) => {
         underlyingTokenID : req.body.underlyingTokenID || null,
         underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
         campaign_id        : req.body.campaign_id || null,
-        anchor_id          : req.body.anchor_id || null,
 
         startdate         : req.body.startdate,
         enddate           : req.body.enddate,
 
         txntype           : 0, // Create
-        status            : 2,   // -1 = redo, 0 = draft; 2 = pending approver; 3 = approved ----- skip checker, only maker and approver
+        status            : 1,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
         actionby          : req.body.actionby, // Assuming auth service
         actiontimedate    : new Date(),
         maker             : req.body.maker,
@@ -720,7 +719,7 @@ exports.approveDraftById = async (req, res) => {  //
 
                 // Step 1: Validate inputs
                 console.log("=== Step 1: Validate inputs ===");
-                //res.write("Step 1: Validate inputs ");
+                res.write("Step 1: Validate inputs ");
                 const totalBudget = (typeof req.body.totalBudget === 'string' || req.body.totalBudget instanceof String) ? req.body.totalBudget : req.body.totalBudget.toString();
                 const requiredFields = {
                   totalBudget                         : totalBudget,
@@ -794,10 +793,10 @@ exports.approveDraftById = async (req, res) => {  //
                   return false;
                 }
 
-                const startdate = Number(new Date(req.body.startdate));
-                const enddate = Number(new Date(req.body.enddate));
-                if (isNaN(startdate) || isNaN(enddate) || enddate <= startdate) {
-                  console.error(`Error: Invalid dates - startdate: ${req.body.startdate}, enddate: ${req.body.enddate}`);
+                const startDate = Number(new Date(req.body.startdate));
+                const endDate = Number(new Date(req.body.enddate));
+                if (isNaN(startDate) || isNaN(endDate) || endDate <= startDate) {
+                  console.error(`Error: Invalid dates - startDate: ${req.body.startdate}, endDate: ${req.body.enddate}`);
                   if (!errorSent) {
                     res.status(400).send({
                       message: 'Invalid input: Dates must be valid and maturity date must be after issue date.',
@@ -853,6 +852,7 @@ exports.approveDraftById = async (req, res) => {  //
                 ];
                 console.log('DtscfConfig:', dtscfConfig);
 
+
                 // Do balance check before deployment
                 const tokenizedBankDeposit_ABI = JSON.parse(fs.readFileSync(tokenizedBank_abiFile, 'utf8').toString());
                 const depositContract = new web3.eth.Contract(tokenizedBankDeposit_ABI, req.body.underlyingDSGDsmartcontractaddress);
@@ -866,7 +866,7 @@ exports.approveDraftById = async (req, res) => {  //
 
                 // Step 2: Prepare for deployment, estimate gas fees
                 console.log("=== Step 2: Prepare for deployment, estimate gas fees ===")
-                //res.write("Step 2: Prepare for deployment, estimate gas fees ");
+                res.write("Step 2: Prepare for deployment, estimate gas fees ");
 
                 console.log('Attempting to deploy from account:', signer.address);
                 const tokenisedPayableContract = new web3.eth.Contract(ABI);
@@ -899,9 +899,19 @@ exports.approveDraftById = async (req, res) => {  //
 
                 // Step 3: Deployment with retry and gas increase
                 console.log("=== Step 3: Deployment with retry and gas increase ===");
-                //res.write("Step 3: Deployment with retry and gas increase ");
+                res.write("Step 3: Deployment with retry and gas increase ");
                 const deployWithRetry = async () => {
+//                  let currentGas = Math.floor(gasEstimate * gasMultiplier);
+//                  console.log(`Attempting deployment with gas: ${currentGas} (multiplier: ${gasMultiplier})`);
+                // Get gas prices (EIP-1559 support)
+                  let priorityMultiplier = 1.0;  // For maxPriorityFeePerGas
                   const block = await web3.eth.getBlock('pending');
+                  let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
+                  let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust
+                  //let gasPrice = (baseFee * BigInt(Math.floor(gasMultiplier * 100)) / BigInt(100)) + (maxPriorityFee * BigInt(Math.floor(priorityMultiplier * 100)) / BigInt(100));
+                  //gasPrice = gasPrice.toString();
+                  //console.log('Current gas price:', gasPrice);
+
 
                   try {
                     //return await retryWithBackoff(async () => {
@@ -928,43 +938,20 @@ exports.approveDraftById = async (req, res) => {  //
                       };
 
                       const signedTx = await web3.eth.accounts.signTransaction(tx, signer.privateKey);
-
-                      let hash;
-                      try {
-                        hash = await new Promise((resolve, reject) => {
-                          web3.eth.sendSignedTransaction(signedTx.rawTransaction)
-                            .once('transactionHash', resolve)
-                            .once('error', reject);
-                        });
-                      } catch (err) {
-                        throw new Error(`Send failed: ${err.message}`);
-                      }
-                      console.log(`Transaction hash: ${hash}`);
-
-                      // Poll for receipt every 10 seconds
-                      let receipt = null;
-                      let pollAttempts = 0;
-                      const maxPollAttempts = 6; // e.g., 1 minute timeout
-
-                      while (!receipt && pollAttempts < maxPollAttempts) {
-                        console.log("Checking receipt for  transaction... #", pollAttempts);
-                        await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
-                        receipt = await web3.eth.getTransactionReceipt(hash);
-                        pollAttempts++;
-                      }
-
-                      if (!receipt) {
-                        throw new Error('not mined');
-                      }
-
-                      if (!receipt.status) {
+                      
+                      // Await the receipt directly (waits for mining)
+                      const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+                      
+                      console.log('Deployment receipt:', receipt);
+                      
+                      if (receipt.status) {
+                        newcontractaddress = receipt.contractAddress;
+                        updatestatus = true;
+                        return true;  // Success
+                      } else {
                         throw new Error('Deployment failed (status false)');
                       }
-
-                      console.log('Deployment receipt:', receipt);
-                      newcontractaddress = receipt.contractAddress;
-                      updatestatus = true;
-                      return true;  // Success
+                    //}, 3);  // 3 retries
                     }, 5, 10000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('timeout')); // Retry up to 5 times, only on underpriced errors
 
                   } catch (err) {
@@ -1013,7 +1000,7 @@ exports.approveDraftById = async (req, res) => {  //
                 
                 // Step 4: Approve (sign and send signed tx)
                 console.log("=== Step 4: Approve (sign and send signed tx) ===");
-                //res.write("Step 4: Approve (sign and send signed tx) ");
+                res.write("Step 4: Approve (sign and send signed tx) ");
                 await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
                   console.log("Approving Tokenised Payable contract to pull funds..."); 
                   
@@ -1055,40 +1042,14 @@ exports.approveDraftById = async (req, res) => {  //
                   };
                     
                   const signedApprove = await web3.eth.accounts.signTransaction(approveTx, ANCHOR_PRIVATE_KEY);
-
-                  let approveHash;
-                  try {
-                    approveHash = await new Promise((resolve, reject) => {
-                      web3.eth.sendSignedTransaction(signedApprove.rawTransaction)
-                        .once('transactionHash', resolve)
-                        .once('error', reject);
-                    });
-                  } catch (err) {
-                    throw new Error(`Approve send failed: ${err.message}`);
-                  }
-
-                  // Poll for receipt every 10 seconds
-                  let approveReceipt = null;
-                  let approvePollAttempts = 0;
-                  const maxApprovePollAttempts = 6;
-
-                  while (!approveReceipt && approvePollAttempts < maxApprovePollAttempts) {
-                    console.log("Checking receipt for approve transaction... #", approvePollAttempts);
-                    await new Promise(resolve => setTimeout(resolve, 10000));
-                    approveReceipt = await web3.eth.getTransactionReceipt(approveHash);
-                    approvePollAttempts++;
-                  }
-
-                  if (!approveReceipt) {
-                    throw new Error('not mined');
-                  }
-
-                  if (!approveReceipt.status) {
-                    throw new Error('Approve transaction failed');
-                  }
+                  const approveReceipt = await web3.eth.sendSignedTransaction(signedApprove.rawTransaction)
+                    .catch(err => { throw new Error(`Approve transaction failed: ${err.message}`); });
 
                   console.log("Approved Tokenised Payable contract to pull funds. approveReceipt:", approveReceipt);
+
+                  //return approveReceipt;
                 }, 5, 10000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('timeout')); // Retry up to 5 times, only on underpriced errors
+                //}, 5, 5000, (err) => err.message.includes('underpriced'));  // Retry up to 5 times, only on underpriced errors
 
                 // Safely parse milestones (assuming first one; adjust if multiple)
                 let milestones = req.body.milestones || [];
@@ -1110,7 +1071,7 @@ exports.approveDraftById = async (req, res) => {  //
 
                 // Step 5: Wrap (sign and send signed tx), new TP is created by Anchor
                 console.log("=== Step 5: Wrap (sign and send signed tx), new TP is created by Anchor ===");
-                //res.write("Step 5: Wrap (sign and send signed tx), new TP is created by Anchor ");
+                res.write("Step 5: Wrap (sign and send signed tx), new TP is created by Anchor ");
                 const wrapReceipt =  retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
                     //let gasPrice = await web3.eth.getGasPrice();
                     //gasPrice = (BigInt(gasPrice) * BigInt(Math.floor(gasMultiplier * 100))) / BigInt(100);  // Apply multiplier
@@ -1132,6 +1093,27 @@ exports.approveDraftById = async (req, res) => {  //
                       metadataPath
                     ).estimateGas({ from: anchor.address });
                     wrapGas = Math.floor(wrapGas * innerGasLimitMultiplier);
+
+                    //const wrapData = tokenisedPayableContract.methods.wrapDepositToPayable(
+                    //  requiredAmount,
+                    //  endDateUnix,
+                    //  '{"milestone": "structure complete"}',
+                    //  milestoneId,
+                    //  metadataPath
+                    //).encodeABI();
+                    
+                    //const wrapTx = {
+                    //  from: anchor.address,
+                    //  to: newcontractaddress,
+                    //  data: wrapData,
+                    //  gas: wrapGas,  
+                    //  gasPrice: gasPrice,
+                    //};
+                    
+                    //const signedWrap = await web3.eth.accounts.signTransaction(wrapTx, ANCHOR_PRIVATE_KEY);
+                    
+                    //const wrapReceipt = await web3.eth.sendSignedTransaction(signedWrap.rawTransaction)
+                    //  .catch(err => { throw new Error(`Wrap transaction failed: ${err.message}`); });
                                     
                     let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
                     let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
@@ -1161,38 +1143,31 @@ exports.approveDraftById = async (req, res) => {  //
                     };
                     
                     const signedWrap = await web3.eth.accounts.signTransaction(wrapTx, ANCHOR_PRIVATE_KEY);
+                    const sentTx = await web3.eth.sendSignedTransaction(signedWrap.rawTransaction);
 
-                    let wrapHash;
-                    try {
-                      wrapHash = await new Promise((resolve, reject) => {
-                        web3.eth.sendSignedTransaction(signedWrap.rawTransaction)
-                          .once('transactionHash', resolve)
-                          .once('error', reject);
-                      });
-                    } catch (err) {
-                      throw new Error(`Wrap send failed: ${err.message}`);
-                    }
-
-                    // Poll for receipt every 10 seconds
+                    // Wait for confirmation (simple polling for receipt)
                     let receipt = null;
                     let attempts = 0;
-                    while (!receipt && attempts < 6) {  // Max 6 attempts (~1 min at 10s intervals)
-                      console.log("Checking receipt for wrap transaction... #", attempts);
-                      await new Promise(resolve => setTimeout(resolve, 10000));  // Wait 10s
-                      receipt = await web3.eth.getTransactionReceipt(wrapHash);
-                      attempts++;
+                    while (!receipt && attempts < 30) {  // Max 30 attempts (~5 min at 10s blocks)
+                      receipt = await web3.eth.getTransactionReceipt(sentTx.transactionHash);
+                      if (!receipt) {
+                        await new Promise(resolve => setTimeout(resolve, 5000));  // Wait 5s
+                        attempts++;
+                      }
                     }
-
-                    if (!receipt) {
-                      throw new Error('not mined');
-                    }
-
-                    if (!receipt.status) {
+                    if (!receipt || !receipt.status) {
                       throw new Error('Wrap transaction failed or not confirmed');
                     }
 
                     console.log("Funds wrapped successfully. wrapReceipt:", receipt);
+                    // Extract ID from event
+                    //const createdEvent = receipt.logs.find(log => log.topics[0] === web3.utils.sha3('PayableCreated(uint256,address,uint256,uint256,string,uint256,string)'));  // Adjust event signature if needed
+                    //const createdEvent = receipt.logs.find(log => log.topics[0] === web3.utils.sha3('PayableCreated(uint256,uint256,uint256,address,uint256)'));
+
+                    //const newId = web3.eth.abi.decodeParameter('uint256', createdEvent.topics[1]);  // Parse event properly
+
                     return receipt;
+                //}, 5, 5000, (err) => err.message.includes('underpriced'));  // Retry up to 5 times, only on underpriced errors
                 }, 5, 10000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('timeout'));
 
                 const newId = 1;
@@ -1214,7 +1189,7 @@ exports.approveDraftById = async (req, res) => {  //
 
           // Step 6: Transfer TP to contractors as per milestones
           console.log("=== Step 6: transfer TP to contractors as per milestones ===");
-          //res.write("Step 6: transfer TP to contractors as per milestones ");
+          res.write("Step 6: transfer TP to contractors as per milestones ");
           const transferTPtoContractors = async (wrapReceipt, tokenisedPayableContract, milestoneId, newId0) => {
                 console.log("Transferring Tokenised Payable tokens to contractors as per milestones");
 
@@ -1230,7 +1205,6 @@ exports.approveDraftById = async (req, res) => {  //
                   let balance = await tokenisedPayableContract.methods.balanceOf(anchor.address, newId0).call();  // Use anchor.address and newId0
                   let attempts = 0;
                   while (balance === '0' && attempts < 10) {
-                    console.log("Checking receipt for checking balanceOf... #", attempts);
                     await new Promise(resolve => setTimeout(resolve, 10000));  // Increase to 10s
                     balance = await tokenisedPayableContract.methods.balanceOf(anchor.address, newId0).call();
                     attempts++;
@@ -1277,20 +1251,47 @@ exports.approveDraftById = async (req, res) => {  //
 
                       // Step 7: split TP 
                       console.log("=== Step 7: split TP ===");
-                      //res.write("Step 7: split TP ");
-
-                      // Call generateMetadataFile BEFORE splitPayable
-                      const metadataPath = await generateMetadataFile(
-                        newcontractaddress,  // Contract address
-                        parseInt(originalId)+1, // make assumption, make be risky leading to bug
-                        contractorAmount.toString(), 
-                        milestoneId, 
-                        Math.floor(new Date(req.body.enddate).getTime() / 1000),
-                        `Completion of milestone #${milestoneId}`
-                      );
-                      console.log("Image and metadata file for TP is created:", metadataPath);
-
+                      res.write("Step 7: split TP ");
+                      //const splitReceipt = await retryWithBackoff(async (gasMultiplier) => {
                       const splitReceipt = await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
+                          //let gasPrice = await web3.eth.getGasPrice();
+                          //gasPrice = (BigInt(gasPrice) * BigInt(Math.floor(gasMultiplier * 100))) / BigInt(100);  // Apply multiplier
+                          //gasPrice = gasPrice.toString();
+                                // Call generateMetadataFile BEFORE splitPayable
+                                const metadataPath = await generateMetadataFile(
+                                  newcontractaddress,  // Contract address
+                                  parseInt(originalId)+1, // make assumption, make be risky leading to bug
+                                  contractorAmount.toString(), 
+                                  milestoneId, 
+                                  Math.floor(new Date(req.body.enddate).getTime() / 1000),
+                                  `Completion of milestone #${milestoneId}`
+                                );
+                                console.log("Image and metadata file for TP is created:", metadataPath);
+
+
+                          // Step 1: Split to create new payable with contractor's amount
+                          //const splitGas = await tokenisedPayableContract.methods.splitPayable(originalId, amountWei, metadataPath)
+                          //  .estimateGas({ from: anchor.address })
+                          //  .catch(err => { throw new Error(`Estimate gas for split failed: ${err.message}`); });
+                          
+                          //const splitData = tokenisedPayableContract.methods.splitPayable(originalId, amountWei, metadataPath).encodeABI();
+                          
+                          //const splitTx = {
+                          //  from: anchor.address,
+                          //  to: newcontractaddress,
+                          //  data: splitData,
+                          //  gas: splitGas,
+                          //  gasPrice: gasPrice,
+                          //};
+                          
+                          //const signedSplit = await web3.eth.accounts.signTransaction(splitTx, ANCHOR_PRIVATE_KEY);
+                          
+                          //const splitReceipt = await web3.eth.sendSignedTransaction(signedSplit.rawTransaction)
+                          //  .catch(err => { throw new Error(`Split transaction failed: ${err.message}`); });
+
+                          //let innerPriorityMultiplier = 1.0;  // For maxPriorityFeePerGas
+                          //let innerGasMultiplier = 1.1; // Initial 10% buffer
+
                           let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
                           let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
                           let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
@@ -1300,6 +1301,13 @@ exports.approveDraftById = async (req, res) => {  //
 
                           let splitGas = await tokenisedPayableContract.methods.splitPayable(originalId, amountWei, metadataPath).estimateGas({ from: anchor.address });
                               splitGas = Math.floor(splitGas * innerGasLimitMultiplier);
+                          //await tokenisedPayableContract.methods.splitPayable(originalId, amountWei, metadataPath).send({
+                          //    from: anchor.address,
+                          //    gas: splitGas,
+                          //    //gasPrice: (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)).toString(),
+                          //    maxPriorityFeePerGas: maxPriorityFeePerGas, 
+                          //    maxFeePerGas: maxFeePerGas
+                          //  });
 
                           const splitData = tokenisedPayableContract.methods.splitPayable(
                             originalId,
@@ -1323,7 +1331,6 @@ exports.approveDraftById = async (req, res) => {  //
                           let splitReceipt = null;
                           let attempts = 0;
                           while (!splitReceipt && attempts < 30) {  // Max 30 attempts (~5 min at 10s blocks)
-                            console.log("Checking receipt for split transaction... #", attempts);
                             splitReceipt = await web3.eth.getTransactionReceipt(sentTx.transactionHash);
                             if (!splitReceipt) {
                               await new Promise(resolve => setTimeout(resolve, 5000));  // Wait 5s
@@ -1337,6 +1344,7 @@ exports.approveDraftById = async (req, res) => {  //
                           console.log("Funds split successfully. splitReceipt:", splitReceipt);
 
                         return splitReceipt;
+                      //}, 5, 5000, (err) => err.message.includes('underpriced'));  // Retry up to 5 times, only on underpriced errors
                       }, 5, 10000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('timeout'));
 
                       // Extract newId from PayableSplit event in splitReceipt
@@ -1357,96 +1365,44 @@ exports.approveDraftById = async (req, res) => {  //
                       }
 
                       console.log(`Split new payable ID ${newId} with value ${contractorAmount} for contractor ${con.name}`);
+
+                      // Step 2: Transfer the new payable (amount=1 bcos is NFT, amount <> value) to contractor
+                      //const transferGas = await tokenisedPayableContract.methods.safeTransferFrom(
+                      //  anchor.address,
+                      //  con.walletaddress,
+                      //  newId,
+                      //  1,
+                      //  '0x'
+                      //).estimateGas({ from: anchor.address })
+                      //  .catch(err => { throw new Error(`Estimate gas for transfer failed: ${err.message}`); });
                       
-                      // Reduce the balance in the original NFT index 1, by the split value
-                      // 1. Query the NEW reduced value of the original payable (robust; avoids drift)
-                      const updatedOriginalValueWei = await tokenisedPayableContract.methods
-                        .payables(originalId)
-                        .call()
-                        .then(p => p.value); // struct field .value
-
-                      const updatedOriginalValue = web3.utils.fromWei(updatedOriginalValueWei, 'ether');
-
-                      // 2. Generate NEW metadata + image for the ORIGINAL token (with reduced value)
-                      const originalMetadataPath = await generateMetadataFile(
-                        newcontractaddress,                     // Contract address
-                        parseInt(originalId),                   // Original ID (e.g. 1)
-                        updatedOriginalValue.toString(),        // Reduced value
-                        milestoneId,
-                        Math.floor(new Date(req.body.enddate).getTime() / 1000),
-                        `Completion of milestone #${milestoneId}` // or any updated description
-                      );
-                      console.log(`Updated metadata for ORIGINAL payable #${originalId}:`, originalMetadataPath);
-
-                      // 3. Call setTokenURI (onlyOwner → from anchor)
-                      await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
-
-                        const currentOwner = await tokenisedPayableContract.methods.owner().call();
-                        console.log(`tokenisedPayableContract contract owner: ${currentOwner}, Anchor address: ${anchor.address}`); 
-                        //if (currentOwner.toLowerCase() !== anchor.address.toLowerCase()) {
-                        //  throw new Error(`Anchor address ${anchor.address} is not the contract owner (${currentOwner}). Use the correct private key.`);
-                        //}
-
-                        console.log("Estimating gas for setTokenURI on original payable...");
-                        let setUriGas = await tokenisedPayableContract.methods
-                          .setTokenURI(parseInt(originalId), originalMetadataPath)
-                          .estimateGas({ from: signer.address });   // contract owner is signer
-                        setUriGas = Math.floor(setUriGas * innerGasLimitMultiplier);
-
-                        const block = await web3.eth.getBlock('pending');
-                        let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
-                        let maxPriorityFee = BigInt(2000000000);
-                        let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) +
-                                          (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
-                        maxFeePerGas = maxFeePerGas.toString();
-                        let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
-
-                        console.log("Encoding setTokenURI transaction data...");
-                        const setUriData = tokenisedPayableContract.methods
-                          .setTokenURI(parseInt(originalId), originalMetadataPath)
-                          .encodeABI();
-
-                        const setUriTx = {
-                          from: signer.address,   // contract owner is signer
-                          to: newcontractaddress,
-                          data: setUriData,
-                          gas: setUriGas,
-                          maxPriorityFeePerGas: maxPriorityFeePerGas,
-                          maxFeePerGas: maxFeePerGas
-                        };
-                        const signedSetUri = await web3.eth.accounts.signTransaction(setUriTx, SIGNER_PRIVATE_KEY);  // sign using signer's private key
-
-                        console.log("Sending setTokenURI transaction:", setUriTx);
-                        const sentSetUri = await web3.eth.sendSignedTransaction(signedSetUri.rawTransaction);
-
-                        // Poll for receipt (same pattern you already use)
-                        let receipt = null;
-                        let attempts = 0;
-                        while (!receipt && attempts < 30) {
-                          console.log("Checking receipt for split transaction... #", attempts);
-                          receipt = await web3.eth.getTransactionReceipt(sentSetUri.transactionHash);
-                          console.log("Checking receipt for setTokenURI transaction... #", attempts);
-                          if (!receipt) {
-                            await new Promise(r => setTimeout(r, 5000));
-                            attempts++;
-                          }
-                        }
-                        if (!receipt || !receipt.status) {
-                          throw new Error('setTokenURI transaction failed');
-                        }
-
-                        console.log(`ORIGINAL payable #${originalId} metadata/image updated successfully`);
-                      }, 5, 10000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('timeout'));
-
-                      const currentUri = await tokenisedPayableContract.methods.uri(1).call();
-                      console.log(`Current on-chain URI for NFT #1: ${currentUri}`);
-
                       // Step 8: Transfer the split TP to contractor
                       console.log("=== Step 8: Transfer the split TP to contractor ===");
-                      //res.write("Step 8: Transfer the split TP to contractor ");
+                      res.write("Step 8: Transfer the split TP to contractor ");
                       await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
                         let transferGas = await tokenisedPayableContract.methods.safeTransferFrom(anchor.address, con.walletaddress, newId, 1, '0x').estimateGas({ from: anchor.address, to: newcontractaddress });
                         transferGas = Math.floor(transferGas * innerGasLimitMultiplier);
+
+                        //const transferData = tokenisedPayableContract.methods.safeTransferFrom(
+                        //  anchor.address,
+                        //  con.walletaddress,
+                        //  newId,
+                        //  1,
+                        //  '0x'
+                        //).encodeABI();
+                        
+                        //const transferTx = {
+                        //  from: anchor.address,
+                        //  to: newcontractaddress,
+                        //  data: transferData,
+                        //  gas: Math.floor(transferGas * 1.2),
+                        //  gasPrice: gasPrice,
+                        //};
+                        
+                        //const signedTransfer = await web3.eth.accounts.signTransaction(transferTx, ANCHOR_PRIVATE_KEY);
+                        
+                        //const transferReceipt = await web3.eth.sendSignedTransaction(signedTransfer.rawTransaction)
+                        //  .catch(err => { throw new Error(`Transfer transaction failed: ${err.message}`); });
 
                         let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
                         let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
@@ -1454,6 +1410,16 @@ exports.approveDraftById = async (req, res) => {  //
                                       (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
                         maxFeePerGas = maxFeePerGas.toString();
                         let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
+
+
+                        //const transferReceipt = await tokenisedPayableContract.methods.safeTransferFrom(anchor.address, con.walletaddress, newId, 1, '0x').send({
+                        //    from: anchor.address,
+                        //    to: newcontractaddress,
+                        //    gas: transferGas,
+                        //    //gasPrice: (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)).toString(),
+                        //    maxPriorityFeePerGas: maxPriorityFeePerGas,
+                        //    maxFeePerGas: maxFeePerGas
+                        //  });
 
                         const transferData = tokenisedPayableContract.methods.safeTransferFrom(
                           anchor.address, 
@@ -1480,7 +1446,6 @@ exports.approveDraftById = async (req, res) => {  //
                         let attempts = 0;
                         while (!transferReceipt && attempts < 30) {  // Max 30 attempts (~5 min at 10s blocks)
                           transferReceipt = await web3.eth.getTransactionReceipt(sentTx.transactionHash);
-                          console.log("Checking receipt for transfer transaction... #", attempts);
                           if (!transferReceipt) {
                             await new Promise(resolve => setTimeout(resolve, 5000));  // Wait 5s
                             attempts++;
@@ -1717,7 +1682,7 @@ exports.approveDraftById = async (req, res) => {  //
       if (isNewDtscf) {
         console.log("Creating row in dtscf prod table.");
         var approved_id;
-        const newDtscf = await Dtscf.create( // create Dtscf in the database !!!!!
+        const newDtscf =await Dtscf.create( // create Dtscf in the database !!!!!
           { 
             name                  : req.body.name,
             description           : req.body.description,
@@ -1727,8 +1692,6 @@ exports.approveDraftById = async (req, res) => {  //
             underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
             smartcontractaddress  : newcontractaddress,
             campaign_id           : req.body.campaign_id || null,
-            anchor_id             : req.body.anchor_id || null,
-
             startdate             : req.body.startdate, 
             enddate               : req.body.enddate,
             draftdtscfid          : draft_id,
@@ -1744,6 +1707,7 @@ exports.approveDraftById = async (req, res) => {  //
           console.log("Error while creating dtscf row: "+err.message);
           throw new Error('Error when signing transaction. Please try again. Report to tech support if problem is recurring.');
         });
+        console.log("newDtscf:", newDtscf);
 
         console.log("Updating draft table to prod ID:", approved_id);
         await Dtscf_Draft.update(  // update draft table with dtscf project id
@@ -1836,7 +1800,6 @@ exports.approveDraftById = async (req, res) => {  //
           underlyingTokenID     : req.body.underlyingTokenID || null,
           underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
           campaign_id           : req.body.campaign_id || null,
-          anchor_id             : req.body.anchor_id || null,
 
           startdate             : req.body.startdate, 
           enddate               : req.body.enddate,
@@ -2560,18 +2523,12 @@ exports.getAllDraftsByDtscfId = async (req, res) => {
 
   const allContractors = await db.dtscf_contractors_draft.findAll({
     where: { dtscf_project_id: id },
-    include: {  
-                model: db.dtscf_purchases_draft, 
-                as: 'dtscf_purchases_drafts'
-             }
+    include: { model: db.dtscf_purchases_draft, as: 'dtscf_purchases_drafts' }
   });
 
   const contractorMap = {};
   allContractors.forEach(con => {
     con.dataValues.subcontractors = [];  // Add dataValues for plain object
-    if (con.dtscf_purchases_drafts) {
-      con.dtscf_purchases_drafts.sort((a, b) => a.id - b.id);
-    }
     contractorMap[con.id] = con;
   });
 
@@ -2864,7 +2821,7 @@ exports.getAllInvestorsById = (req, res) => {
     }
   });
 }; // getAllInvestorsById
-/*
+
 exports.submitDraftById = async (req, res) => {
   upload.any()(req, res, async (err) => {
     if (err) {
@@ -2901,12 +2858,10 @@ exports.submitDraftById = async (req, res) => {
           underlyingTokenID : req.body.underlyingTokenID || null,
           underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
           campaign_id        : req.body.campaign_id || null,
-          anchor_id          : req.body.anchor_id || null,
-
           startdate         : req.body.startdate,
           enddate           : req.body.enddate,
           txntype           : req.body.txntype, // Create
-          status            : 2,   // -1 = redo, 0 = draft; 2 = pending approver; 3 = approved   -- skip checker only approver
+          status            : 1,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
           actionby          : req.body.actionby, // Assuming auth service
           actiontimedate    : new Date(),
           maker             : req.body.maker,
@@ -2954,7 +2909,6 @@ exports.submitDraftById = async (req, res) => {
         underlyingTokenID: req.body.underlyingTokenID || null,
         underlyingDSGDsmartcontractaddress: req.body.underlyingDSGDsmartcontractaddress || '',
         campaign_id: req.body.campaign_id || null,
-
         startdate: req.body.startdate,
         enddate: req.body.enddate,
         txntype: req.body.txntype,
@@ -2988,88 +2942,9 @@ exports.submitDraftById = async (req, res) => {
     }
   });
 }; // submitDraftById
-*/
-exports.submitDraftById = async (req, res) => {
-  res.setHeader('Content-Type', 'text/plain');
-  res.setHeader('Transfer-Encoding', 'chunked');
-
-  const originalConsoleLog = console.log;
-  const oldLogging = db.sequelize.options.logging;
-  db.sequelize.options.logging = false; // Disable Sequelize logging to avoid verbose output in stream
-
-  console.log = (...args) => {
-    const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
-    res.write(`LOG: ${message}\n`);
-    originalConsoleLog(...args);
-  };
-
-  try {
-    const id = req.params.id;
-    console.log("Received submitDraftById:");
-    console.log("id=", id);
-    console.log(req.body);
-
-    console.log("Content-Type:", req.headers['content-type']);
-    console.log("Content-Length:", req.headers['content-length']);
-    console.log("Headers:", JSON.stringify(req.headers));
-
-    const [num] = await Dtscf_Draft.update(
-      {
-        status: 1,
-        checker: req.body.checker,
-        approver: req.body.approver,
-      },
-      { where: { id: id } }
-    );
-
-    console.log(`Update completed. Rows affected: ${num}`);
-
-    if (num === 1) {
-      try {
-        await AuditTrail.create(
-          {
-            action: "Dtscf " + (req.body.txntype === 0 ? "create" : req.body.txntype === 1 ? "update" : req.body.txntype === 2 ? "delete" : "") + " request - submitted",
-            name: req.body.name,
-            totalBudget: req.body.totalBudget,
-            blockchain: req.body.blockchain || 0,
-            underlyingTokenID: req.body.underlyingTokenID || null,
-            underlyingDSGDsmartcontractaddress: req.body.underlyingDSGDsmartcontractaddress || '',
-            campaign_id: req.body.campaign_id || null,
-            startdate: req.body.startdate,
-            enddate: req.body.enddate,
-            txntype: req.body.txntype,
-            draftdtscfId: id,
-            maker: req.body.maker,
-            checker: req.body.checker,
-            approver: req.body.approver,
-            actionby: req.body.actionby,
-            checkerComments: req.body.checkerComments,
-            approverComments: req.body.approverComments,
-            status: 1,
-          }
-        );
-        console.log("AuditTrail created successfully");
-      } catch (auditErr) {
-        console.log("Error creating AuditTrail:", auditErr.message);
-        throw auditErr;
-      }
-
-      res.write(`SUCCESS: Draft was submitted successfully.\n`);
-    } else {
-      throw new Error(`Cannot submit Dtscf with id=${id}. Maybe Dtscf was not found or req.body is empty!`);
-    }
-    res.end();
-  } catch (err) {
-    console.log("Error:", err);
-    res.write(`ERROR: ${err.message}\n`);
-    res.end();
-  } finally {
-    console.log = originalConsoleLog;
-    db.sequelize.options.logging = oldLogging; // Restore Sequelize logging
-  }
-};
 
 exports.acceptDraftById = async (req, res) => {
+  
   const id = req.params.id;
   const draft_id = req.params.id;
 
@@ -3098,7 +2973,6 @@ exports.acceptDraftById = async (req, res) => {
           underlyingTokenID     : req.body.underlyingTokenID || null,
           underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
           campaign_id           : req.body.campaign_id || null,
-          anchor_id          : req.body.anchor_id || null,
 
           startdate             : req.body.startdate, 
           enddate               : req.body.enddate,
@@ -3406,8 +3280,6 @@ exports.update = async (req, res) => {
         underlyingTokenID     : req.body.underlyingTokenID || null,
         underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
         campaign_id           : req.body.campaign_id || null,
-        anchor_id             : req.body.anchor_id || null,
-
         totalBudget           : req.body.totalBudget,
 
         startdate             : req.body.startdate, 

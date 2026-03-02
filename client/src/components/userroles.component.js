@@ -37,6 +37,9 @@ export default class Settings extends Component {
         dvp_makers : "",
         dvp_checkers : "",
         dvp_approvers : "",
+        dtscf_makers : "",
+        dtscf_checkers : "",
+        dtscf_approvers : "",
       }
     };
   }
@@ -67,9 +70,12 @@ export default class Settings extends Component {
         const pbm_makers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 1});
         const pbm_checkers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 2});
         const pbm_approvers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 3});
-        const dvp_makers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 1});
-        const dvp_checkers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 2});
-        const dvp_approvers = response.data.filter(role => {return role.transactionType.toUpperCase() === "PBM" && role.opsroleId === 3});
+        const dvp_makers = response.data.filter(role => {return role.transactionType.toUpperCase() === "DVP" && role.opsroleId === 1});
+        const dvp_checkers = response.data.filter(role => {return role.transactionType.toUpperCase() === "DVP" && role.opsroleId === 2});
+        const dvp_approvers = response.data.filter(role => {return role.transactionType.toUpperCase() === "DVP" && role.opsroleId === 3});
+        const dtscf_makers = response.data.filter(role => {return role.transactionType.toUpperCase() === "DTSCF" && role.opsroleId === 1});
+        const dtscf_checkers = response.data.filter(role => {return role.transactionType.toUpperCase() === "DTSCF" && role.opsroleId === 2});
+        const dtscf_approvers = response.data.filter(role => {return role.transactionType.toUpperCase() === "DTSCF" && role.opsroleId === 3});
         console.log("campaign_makers:", campaign_makers);
         
         this.setState({
@@ -99,6 +105,9 @@ export default class Settings extends Component {
             dvp_makers           : dvp_makers,
             dvp_checkers         : dvp_checkers,
             dvp_approvers        : dvp_approvers,
+            dtscf_makers         : dtscf_makers,
+            dtscf_checkers       : dtscf_checkers,
+            dtscf_approvers      : dtscf_approvers,
           }
         });
       }
@@ -221,6 +230,14 @@ export default class Settings extends Component {
                     <td valign="top">{_useropsroles.dvp_makers.map(persons=><p>{persons.user.username}</p>)}</td>
                     <td valign="top">{_useropsroles.dvp_checkers.map(persons=><p>{persons.user.username}</p>)}</td>
                     <td valign="top">{_useropsroles.dvp_approvers.map(persons=><p>{persons.user.username}</p>)}</td>
+                  </tr>
+                : null}
+                {(typeof(_useropsroles.dtscf_makers)!=="undefined" && _useropsroles.dtscf_makers)?
+                  <tr>
+                    <td>DTSCF</td>
+                    <td valign="top">{_useropsroles.dtscf_makers.map(persons=><p>{persons.user.username}</p>)}</td>
+                    <td valign="top">{_useropsroles.dtscf_checkers.map(persons=><p>{persons.user.username}</p>)}</td>
+                    <td valign="top">{_useropsroles.dtscf_approvers.map(persons=><p>{persons.user.username}</p>)}</td>
                   </tr>
                 : null}
               </table>

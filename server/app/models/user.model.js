@@ -10,6 +10,9 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.STRING,
       unique: true,
     },
+    organisation_id: {
+      type: Sequelize.INTEGER
+    },
     email: {
       type: Sequelize.STRING
     },

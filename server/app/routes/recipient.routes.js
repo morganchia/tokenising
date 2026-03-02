@@ -21,13 +21,17 @@ module.exports = app => {
 
   router.get("/getalldraftsbyrecipientid", recipients.getAllDraftsByRecipientId);
 
-    // sequence matters
-    router.put("/submitdraftbyid/:id", recipients.submitDraftById);
-    router.put("/acceptdraftbyid/:id", recipients.acceptDraftById);
-    router.put("/approvedraftbyid/:id", recipients.approveDraftById);
-    router.put("/rejectdraftbyid/:id", recipients.rejectDraftById);
-    router.put("/approvedeletedraftbyid/:id", recipients.approveDeleteDraftById); 
-    router.put("/droprequestbyid/:id", recipients.dropRequestById);
+  // Retrieve a single recipient with id
+  router.get("/findOne", recipients.findOne);
+
+  // sequence matters
+  router.put("/submitdraftbyid/:id", recipients.submitDraftById);
+  router.put("/acceptdraftbyid/:id", recipients.acceptDraftById);
+  router.put("/approvedraftbyid/:id", recipients.approveDraftById);
+  router.put("/rejectdraftbyid/:id", recipients.rejectDraftById);
+  router.put("/approvedeletedraftbyid/:id", recipients.approveDeleteDraftById); 
+  router.put("/droprequestbyid/:id", recipients.dropRequestById);
+
 
   /*
   // Create a new Recipient
@@ -41,8 +45,6 @@ module.exports = app => {
 
   // Retrieve all published recipients
 
-  // Retrieve a single recipient with id
-  router.get("/:id", recipients.findOne);
 
   // Update a recipient with id
   router.put("/:id", recipients.update);

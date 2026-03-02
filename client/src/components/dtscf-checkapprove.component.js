@@ -2,15 +2,17 @@
 import React, { Component } from "react";
 import CampaignDataService from "../services/campaign.service";
 import DtscfDataService from "../services/dtscf.service.js";
+import RecipientDataService from "../services/recipient.service";
 import UserOpsRoleDataService from "../services/user_opsrole.service";
 import { withRouter } from '../common/with-router.js';
 import AuthService from "../services/auth.service.js";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import validator from 'validator';
 import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
 import moment from 'moment';
+//import { recipients } from "../../../server/app/models/index.js";
 
 function getToday() {
   const today = new Date();
@@ -37,9 +39,9 @@ class DTSCFProjectCreation extends Component {
     this.onChangePurchaseAmount = this.onChangePurchaseAmount.bind(this);
     this.removePurchase = this.removePurchase.bind(this);
     this.handleInvoiceUpload = this.handleInvoiceUpload.bind(this);
-    this.onChangeChecker = this.onChangeChecker.bind(this);
+    //this.onChangeChecker = this.onChangeChecker.bind(this);
     this.onChangeApprover = this.onChangeApprover.bind(this);
-    this.onChangeCheckerComments = this.onChangeCheckerComments.bind(this);
+    //this.onChangeCheckerComments = this.onChangeCheckerComments.bind(this);
     this.onChangeApproverComments = this.onChangeApproverComments.bind(this);
 
     this.createProject = this.createProject.bind(this);
@@ -53,22 +55,25 @@ class DTSCFProjectCreation extends Component {
 
     this.showModal_Leave = this.showModal_Leave.bind(this);
     this.hideModal = this.hideModal.bind(this);
-
+    
     this.state = {
+      redirect : null,
       currentUser: { id: null, username: "" },
+      recipients: { id: null, name: null },
       currentProject: {
         id: 0,
         name: "",
         description: "",
         totalBudget: 0,
+        anchor_id: 0,
         underlyingTokenID: 0,
         underlyingDSGDsmartcontractaddress: "",
         smartcontractaddress: "",
         blockchain: 0,
         campaign: null,
         campaign_id: 0,
-        startDate: getToday(),
-        endDate: getToday(),
+        startdate: getToday(),
+        enddate: getToday(),
         milestones: [{name: "", budget: 0, startdate: "", enddate: ""}],
         contractors: [{name: "", budget: 0, walletaddress: "",purchases: [{description: ""}], amount: 0, invoices: []}], // invoices as File objects
       },
@@ -86,6 +91,7 @@ class DTSCFProjectCreation extends Component {
       datachanged: false,
       message: "",
       isLoading: false,
+      logs: [], // New state for streaming logs
       modal: {
         showm: false,
         modalmsg: "",
@@ -99,14 +105,14 @@ class DTSCFProjectCreation extends Component {
     UserOpsRoleDataService.getAllMakersCheckersApprovers("dtscf")
       .then(response => {
         console.log("Data received by getAllCheckerApprovers:", response.data);
-        let chkList = response.data.find(element => element.name.toUpperCase() === "CHECKER");
+//        let chkList = response.data.find(element => element.name.toUpperCase() === "CHECKER");
         let apprList = response.data.find(element => element.name.toUpperCase() === "APPROVER");
 
         this.setState({
-          checkerList: (chkList.user || []), // Fallback to empty array
+//          checkerList: (chkList.user || []), // Fallback to empty array
           approverList: (apprList.user || []) // Fallback to empty array
         });
-        console.log("checkerList: ", chkList.user);
+//        console.log("checkerList: ", chkList.user);
         console.log("approverList: ", apprList.user);      
       })
       .catch(e => {
@@ -116,33 +122,38 @@ class DTSCFProjectCreation extends Component {
   }
 
   componentDidMount() {
+
     const user = AuthService.getCurrentUser();
     this.setState({ currentUser: user });
 
-    if (!user) this.setState({ redirect: "/login" });
-    this.setState({ currentUser: user, actionby:user.username, userReady: true })
+    console.log("Current user:", user); 
+    if (!user) {
+      this.setState({ redirect: "/login" });
+    } else {
+      this.setState({ currentUser: user, actionby:user.username, userReady: true })
 
-    let ismaker= user.opsrole.find((el) => 
-      el.opsrole.name.toUpperCase() === "MAKER"
-    );
-    console.log("isMaker:", (ismaker === undefined? false: true));
-    this.setState({ isMaker: (ismaker === undefined? false: true),});
+      let ismaker= user.opsrole.find((el) => 
+        el.opsrole.name.toUpperCase() === "MAKER"
+      );
+      console.log("isMaker:", (ismaker === undefined? false: true));
+      this.setState({ isMaker: (ismaker === undefined? false: true),});
 
-    let ischecker= user.opsrole.find((el) => 
-      el.opsrole.name.toUpperCase() === "CHECKER"
-    );
-    console.log("isChecker:", (ischecker === undefined? false: true));
-    this.setState({ isChecker: (ischecker === undefined? false: true),});
+//      let ischecker= user.opsrole.find((el) => 
+//        el.opsrole.name.toUpperCase() === "CHECKER"
+//      );
+//      console.log("isChecker:", (ischecker === undefined? false: true));
+//      this.setState({ isChecker: (ischecker === undefined? false: true),});
 
-    let isapprover= user.opsrole.find((el) => 
-    el.opsrole.name.toUpperCase() === "APPROVER"
-    );
-    console.log("isApprover:", (isapprover === undefined? false: true));
-    this.setState({ isApprover: (isapprover === undefined? false: true),});
+      let isapprover= user.opsrole.find((el) => 
+      el.opsrole.name.toUpperCase() === "APPROVER"
+      );
+      console.log("isApprover:", (isapprover === undefined? false: true));
+      this.setState({ isApprover: (isapprover === undefined? false: true),});
 
-    this.getAllUnderlyingAssets();
-    this.getProject(user, this.props.router.params.id);
-    this.retrieveAllMakersCheckersApprovers();
+      this.getAllUnderlyingAssets();
+      this.getProject(user, this.props.router.params.id);
+      this.retrieveAllMakersCheckersApprovers();
+    }
   }
 
   async getProject(user, id) {
@@ -163,6 +174,7 @@ class DTSCFProjectCreation extends Component {
               name: data.name,
               description: data.description,
               totalBudget: data.totalBudget,
+              anchor_id: data.anchor_id,
               underlyingTokenID: parseInt(data.underlyingTokenID) || "",
               underlyingDSGDsmartcontractaddress: data.underlyingDSGDsmartcontractaddress,
               smartcontractaddress: data.smartcontractaddress,
@@ -175,16 +187,16 @@ class DTSCFProjectCreation extends Component {
               txntype: data.txntype,
               actiontimedate: data.actiontimedate,
               maker: data.maker,
-              checker: data.checker,
+//              checker: data.checker,
               approver: data.approver,
-              checkerComments: data.checkerComments,
+//              checkerComments: data.checkerComments,
               approverComments: data.approverComments,
               milestones: (data.dtscf_milestones_drafts || []).map(ms => ({
                 ...ms,
                 description: ms.description || "",
                 budget: ms.budget || 0,
-                startDate: moment(ms.startdate).format('YYYY-MM-DD'),
-                endDate: moment(ms.enddate).format('YYYY-MM-DD'),
+                startdate: moment(ms.startdate).format('YYYY-MM-DD'),
+                enddate: moment(ms.enddate).format('YYYY-MM-DD'),
               })),
               contractors: (data.dtscf_contractors_drafts || []).map(con => ({
                 ...con,
@@ -202,6 +214,18 @@ class DTSCFProjectCreation extends Component {
             },
             isLoading: false
           });
+
+          RecipientDataService.findOne(data.anchor_id)
+          .then(response => {
+            this.setState({
+              recipients: response.data
+            });
+            console.log("Organisation:",response.data);
+          })
+          .catch(e => {
+            console.log(e);
+          });
+
         } else {
           console.log("Invalid response from getAllDraftsByDtscfId(id)!");
           this.setState({
@@ -214,6 +238,18 @@ class DTSCFProjectCreation extends Component {
         console.log(e);
         this.setState({ isLoading: false, message: "Error fetching project data: " + e.message });
       });
+    } else { // id == 0, new project
+      console.log("Organisation id = ", user.organisation_id);
+      RecipientDataService.findOne(user.organisation_id)
+        .then(response => {
+          this.setState({
+            recipients: response.data
+          });
+          console.log("Organisation:",response.data);
+        })
+        .catch(e => {
+          console.log(e);
+        });
     }
     this.setState({ isLoading: false });
   }
@@ -331,7 +367,7 @@ class DTSCFProjectCreation extends Component {
     this.setState(prevState => ({
       currentProject: {
         ...prevState.currentProject,
-        milestones: [...prevState.currentProject.milestones, { name: "", budget: 0, startDate: getToday(), endDate: getToday() }]
+        milestones: [...prevState.currentProject.milestones, { name: "", budget: 0, startdate: getToday(), enddate: getToday() }]
       },
       datachanged: true
     }));
@@ -437,13 +473,14 @@ class DTSCFProjectCreation extends Component {
       datachanged: true
     }));
   }
+/*
   onChangeChecker(e) {
     const checker = e.target.value;
-    /*
-    this.setState({
-      datachanged: true
-    });
-    */
+    
+    //this.setState({
+    //  datachanged: true
+    //});
+    
     this.setState(prevState => ({
       currentProject: {
         ...prevState.currentProject,
@@ -467,7 +504,7 @@ class DTSCFProjectCreation extends Component {
       };
     });
   }
-
+*/
   onChangeApprover(e) {
     const approver = e.target.value;
     /*
@@ -529,19 +566,20 @@ class DTSCFProjectCreation extends Component {
     console.log("end date:'"+this.state.currentProject.enddate+"'");
     console.log("Start > End? "+ (this.state.currentProject.startdate > this.state.currentProject.enddate));
 
-    console.log("Checker:'"+this.state.currentProject.checker+"'");
+//    console.log("Checker:'"+this.state.currentProject.checker+"'");
     console.log("Approver:'"+this.state.currentProject.approver+"'");
 
-    if (this.state.currentProject.checker === "" || this.state.currentProject.checker === null || this.state.currentProject.checker === undefined) err += "- Checker cannot be empty\n";
+//    if (this.state.currentProject.checker === "" || this.state.currentProject.checker === null || this.state.currentProject.checker === undefined) err += "- Checker cannot be empty\n";
     if (this.state.currentProject.approver === "" || this.state.currentProject.approver === null || this.state.currentProject.approver === undefined) err += "- Approver cannot be empty\n";
-    if (this.state.currentProject.checker === this.state.currentUser.id.toString() 
-        && this.state.currentProject.approver === this.state.currentUser.id.toString()) {
-      err += "- Maker, Checker and Approver cannot be the same person\n";
+    if (
+      //this.state.currentProject.checker === this.state.currentUser.id.toString() && 
+        this.state.currentProject.approver === this.state.currentUser.id.toString()) {
+      err += "- Maker and Approver cannot be the same person\n";
     } else {
-      if (this.state.currentProject.checker === this.state.currentUser.id.toString()) err += "- Maker and Checker cannot be the same person (yourself)\n";
+//      if (this.state.currentProject.checker === this.state.currentUser.id.toString()) err += "- Maker and Checker cannot be the same person (yourself)\n";
       if (this.state.currentProject.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
-      if (this.state.currentProject.checker!==null && this.state.currentProject.checker!=="" && this.state.currentProject.checker !== undefined
-            && this.state.currentProject.checker === this.state.currentProject.approver) err += "- Checker and Approver cannot be the same person\n";
+//      if (this.state.currentProject.checker!==null && this.state.currentProject.checker!=="" && this.state.currentProject.checker !== undefined
+//            && this.state.currentProject.checker === this.state.currentProject.approver) err += "- Checker and Approver cannot be the same person\n";
     }
 
     if (err !=="" ) {
@@ -570,8 +608,9 @@ class DTSCFProjectCreation extends Component {
       formData.append('startdate', this.state.currentProject.startdate);
       formData.append('enddate', this.state.currentProject.enddate);
       formData.append('txntype', 0); // create
+      formData.append('anchor_id', this.state.currentUser.organisation_id);
       formData.append('maker', this.state.currentUser.id);
-      formData.append('checker', this.state.currentProject.checker);
+//      formData.append('checker', this.state.currentProject.checker);
       formData.append('approver', this.state.currentProject.approver);
       formData.append('actionby', this.state.currentUser.username);
       formData.append('approveddtscfid', -1);
@@ -614,8 +653,8 @@ class DTSCFProjectCreation extends Component {
     formData.append('name', this.state.currentProject.name);
     formData.append('description', this.state.currentProject.description);
     formData.append('totalBudget', this.state.currentProject.totalBudget);
-    formData.append('startDate', this.state.currentProject.startDate);
-    formData.append('endDate', this.state.currentProject.endDate);
+    formData.append('startdate', this.state.currentProject.startdate);
+    formData.append('enddate', this.state.currentProject.enddate);
     formData.append('milestones', JSON.stringify(this.state.currentProject.milestones));
     formData.append('contractors', JSON.stringify(this.state.currentProject.contractors.map(c => ({...c, purchases: c.purchases.map(p => ({...p, invoices: []}))})))); // Send metadata
 
@@ -639,8 +678,17 @@ class DTSCFProjectCreation extends Component {
   }
 
   async submitDtscf() {
-    this.setState({ isLoading: true });
-
+    this.setState({
+      isLoading: true,
+      message: "",
+      showm: true,
+      modalmsg: "Processing...\n",
+      button1text: null,
+      button2text: null,
+      button3text: null,
+      button0text: null,
+      afterModalClose: null,
+    });
     if (await this.validateForm() === true) {   
 
       const formData = new FormData();
@@ -654,8 +702,9 @@ class DTSCFProjectCreation extends Component {
       formData.append('startdate', this.state.currentProject.startdate);
       formData.append('enddate', this.state.currentProject.enddate);
       formData.append('txntype', 0); // create
+      formData.append('anchor_id', this.state.currentUser.organisation_id);
       formData.append('maker', this.state.currentUser.id);
-      formData.append('checker', this.state.currentProject.checker);
+//      formData.append('checker', this.state.currentProject.checker);
       formData.append('approver', this.state.currentProject.approver);
       formData.append('actionby', this.state.currentUser.username);
       formData.append('approveddtscfid', -1);
@@ -677,7 +726,7 @@ class DTSCFProjectCreation extends Component {
       for (const [key, value] of formData.entries()) {
         console.log(`${key}: ${value}`);
       }
-
+/*
       await DtscfDataService.submitDraftById(this.state.currentProject.id, formData)
         .then(response => {
           this.hide_loading();
@@ -689,7 +738,8 @@ class DTSCFProjectCreation extends Component {
           this.setState({  
             datachanged: false,
           });
-          this.displayModal("Dtscf submitted. Routing to checker.", "OK", null, null, null);
+//          this.displayModal("Dtscf submitted. Routing to checker.", "OK", null, null, null);
+          this.displayModal("Dtscf submitted. Routing to approver.", "OK", null, null, null);
         })
         .catch(e => {
           this.hide_loading();
@@ -715,8 +765,31 @@ class DTSCFProjectCreation extends Component {
               this.displayModal("Error: "+e.message+". Please contact tech support.", null, null, null, "OK");
           } 
         });
+  */
+      console.log('Data being sent:', formData); // Add this to debug in browser console
+
+      DtscfDataService.submitDraftById(this.state.currentProject.id, formData, (log) => {
+        this.setState(prevState => ({
+          modalmsg: prevState.modalmsg + log + "\n"
+        }));
+      })
+      .then(response => {
+        this.setState(prevState => ({
+          modalmsg: prevState.modalmsg + response.message + "\n",
+          button0text: "Close",
+          isLoading: false,
+          afterModalClose: () => this.props.router.navigate("/dtscf")
+        }));
+      })
+      .catch(e => {
+        const errMsg = (e.response && e.response.data && e.response.data.message) || e.message || e.toString();
+        this.setState(prevState => ({
+          modalmsg: prevState.modalmsg + "Error: " + errMsg + "\n",
+          button0text: "Close",
+          isLoading: false,
+        }));
+      });
     }
-    this.setState({ isLoading: false });
   } // submitDtscf()
     
   async acceptDtscf() {
@@ -822,14 +895,14 @@ class DTSCFProjectCreation extends Component {
 
   async rejectDtscf() {
 
-    console.log("isChecker? ", this.state.isChecker);
-    console.log("this.state.currentProject.checkerComments: ", this.state.currentProject.checkerComments);
+//    console.log("isChecker? ", this.state.isChecker);
+//    console.log("this.state.currentProject.checkerComments: ", this.state.currentProject.checkerComments);
     console.log("isApprover? ", this.state.isApprover);
     console.log("this.state.currentProject.approverComments: ", this.state.currentProject.approverComments);
 
-    if ( this.state.isChecker && (typeof this.state.currentProject.checkerComments==="undefined" || this.state.currentProject.checkerComments==="" || this.state.currentProject.checkerComments===null)) { 
-      this.displayModal("Please enter the reason for rejection in the Checker Comments.", null, null, null, "OK");
-    } else 
+//    if ( this.state.isChecker && (typeof this.state.currentProject.checkerComments==="undefined" || this.state.currentProject.checkerComments==="" || this.state.currentProject.checkerComments===null)) { 
+//      this.displayModal("Please enter the reason for rejection in the Checker Comments.", null, null, null, "OK");
+//    } else 
     if (this.state.isApprover && (typeof this.state.currentProject.approverComments==="undefined" || this.state.currentProject.approverComments==="" || this.state.currentProject.approverComments===null)) {
       this.displayModal("Please enter the reason for rejection in the Approver Comments.", null, null, null, "OK");
     } else {
@@ -923,17 +996,6 @@ class DTSCFProjectCreation extends Component {
     this.setState({isLoading: false});
   }
 
-  displayModal(msg, b1text, b2text, b3text, b0text) {
-    this.setState({
-      showm: true, 
-      modalmsg: msg, 
-      button1text: b1text,
-      button2text: b2text,
-      button3text: b3text,
-      button0text: b0text,
-    });
-  }
-
   showModal_Leave = () => {
     this.displayModal("You have made changes. Are you sure you want to leave this page without submitting?", "Yes, leave", null, null, "Cancel");
   };
@@ -945,10 +1007,47 @@ class DTSCFProjectCreation extends Component {
   showModalDelete = () => {
     this.displayModal("Are you sure you want to Delete this Dtscf?", null, "Yes, delete", null, "Cancel");
   };
+/*
+  displayModal(msg, b1text, b2text, b3text, b0text) {
+    this.setState({
+      showm: true, 
+      modalmsg: msg, 
+      button1text: b1text,
+      button2text: b2text,
+      button3text: b3text,
+      button0text: b0text,
+    });
+  }
 
   hideModal = () => {
     this.setState({ showm: false });
   };
+*/
+  hideModal() {
+    this.setState({
+      showm: false,
+      modalmsg: "",
+      button1text: null,
+      button2text: null,
+      button3text: null,
+      button0text: null,
+    }, () => {
+      if (this.state.afterModalClose) {
+        this.state.afterModalClose();
+      }
+      this.setState({ afterModalClose: null });
+    });
+  }
+
+  displayModal(msg, options = {}) {
+    const { button0text = "OK", afterClose = null } = options;
+    this.setState({
+      showm: true,
+      modalmsg: msg,
+      button0text,
+      afterModalClose: afterClose,
+    });
+  }
 
   // Modal functions similar to dtscf
 
@@ -975,9 +1074,17 @@ class DTSCFProjectCreation extends Component {
   }
 
   render() {
-    const { underlyingDSGDList, currentProject, isNewProject, isLoading, checkerList, approverList } = this.state;
+
+    if (this.state.redirect) {
+      return <Navigate to={this.state.redirect} replace />;
+    }
+
+    const { underlyingDSGDList, currentProject, isNewProject, isLoading, 
+//      checkerList, 
+      approverList } = this.state;
     console.log("currentProject: ", currentProject);
 
+    
     return (
         <div className="container">
           { 
@@ -985,7 +1092,17 @@ class DTSCFProjectCreation extends Component {
             <div>
             <header className="jumbotron col-md-8">
               <h3>
-                <strong>{this.state.currentProject.txntype===0?"Create ":(this.state.currentProject.txntype===1?"Update ":(this.state.currentProject.txntype===2?"Delete ":null))}DTSCF Project { this.state.isMaker? "(Maker)": (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null) )}</strong>
+                <strong>
+                  {this.state.currentProject.txntype===0?"Create ":
+                    (this.state.currentProject.txntype===1?"Update ":
+                      (this.state.currentProject.txntype===2?"Delete ":null))
+                  }DTSCF Project 
+                  { this.state.isMaker? "(Maker)": 
+                    (
+                //      this.state.isChecker? "(Checker)": 
+                      (this.state.isApprover? "(Approver)":null) 
+                    )
+                  }</strong>
               </h3>
             </header>
 
@@ -999,6 +1116,30 @@ class DTSCFProjectCreation extends Component {
 
           <form autoComplete="off">
           <div className="form-group">
+            { this.state.recipients.id !== null && 
+            <>
+              <label htmlFor="description">Organisation</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                id="id" 
+                value={this.state.recipients.name} 
+                disabled="true"
+              />
+            </>
+            }
+            { currentProject.id !== 0 && 
+            <>
+              <label htmlFor="description">Project ID</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                id="id" 
+                value={currentProject.id} 
+                disabled="true"
+              />
+            </>
+            }
             <label htmlFor="description">Project Name</label>
             <input 
               type="text" 
@@ -1137,12 +1278,12 @@ class DTSCFProjectCreation extends Component {
                       disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
                     />
                   </div>
-                  <label htmlFor="milestone.startDate">Start Date</label>
+                  <label htmlFor="milestone.startdate">Start Date</label>
                   <div>
                     <input 
                       type="date" 
                       className="form-control" 
-                      value={milestone.startDate} 
+                      value={milestone.startdate} 
                       onChange={(e) => this.onChangeMilestone(index, 'startdate', e.target.value)} 
                       placeholder="Start Date" 
                       disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
@@ -1153,7 +1294,7 @@ class DTSCFProjectCreation extends Component {
                     <input 
                       type="date" 
                       className="form-control" 
-                      value={milestone.endDate} 
+                      value={milestone.enddate} 
                       onChange={(e) => this.onChangeMilestone(index, 'enddate', e.target.value)} 
                       placeholder="End Date" 
                       disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
@@ -1256,31 +1397,33 @@ class DTSCFProjectCreation extends Component {
                             disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
                           /> <i style={{fontSize: 'small'}}>combine multiple invoices into one zip file if needed</i>
                         </div>
-                        {this.state.isMaker && currentProject.status !== null && currentProject.status <= 0 && this.state.currentProject.id!==0 &&
+                        {currentProject.status<=0 || this.state.currentProject.id===0 &&
                         <button type="button" className="m-3 btn btn-sm btn-danger" onClick={() => this.removePurchase(conIndex, purIndex)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Remove</button>
                         }
                         <br/>
                       </div>
                       ))}
-                      {this.state.isMaker && currentProject.status !== null && currentProject.status <= 0 &&
+                      {currentProject.status<=0 || this.state.currentProject.id===0 &&
                       <button type="button" className="m-3 btn btn-sm btn-primary" onClick={() => this.addPurchase(conIndex)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Add Purchase</button>
                       }
                     </td>
                   </tr>
                   </table>
-                  {this.state.isMaker && currentProject.status !== null && currentProject.status <= 0 &&
+                  {currentProject.status<=0 || this.state.currentProject.id===0 &&
                   <button type="button" className="m-3 btn btn-sm btn-danger" onClick={() => this.removeContractor(conIndex)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Remove Contractor</button>
                   }
                   <br/>
                 </div>
               ))}
-              {this.state.isMaker && currentProject.status !== null && currentProject.status <= 0 &&
+              {currentProject.status<=0 || this.state.currentProject.id===0 &&
               <button type="button" className="m-3 btn btn-sm btn-primary" onClick={this.addContractor} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Add Contractor</button>
               }
             </td>
           </tr>
           </table>
           <br />
+{ 
+/*
           <div className="form-group">
             <label htmlFor="checker">Checker *</label>
             <select
@@ -1321,6 +1464,8 @@ class DTSCFProjectCreation extends Component {
           null
           )
           }
+*/
+}
           <div className="form-group">
             <label htmlFor="approver">Approver *</label>
             <select
@@ -1404,6 +1549,7 @@ class DTSCFProjectCreation extends Component {
                         </>
               }
               {
+/*
                 this.state.isChecker && currentProject.status === 1 && 
                     <button
                       type="submit"
@@ -1418,7 +1564,7 @@ class DTSCFProjectCreation extends Component {
                       }
                       Request
                     </button> 
-
+*/
               }
               {
                     this.state.isApprover && currentProject.status === 2 &&
@@ -1440,7 +1586,9 @@ class DTSCFProjectCreation extends Component {
               }
 &nbsp;
               {
-                currentProject.id !== 0 && (this.state.isChecker || this.state.isApprover) && 
+                currentProject.id !== 0 && (
+//                  this.state.isChecker || 
+                  this.state.isApprover) && 
                 currentProject.status <= 2 &&  currentProject.status >= 1 && // status < 2 still in draft and not deployed yet
                     <button
                     type="submit"
@@ -1477,6 +1625,16 @@ class DTSCFProjectCreation extends Component {
               <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/dtscf'} handleProceed2={this.deleteDtscf} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
                 {this.state.modalmsg}
               </Modal>
+              {this.state.logs.length > 0 && (
+                <div className="progress-logs">
+                  <h5>Processing Logs:</h5>
+                  <ul>
+                    {this.state.logs.map((log, index) => (
+                      <li key={index}>{log}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <p>{this.state.message}</p>
             </div>

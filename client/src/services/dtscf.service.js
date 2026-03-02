@@ -22,10 +22,69 @@ class DtscfDataService {
   update(id, data) {
     return http.put(`/dtscf/${id}`, data);
   }
+/*
   submitDraftById(id, data) {
-    console.log("Calling /dtscf/submitdraftbyid?id");
     return http.put(`/dtscf/submitdraftbyid/${id}`, data);
   }
+*/
+submitDraftById(id, data, onLog = () => {}) {
+    const baseURL = http.defaults.baseURL;
+    return new Promise((resolve, reject) => {
+      fetch(`${baseURL}/dtscf/submitdraftbyid/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => {
+        if (!response.ok) {
+          reject(new Error(`HTTP error! status: ${response.status}`));
+          return;
+        }
+        const reader = response.body.getReader();
+        let buffer = '';
+        const processStream = ({ done, value }) => {
+          if (done) {
+            const lines = (buffer ? [buffer] : []); // Treat remaining buffer as a line if present
+            lines.forEach(line => {
+              if (line) {
+                if (line.startsWith('LOG: ')) {
+                  onLog(line.substring(5));
+                } else if (line.startsWith('SUCCESS: ')) {
+                  resolve({ message: line.substring(9) });
+                  return; // Prevent double resolve
+                } else if (line.startsWith('ERROR: ')) {
+                  reject(new Error(line.substring(7)));
+                  return;
+                }
+              }
+            });
+            resolve({ message: 'Operation completed successfully.' });
+            return;
+          }
+          buffer += new TextDecoder().decode(value);
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          lines.forEach(line => {
+            if (line) {
+              if (line.startsWith('LOG: ')) {
+                onLog(line.substring(5));
+              } else if (line.startsWith('SUCCESS: ')) {
+                resolve({ message: line.substring(9) });
+              } else if (line.startsWith('ERROR: ')) {
+                reject(new Error(line.substring(7)));
+              }
+            }
+          });
+          reader.read().then(processStream).catch(reject);
+        };
+        reader.read().then(processStream).catch(reject);
+      })
+      .catch(reject);
+    });
+  }
+
   acceptDraftById(id, data) {
     console.log("Calling /dtscf/acceptdraftbyid?id");
     return http.put(`/dtscf/acceptdraftbyid/${id}`, data);
