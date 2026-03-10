@@ -1,0 +1,46 @@
+start date:'2026-03-08'
+dtscf-checkapprove.component.js:566 end date:'2026-03-08'
+dtscf-checkapprove.component.js:567 Start > End? false
+dtscf-checkapprove.component.js:570 Approver:'1003'
+dtscf-checkapprove.component.js:1162 currentProject:  {id: 0, name: 'ppp', description: 'pppp', totalBudget: 11110, anchor_id: 16, …}
+dtscf-checkapprove.component.js:647 Form Datacon to be sent:
+dtscf-checkapprove.component.js:649 name: ppp
+dtscf-checkapprove.component.js:649 description: pppp
+dtscf-checkapprove.component.js:649 totalBudget: 11110
+dtscf-checkapprove.component.js:649 underlyingDSGDsmartcontractaddress: 0xb44b635a5E7B9493C7718b79d5d2da8044866762
+dtscf-checkapprove.component.js:649 underlyingTokenID: 111
+dtscf-checkapprove.component.js:649 campaign_id: 0
+dtscf-checkapprove.component.js:649 blockchain: 11155111
+dtscf-checkapprove.component.js:649 startdate: 2026-03-08
+dtscf-checkapprove.component.js:649 enddate: 2026-03-08
+dtscf-checkapprove.component.js:649 txntype: 0
+dtscf-checkapprove.component.js:649 anchor_id: 16
+dtscf-checkapprove.component.js:649 maker: 8
+dtscf-checkapprove.component.js:649 approver: 1003
+dtscf-checkapprove.component.js:649 actionby: anchor1ops1
+dtscf-checkapprove.component.js:649 approveddtscfid: -1
+dtscf-checkapprove.component.js:649 milestones: [{"name":"mmm","budget":222,"startdate":"2026-03-08","enddate":"2026-03-08"}]
+dtscf-checkapprove.component.js:649 contractors: [{"name":"ccc","budget":3333,"walletaddress":"xxxxxxxxxxxxxxx","purchases":[{"description":"ppp","amount":4444,"invoices":[]}],"invoices":[]}]
+dtscf-checkapprove.component.js:699 Data to be sent to API: {name: 'ppp', description: 'pppp', totalBudget: 11110, anchor_id: 16, underlyingTokenID: 111, …}
+dtscf-checkapprove.component.js:1162 currentProject:  {id: 0, name: 'ppp', description: 'pppp', totalBudget: 11110, anchor_id: 16, …}
+dtscf.service.js:87  POST http://localhost:8081/api/dtscf/draftcreate 400 (Bad Request)
+(anonymous) @ dtscf.service.js:87
+draftCreate @ dtscf.service.js:86
+createProject @ dtscf-checkapprove.component.js:702
+await in createProject
+callCallback @ react-dom.development.js:4164
+invokeGuardedCallbackDev @ react-dom.development.js:4213
+invokeGuardedCallback @ react-dom.development.js:4277
+invokeGuardedCallbackAndCatchFirstError @ react-dom.development.js:4291
+executeDispatch @ react-dom.development.js:9041
+processDispatchQueueItemsInOrder @ react-dom.development.js:9073
+processDispatchQueue @ react-dom.development.js:9086
+dispatchEventsForPlugins @ react-dom.development.js:9097
+(anonymous) @ react-dom.development.js:9288
+batchedUpdates$1 @ react-dom.development.js:26140
+batchedUpdates @ react-dom.development.js:3991
+dispatchEventForPluginEventSystem @ react-dom.development.js:9287
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ react-dom.development.js:6465
+dispatchEvent @ react-dom.development.js:6457
+dispatchDiscreteEvent @ react-dom.development.js:6430Understand this error
+dtscf-checkapprove.component.js:1162 currentProject:  {id: 0, name: 'ppp', description: 'pppp', totalBudget: 11110, anchor_id: 16, …}

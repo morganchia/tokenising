@@ -1,4 +1,14 @@
 const { authJwt } = require("../middleware/index.js");
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+
+const multerMiddleware = (req, res, next) => {
+  if (req.headers['content-type'] && req.headers['content-type'].startsWith('multipart/form-data')) {
+    upload.any()(req, res, next);
+  } else {
+    next();
+  }
+};
 
 module.exports = app => {
   app.use(function(req, res, next) {
@@ -16,7 +26,9 @@ module.exports = app => {
   // Create a new Dtscf
   //router.post("/", dtscf.create);
 //  router.post("/wrapmintdraftcreate/", dtscf.wrapMint_draftCreate);
-  router.post("/draftcreate/", dtscf.draftCreate);
+  //router.post("/draftcreate/", dtscf.draftCreate);
+//  router.post("/draftcreate/", upload.any(), dtscf.draftCreate);
+  router.post("/draftcreate/", multerMiddleware, dtscf.draftCreate);
 //  router.post("/templatecreate/", dtscf.templateCreate);
 
   // Retrieve all Dtscf with LIKE condition

@@ -16,10 +16,12 @@ app.use(cors(
 
 
 // parse requests of content-type - application/json
-app.use(express.json());
+//app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 // parse requests of content-type - application/x-www-form-urlencoded
-app.use(express.urlencoded({ extended: true }));
+//app.use(express.urlencoded({ extended: true }));
+//app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 
 // database
@@ -50,6 +52,15 @@ require("./app/routes/bond.routes")(app);
 require("./app/routes/bridge.routes")(app);
 require("./app/routes/repo.routes")(app);
 require("./app/routes/dtscf.routes")(app);
+
+app.use((err, req, res, next) => {
+  if (err.message === 'Unexpected end of form') {
+    console.error('Multer form error:', err);
+    res.status(400).send({ message: 'Incomplete form data - request may be truncated.' });
+  } else {
+    next(err);
+  }
+});
 
 if (process.env.NODE_ENV === 'production') {
   // https://www.freecodecamp.org/news/how-to-create-a-react-app-with-a-node-backend-the-complete-guide/

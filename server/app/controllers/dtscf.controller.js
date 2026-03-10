@@ -1,11 +1,13 @@
 const db = require("../models");
+console.log('[SERVER CONTROLLER] Available db model keys:', Object.keys(db).filter(key => key !== 'sequelize' && key !== 'Sequelize'));
+
 const DTSCFProject = db.dtscfprojects;
 const AuditTrail = db.audittrail;
 const Dtscf_Draft = db.dtscf_draft;
 const Dtscf = db.dtscf;
-const Milestone = db.milestones;
-const Contractor = db.contractors;
-const Purchase = db.purchases;
+const Milestone = db.dtscf_milestones_draft;
+const Contractor = db.dtscf_contractors_draft;
+const Purchase = db.dtscf_purchases_draft;
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
@@ -39,6 +41,38 @@ const adjustdecimals = 18;
 const TIMEOUT = 700;
 
 function createStringWithZeros(num) { return ("0".repeat(num)); }
+
+function parseFormKey(key) {
+  const matches = key.match(/([^\[\]]+)|(\[(\d+)\])/g) || [];
+  const path = [];
+  matches.forEach(match => {
+    if (match.startsWith('[')) {
+      path.push(parseInt(match.slice(1, -1), 10));
+    } else {
+      path.push(match);
+    }
+  });
+  return path;
+}
+
+function buildNestedObject(body) {
+  const result = {};
+  Object.keys(body).forEach(key => {
+    const path = parseFormKey(key);
+    let current = result;
+    for (let i = 0; i < path.length - 1; i++) {
+      const p = path[i];
+      const nextP = path[i + 1];
+      if (!current[p]) {
+        current[p] = typeof nextP === 'number' ? [] : {};
+      }
+      current = current[p];
+    }
+    const lastP = path[path.length - 1];
+    current[lastP] = body[key];
+  });
+  return result;
+}
 
 async function generateImage(value, outputPath) {
   try {
@@ -304,96 +338,130 @@ async function createContractors(contractors, projectId, files, parentId = null,
   }
 }
 
-// Create and Save a new Dtscf draft
 exports.draftCreate = async (req, res) => {
-  upload.any()(req, res, async (err) => {
-    if (err) {
-      return res.status(500).send({ message: "Error parsing form data" });
+  let errorSent = false;
+  console.log("Received for Dtscf draft Create:");
+  console.log(req.body); // Your existing log
+
+  // Set up streaming response
+  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Transfer-Encoding', 'chunked');
+  res.status(200);
+
+  try {
+    res.write('LOG: Starting DTSCF draft creation...\n');
+
+    const parsedBody = buildNestedObject(req.body);
+    console.log('LOG: Parsed form data successfully.\n');
+
+    const {
+      name, description, totalBudget, anchor_id, underlyingTokenID,
+      underlyingDSGDsmartcontractaddress, blockchain, campaign_id,
+      startdate, enddate, milestones = [], contractors = [],
+      maker, approver, actionby, approveddtscfid, txntype
+    } = parsedBody;
+
+    if (!name || !totalBudget || !maker || !approver) {
+      throw new Error('Missing required fields');
     }
+    //res.write('LOG: Validated input data.\n');
 
-    var errorSent = false;
+    //res.write('LOG: Skipping file uploads (no files provided).\n');
 
-    if (!req.body.name) {
-      if (!errorSent) {
-        res.status(400).send({
-          message: "Content can not be empty!"
-        });
-        errorSent = true;
-      }
-      return;
-    }
+    const newDtscfDraft = await Dtscf_Draft.create({
+      name,
+      description,
+      anchor_id: parseInt(anchor_id) || null,
+      totalBudget: parseInt(totalBudget) || 0,
+      underlyingTokenID: parseInt(underlyingTokenID) || null,
+      underlyingDSGDsmartcontractaddress: underlyingDSGDsmartcontractaddress || '',
+      campaign_id: parseInt(campaign_id) || null,
+      blockchain: parseInt(blockchain) || 0,
+      startdate,
+      enddate,
+      txntype: parseInt(txntype) || 0,
+      status: 0,
+      name_changed: false,
+      description_changed: false,
+      totalBudget_changed: false,
+      startdate_changed: false,
+      enddate_changed: false,
+      actionby,
+      actiontimedate: new Date(),
+      maker,
+      approver,
+      checkerComments: '',
+      approverComments: ''
+    });
+    const draft_id = newDtscfDraft.id;
+    console.log(`LOG: Created DTSCF draft in database with ID ${draft_id}.\n`);
 
-    console.log("Received for Dtscf draft Create:");
-    console.log(req.body);
-
-    try {
-      // Parse main project data
-      const projectData = {
-        name              : req.body.name,
-        description       : req.body.description,
-        totalBudget       : parseInt(req.body.totalBudget) || 0,
-        blockchain        : req.body.blockchain || 0, // Default or from form
-        underlyingTokenID : req.body.underlyingTokenID || null,
-        underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
-        campaign_id        : req.body.campaign_id || null,
-        anchor_id          : req.body.anchor_id || null,
-
-        startdate         : req.body.startdate,
-        enddate           : req.body.enddate,
-
-        txntype           : 0, // Create
-        status            : 2,   // -1 = redo, 0 = draft; 2 = pending approver; 3 = approved ----- skip checker, only maker and approver
-        actionby          : req.body.actionby, // Assuming auth service
-        actiontimedate    : new Date(),
-        maker             : req.body.maker,
-        checker           : req.body.checker,
-        approver          : req.body.approver,
-        checkerComments   : req.body.checkerComments || '',
-        approverComments  : req.body.approverComments || ''
-      };
-
-      // Create the draft project
-      const draftProject = await Dtscf_Draft.create(projectData);
-
-      // Parse and create milestones
-      const milestones = JSON.parse(req.body.milestones || '[]');
-      for (const ms of milestones) {
-        await db.dtscf_milestones_draft.create({
-          name: ms.name,
-          budget: parseInt(ms.budget) || 0,
-          startdate: ms.startdate,
-          enddate: ms.enddate,
-          dtscf_project_id: draftProject.id
-        });
-      }
-
-      // Parse and create contractors with purchases recursively
-      const contractors = JSON.parse(req.body.contractors || '[]');
-      await createContractors(contractors, draftProject.id, req.files);
-
-      // Log to audittrail
-      await AuditTrail.create({
-        action: "Dtscf project draft creation",
-        name: projectData.name,
-        actionby: projectData.actionby,
-        actiontimedate: projectData.actiontimedate,
-        //data: logDataValues(draftProject)
+    for (const [index, ms] of milestones.entries()) {
+      await Milestone.create({
+        dtscf_draft_id: draft_id,
+        name: ms.name,
+        budget: parseInt(ms.budget) || 0,
+        startdate: ms.startdate,
+        enddate: ms.enddate,
+        description: ms.description || '',
+        name_changed: false,
+        budget_changed: false,
+        startdate_changed: false,
+        enddate_changed: false
       });
+      console.log(`LOG: Added milestone ${index + 1}/${milestones.length}.\n`);
+    }
 
-      res.send({
-        message: "Draft created successfully!"
+    for (const [index, con] of contractors.entries()) {
+      const newContractor = await Contractor.create({
+        dtscf_draft_id: draft_id,
+        name: con.name,
+        budget: parseInt(con.budget) || 0,
+        walletaddress: con.walletaddress || '',
+        name_changed: false,
+        budget_changed: false,
+        walletaddress_changed: false,
+        dtscf_project_id_changed: false,
+        dtscf_parent_contractor_id_changed: false
       });
-    } catch (err) {
-      console.error(err);
-      if (!errorSent) {
-        res.status(500).send({
-          message: err.message || "Some error occurred while creating the draft."
+      console.log(`LOG: Added contractor ${index + 1}/${contractors.length}.\n`);
+
+      for (const [purIndex, pur] of (con.purchases || []).entries()) {
+        await Purchase.create({
+          dtscf_contractor_id: newContractor.id,
+          description: pur.description,
+          amount: parseInt(pur.amount) || 0,
+          description_changed: false,
+          amount_changed: false,
+          dtscf_project_id_changed: false,
+          dtscf_contractor_id_changed: false
         });
-        errorSent = true;
+        console.log(`LOG: Added purchase ${purIndex + 1} for contractor ${index + 1}.\n`);
       }
     }
-  });
-};  // draftCreate
+
+    await AuditTrail.create({
+      action: "Dtscf create request - drafted",
+      name,
+      totalBudget: parseInt(totalBudget),
+      status: 0
+      // Add other fields as needed from your INSERT
+    });
+    console.log('LOG: Logged to audit trail.\n');
+
+    // Explicit success and close
+    res.write('SUCCESS: DTSCF draft created successfully.\n');
+    res.end();
+    console.log('[SERVER] Sent success and ended response.'); // Diagnostic
+  } catch (err) {
+    console.error('[SERVER] Error in draftCreate:', err);
+    if (!errorSent) {
+      res.write(`ERROR: Error creating DTSCF draft: ${err.message}\n`);
+      res.end();
+      errorSent = true;
+    }
+  }
+};
 
 exports.create_review = async (req, res) => {
   // Validate request
@@ -2990,28 +3058,44 @@ exports.submitDraftById = async (req, res) => {
 }; // submitDraftById
 */
 exports.submitDraftById = async (req, res) => {
-  res.setHeader('Content-Type', 'text/plain');
-  res.setHeader('Transfer-Encoding', 'chunked');
+  res.writeHead(200, {
+    'Content-Type': 'text/plain',
+    'Transfer-Encoding': 'chunked'
+  });
 
-  const originalConsoleLog = console.log;
-  const oldLogging = db.sequelize.options.logging;
-  db.sequelize.options.logging = false; // Disable Sequelize logging to avoid verbose output in stream
-
-  console.log = (...args) => {
-    const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+  const log = message => {
+    console.log(message);  // Server-side log for debugging
     res.write(`LOG: ${message}\n`);
-    originalConsoleLog(...args);
   };
 
+  const success = message => {
+    console.log(message);  // Server-side log for debugging
+    res.write(`SUCCESS: ${message}\n`);
+    res.end();
+  };
+
+  const error = message => {
+    console.log(message);  // Server-side log for debugging
+    res.write(`ERROR: ${message}\n`);
+    res.end();
+  };
+
+  
   try {
-    const id = req.params.id;
-    console.log("Received submitDraftById:");
-    console.log("id=", id);
+    const draft_id = req.params.id;
+    console.log(`Received submitDraftById for id=${draft_id}`);
+    console.log(`Request headers: ${JSON.stringify(req.headers)}`);  // Debug: Log headers to check Content-Type
+    console.log(`Raw body (before parsing): ${req.rawBody || 'No raw body'}`);  // Debug: If you add req.rawBody via middleware (optional)
+    console.log(`Parsed req.body: ${JSON.stringify(req.body)}`);  // Debug: What was parsed
+    console.log("id=", draft_id);
     console.log(req.body);
+    console.log(req.body.approver);
 
     console.log("Content-Type:", req.headers['content-type']);
     console.log("Content-Length:", req.headers['content-length']);
     console.log("Headers:", JSON.stringify(req.headers));
+
+    log("Updating draft...");
 
     const [num] = await Dtscf_Draft.update(
       {
@@ -3019,7 +3103,7 @@ exports.submitDraftById = async (req, res) => {
         checker: req.body.checker,
         approver: req.body.approver,
       },
-      { where: { id: id } }
+      { where: { id: draft_id } }
     );
 
     console.log(`Update completed. Rows affected: ${num}`);
@@ -3038,7 +3122,7 @@ exports.submitDraftById = async (req, res) => {
             startdate: req.body.startdate,
             enddate: req.body.enddate,
             txntype: req.body.txntype,
-            draftdtscfId: id,
+            draftdtscfId: draft_id,
             maker: req.body.maker,
             checker: req.body.checker,
             approver: req.body.approver,
@@ -3054,18 +3138,14 @@ exports.submitDraftById = async (req, res) => {
         throw auditErr;
       }
 
-      res.write(`SUCCESS: Draft was submitted successfully.\n`);
+      success(`SUCCESS: Draft was submitted successfully.\n`);
     } else {
-      throw new Error(`Cannot submit Dtscf with id=${id}. Maybe Dtscf was not found or req.body is empty!`);
+      throw new Error(`Cannot submit Dtscf with id=${draft_id}. Maybe Dtscf was not found or req.body is empty!`);
     }
     res.end();
   } catch (err) {
-    console.log("Error:", err);
-    res.write(`ERROR: ${err.message}\n`);
-    res.end();
+    error(`ERROR: ${err.message}\n`);
   } finally {
-    console.log = originalConsoleLog;
-    db.sequelize.options.logging = oldLogging; // Restore Sequelize logging
   }
 };
 
@@ -3226,7 +3306,7 @@ exports.update = async (req, res) => {
   ////////////////////////////// Blockchain ////////////////////////
 
   require('dotenv').config();
-  const ETHEREUM_NETWORK = (() => {switch (req.body.campaign.blockchain) {
+  const ETHEREUM_NETWORK = (() => {switch (req.body.blockchain) {
       case 80001:
         return process.env.REACT_APP_POLYGON_MUMBAI_NETWORK
       case 80002:
