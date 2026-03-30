@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -71,6 +71,9 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
         });
         _mint(msg.sender, id, 1, "");
         _tokenURIs[id] = tokenMetadataUri; // Save the unique IPFS link
+
+        emit URI(tokenMetadataUri, id); // added to inform metamask change in URI
+
         tokenOwners[id] = msg.sender;
         tokenIds.add(id);
         milestoneToTokens[milestoneId].add(id);
@@ -102,6 +105,9 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
         });
         _mint(msg.sender, id, 1, "");
         _tokenURIs[id] = tokenMetadataUri; // Save the unique IPFS link
+
+        emit URI(tokenMetadataUri, id); // added to inform metamask change in URI
+
         tokenIds.add(id);
         milestoneToTokens[milestoneId].add(id);
         emit WrappedDeposit(id, depositAmount, milestoneId);
@@ -133,6 +139,8 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
         });
         _mint(msg.sender, newId, 1, "");
         _tokenURIs[newId] = newMetadataUri;
+
+        emit URI(newMetadataUri, newId); // added to inform metamask change in URI
 
         tokenIds.add(newId);
         milestoneToTokens[milestoneId].add(newId);

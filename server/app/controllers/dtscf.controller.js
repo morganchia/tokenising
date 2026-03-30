@@ -76,7 +76,7 @@ function buildNestedObject(body) {
 
 async function generateImage(value, outputPath) {
   try {
-    const backgroundUrl = 'https://tokenising.herokuapp.com/tokenisedpayable_bg.png';
+    const backgroundUrl = 'https://tokenising.herokuapp.com/tokenisedpayable_bg.jpg';
     const text = `Tokenised Payable $${value}`;
 
     // 1. Fetch the background image as a buffer
@@ -90,22 +90,14 @@ async function generateImage(value, outputPath) {
     // 3. Generate SVG with text (scaled to background size)
     const svgText = `
       <svg width="${width}" height="${height}">
-        <style>
-          .title { fill: #000; font-size: 32px; font-weight: bold; font-family: sans-serif; }
-        </style>
-        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" class="title">
-          ${text}
-        </text>
-      </svg>
-    `;
+        <style>.title { fill: #000; font-size: 32px; font-weight: bold; font-family: sans-serif; }</style>
+        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" class="title">${text}</text>
+      </svg>`;
 
     // 4. Composite the text over the background buffer
     await sharp(bgBuffer)
-      .composite([{ 
-        input: Buffer.from(svgText), 
-        gravity: 'center' 
-      }])
-      .png()
+      .composite([{ input: Buffer.from(svgText), gravity: 'center' }])
+      .jpeg()
       .toFile(outputPath);
 
     console.log(`Image generated and saved to ${outputPath}`);
@@ -157,9 +149,9 @@ async function generateMetadataFile(contractAddress, id, value, milestoneId, mat
   }
 
   // Generate image with try-catch
-  const imageFileName = `${id}.png`;
+  const imageFileName = `${id}.jpg`;
   const imageOutputPath = path.join(tempDir, imageFileName);
-  let imageUrl = 'https://tokenising.herokuapp.com/tokenisedpayable0.png'; 
+  let imageUrl = 'https://tokenising.herokuapp.com/tokenisedpayable0.jpg'; 
 
   try {
     await generateImage(value, imageOutputPath);
@@ -175,12 +167,13 @@ async function generateMetadataFile(contractAddress, id, value, milestoneId, mat
   const metadata = {
     name: `Tokenized Payable #${id}`,
     description: `A tokenized payable asset with value $${value}, linked to milestone ${milestoneId}. Conditions: ${conditions}.`,
-    image: imageUrl, 
+    image: imageUrl.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/'), // Use Gateway URL
     attributes: [
       { trait_type: "Value", value: value.toString() },
       { trait_type: "Milestone ID", value: milestoneId.toString() },
       { trait_type: "Maturity Date", value: readableMaturity },
-      { trait_type: "Conditions", value: conditions }
+      { trait_type: "Conditions", value: conditions },
+      { trait_type: "MintedAt", value: Date.now().toString() } // Cache Buster
     ]
   };
 
@@ -204,7 +197,7 @@ async function generateMetadataFile(contractAddress, id, value, milestoneId, mat
   return jsonUrl; 
 }
 
-retryWithBackoff = async (fn, maxRetries = 5, baseDelay = 10000, shouldRetry = () => true) => {
+retryWithBackoff = async (fn, maxRetries = 5, baseDelay = 15000, shouldRetry = () => true) => {
   let gasMultiplier = 1.0;  // Start at 100%
   let priorityMultiplier = 1.0;  // For maxPriorityFeePerGas
   let gasLimitMultiplier = 1.1;  // Slight increase for gas limit
@@ -225,13 +218,13 @@ retryWithBackoff = async (fn, maxRetries = 5, baseDelay = 10000, shouldRetry = (
 };
 
 // Function to scale a number with up to 3 decimal places to a BigNumber with 18 decimal places
-function scaleToWei(value) {
+function scaleToWei(value, w3) {
     const parsed = parseFloat(value);
     if (isNaN(parsed)) {
         throw new Error('Invalid number input for scaling');
     }
     // Convert to string with 3 decimal places and scale to wei (10^18)
-    return web3.utils.toWei(parsed.toFixed(3), 'ether');
+    return w3.utils.toWei(parsed.toFixed(3), 'ether');
 }
 
 // Recursive function to update or create contractors and subcontractors
@@ -380,7 +373,7 @@ exports.draftCreate = async (req, res) => {
       startdate,
       enddate,
       txntype: parseInt(txntype) || 0,
-      status: 0,
+      status: 2,
       name_changed: false,
       description_changed: false,
       totalBudget_changed: false,
@@ -390,7 +383,7 @@ exports.draftCreate = async (req, res) => {
       actiontimedate: new Date(),
       maker,
       approver,
-      checkerComments: '',
+//      checkerComments: '',
       approverComments: ''
     });
     const draft_id = newDtscfDraft.id;
@@ -398,7 +391,7 @@ exports.draftCreate = async (req, res) => {
 
     for (const [index, ms] of milestones.entries()) {
       await Milestone.create({
-        dtscf_draft_id: draft_id,
+        dtscf_project_id: draft_id,
         name: ms.name,
         budget: parseInt(ms.budget) || 0,
         startdate: ms.startdate,
@@ -414,7 +407,7 @@ exports.draftCreate = async (req, res) => {
 
     for (const [index, con] of contractors.entries()) {
       const newContractor = await Contractor.create({
-        dtscf_draft_id: draft_id,
+        dtscf_project_id: draft_id,
         name: con.name,
         budget: parseInt(con.budget) || 0,
         walletaddress: con.walletaddress || '',
@@ -428,6 +421,7 @@ exports.draftCreate = async (req, res) => {
 
       for (const [purIndex, pur] of (con.purchases || []).entries()) {
         await Purchase.create({
+          dtscf_project_id: draft_id,
           dtscf_contractor_id: newContractor.id,
           description: pur.description,
           amount: parseInt(pur.amount) || 0,
@@ -461,7 +455,7 @@ exports.draftCreate = async (req, res) => {
       errorSent = true;
     }
   }
-};
+}; // draftCreate for new Dtscf creation
 
 exports.create_review = async (req, res) => {
   // Validate request
@@ -482,11 +476,13 @@ exports.create_review = async (req, res) => {
   console.log(req.body);
 
   const id = req.params.id;
-  const checkercomments = req.body.checkerComments || '';
+//  const checkercomments = req.body.checkerComments || '';
+  const approvercomments = req.body.approverComments || '';
 
   await Dtscf_Draft.update(
       { 
-        checkerComments :   checkercomments,
+//        checkerComments :   checkercomments,
+        approverComments : req.body.approverComments || '',
         status          : 2,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
       }, 
       { where:      { id: id }},
@@ -528,17 +524,51 @@ exports.approveDraftById = async (req, res) => {  //
   //res.setHeader('Cache-Control', 'no-cache');
   //res.setHeader('Connection', 'keep-alive');
 
-  var errorSent = false;
+  const mustCompile = true;  // For now, always compile to ensure latest code is used. Can optimize later by checking timestamps.
+  let hasSentResponse = false;
+
+  res.writeHead(200, {
+    'Content-Type': 'text/plain',
+    'Transfer-Encoding': 'chunked'
+  });
+
+  const sendLog = message => {
+    console.log(message);  // Server-side log for debugging
+
+    if (hasSentResponse) return;  // Prevent sending logs after response has ended
+    res.write(`LOG: ${message}\n`);
+  };
+
+  const sendSuccess = message => {
+    console.log(message);  // Server-side log for debugging
+
+    if (hasSentResponse) return;  // Prevent sending logs after response has ended
+    res.write(`SUCCESS: ${message}\n`);
+    res.end();
+    hasSentResponse = true;
+  };
+
+  const sendError = message => {
+    console.error(message);  // Server-side log for debugging
+
+    if (hasSentResponse) return;  // Prevent sending logs after response has ended
+    res.write(`ERROR: ${message}\n`);
+    res.end();
+    hasSentResponse = true;
+  };
+
+//  var errorSent = false;
   var updatestatus = false;
 
   // Validate request
   if (!req.body.name) {
-    if (!errorSent) {
-      res.status(400).send({
-        message: "Content can not be empty!"
-      });
-      errorSent = true;
-    }
+    sendError("Content can not be empty!");
+//    if (!errorSent) {
+//      res.status(400).send({
+//        message: "Content can not be empty!"
+//      });
+//      errorSent = true;
+//   }
     return;
   }
 
@@ -570,12 +600,13 @@ exports.approveDraftById = async (req, res) => {  //
   if (req.body.txntype !==0     // create dtscf
     && req.body.txntype !==1    // update dtscf
     ) {
-      if (!errorSent) {
-        res.status(400).send({
-          message: "Invalid transaction type!"
-        });
-        errorSent = true;
-      }
+//      if (!errorSent) {
+//        res.status(400).send({
+//          message: "Invalid transaction type!"
+//        });
+//        errorSent = true;
+//      }
+      sendError("Invalid transaction type!");
       return;  
   }
   const isNewDtscf = (req.body.txntype === 0? true : false); // Create = true, Edit/Update = false
@@ -610,16 +641,41 @@ exports.approveDraftById = async (req, res) => {  //
   )()
 
   if (!ETHEREUM_NETWORK) {
-    if (!errorSent) {
-      res.status(400).send({
-        message: "Invalid blockchain network."
-      });
-      errorSent = true;
-    }
+    sendError("Invalid blockchain network.");
+//    if (!errorSent) {
+//      res.status(400).send({
+//        message: "Invalid blockchain network."
+//      });
+//      errorSent = true;
+//    }
     return;
   }
 
   const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+
+  const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;   // Use HTTP only
+
+  console.log(`Using HTTP provider: ${providerUrl.replace(INFURA_API_KEY, '****')}`);
+
+  Web3 = require("web3");
+  // Create Web3 with HTTP provider (most stable for deployment)
+  const web3 = new Web3(new Web3.providers.HttpProvider(providerUrl));
+
+  // Test connection immediately
+  async function checkProviderHealth() {
+    try {
+      const isListening = await web3.eth.net.isListening();
+      const blockNumber = await web3.eth.getBlockNumber();
+      console.log(`Provider healthy. Connected to ${ETHEREUM_NETWORK}. Current block: ${blockNumber}`);
+      return true;
+    } catch (err) {
+      console.error("Provider health check failed:", err.message);
+      throw new Error("Cannot connect to blockchain provider. Please try again later.");
+    }
+  }
+
+  await checkProviderHealth();   // test provider connection before proceeding
+
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
   const ANCHOR_PRIVATE_KEY = process.env.REACT_APP_ANCHOR_PRIVATE_KEY;
@@ -630,7 +686,8 @@ exports.approveDraftById = async (req, res) => {  //
       async function compileSmartContract() {
         // solc compiler
         solc = require("solc");
-        const solcVersion = 'v0.8.20+commit.a1b79de6';  // Matches pragma ^0.8.20; check https://github.com/ethereum/solc-bin for exact tag
+        //const solcVersion = 'v0.8.20+commit.a1b79de6';  // Matches pragma ^0.8.20; check https://github.com/ethereum/solc-bin for exact tag
+        const solcVersion = 'v0.8.24+commit.e11b9ed9';
 
         // file reader
         //fs = require("fs");
@@ -654,6 +711,7 @@ exports.approveDraftById = async (req, res) => {  //
                     runs: 200 // Number of optimization runs
                 },
                 viaIR: true, // Enable Yul IR pipeline
+                evmVersion: 'cancun',
                 outputSelection: {
                     '*': {
                         '*': ['*']
@@ -700,12 +758,16 @@ exports.approveDraftById = async (req, res) => {  //
               const severeErrors = output.errors.filter(e => e.severity === 'error');
               if (severeErrors.length > 0) {
                 console.error("Compilation errors:", severeErrors);
+                sendError("Error compiling smart contract. Please contact tech support.");
+                //return false;
                 return reject(new Error("Compilation failed with errors."));
               }
               console.warn("Compilation warnings:", output.errors);
             }
 
             if (!output.contracts || !output.contracts[smartContractFileName] || !output.contracts[smartContractFileName][TokenName]) {
+              sendError("Error compiling smart contract. Please contact tech support.");
+              //return false;
               return reject(new Error("No compiled contract found. Check contract name and sources."));
             }
 
@@ -716,6 +778,8 @@ exports.approveDraftById = async (req, res) => {  //
             fs.writeFileSync(abiFile, JSON.stringify(ABI) , 'utf8', function (err) {
               if (err) {
                 console.log("An error occured while writing Dtscf ABI JSON Object to File.");
+                sendError("Error compiling smart contract. Please contact tech support.");
+                //return false;
                 return console.log(err);
               }
               console.log("Dtscf ABI JSON file has been saved.");
@@ -723,6 +787,8 @@ exports.approveDraftById = async (req, res) => {  //
             fs.writeFileSync(byteCodeFile, JSON.stringify(bytecode) , 'utf8', function (err) {
               if (err) {
                 console.log("An error occured while writing Dtscf bytecode JSON Object to File.");
+                sendError("Error compiling smart contract. Please contact tech support.");
+                //return false;
                 return console.log(err);
               }
               console.log("Dtscf Bytecode JSON file has been saved.");
@@ -748,7 +814,8 @@ exports.approveDraftById = async (req, res) => {  //
 
         let ABI, bytecode;
         try {
-          if (! (fs.existsSync(abiFile) && fs.existsSync(byteCodeFile))) {
+          if (!(fs.existsSync(abiFile) && fs.existsSync(byteCodeFile)) || mustCompile) {
+            sendLog("Compiling Tokenised Payable smart contract...");
             const compiled = await compileSmartContract();
             ABI = compiled.ABI;
             bytecode = compiled.bytecode;
@@ -759,13 +826,14 @@ exports.approveDraftById = async (req, res) => {  //
           console.log("Compilation completed successfully.");
         } catch (err) {
           console.error("Compilation error:", err);
-          if (!errorSent) {
-            res.status(400).send({ message: "Error compiling Tokenised Payable smart contract. Please check logs and contact tech support." });
-            errorSent = true;
-          }
+          sendError("Error compiling Tokenised Payable smart contract. Please check logs and contact tech support.");
+          //if (!errorSent) {
+          //  res.status(400).send({ message: "Error compiling Tokenised Payable smart contract. Please check logs and contact tech support." });
+          //  errorSent = true;
+          //}
           return false;
         }
-
+/*
         Web3 = require("web3");
         //web3 = new Web3( 
         //  Web3.providers.HttpProvider(
@@ -773,12 +841,12 @@ exports.approveDraftById = async (req, res) => {  //
         //  ) 
         //);
         web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://${ETHEREUM_NETWORK}.infura.io/ws/v3/${INFURA_API_KEY}`));
-
+*/
         console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
         const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY);
         const anchor = web3.eth.accounts.privateKeyToAccount(ANCHOR_PRIVATE_KEY);
 
-        web3.setProvider(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
+//        web3.setProvider(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
 
         console.log("Enddate (unix time) = ", Number(new Date(req.body.enddate)));
         try {
@@ -786,276 +854,305 @@ exports.approveDraftById = async (req, res) => {  //
           // Deploy contract
           const deployContract = async () => {
 
-                // Step 1: Validate inputs
-                console.log("=== Step 1: Validate inputs ===");
-                //res.write("Step 1: Validate inputs ");
-                const totalBudget = (typeof req.body.totalBudget === 'string' || req.body.totalBudget instanceof String) ? req.body.totalBudget : req.body.totalBudget.toString();
-                const requiredFields = {
-                  totalBudget                         : totalBudget,
-                  underlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,
-                  enddate                             : req.body.enddate,
-                };
 
-                console.log('Proj inputs:', requiredFields);
+            // Step 1: Validate inputs
+            console.log("=== Step 1: Validate inputs ===");
+            //res.write("Step 1: Validate inputs ");
+            const totalBudget = (typeof req.body.totalBudget === 'string' || req.body.totalBudget instanceof String) ? req.body.totalBudget : req.body.totalBudget.toString();
+            const requiredFields = {
+              totalBudget                         : totalBudget,
+              underlyingDSGDsmartcontractaddress  : req.body.underlyingDSGDsmartcontractaddress,
+              enddate                             : req.body.enddate,
+            };
 
-                for (const [key, value] of Object.entries(requiredFields)) {
-                  if (value === null || value === undefined) {
-                    console.error(`Error: ${key} is ${value}`);
-                    if (!errorSent) {
-                      res.status(400).send({
-                        message: `Invalid input: ${key} cannot be ${value}. Please provide a valid value.`,
-                      });
-                      errorSent = true;
-                    }
-                    return false;
-                  }
-                }
+            console.log('Proj inputs:', requiredFields);
 
-                const stringFields = ['underlyingDSGDsmartcontractaddress'];
-                for (const field of stringFields) {
-                  if (typeof requiredFields[field] !== 'string' || requiredFields[field].trim() === '') {
-                    console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
-                    if (!errorSent) {
-                      res.status(400).send({
-                        message: `Invalid input: ${field} must be a non-empty string.`,
-                      });
-                      errorSent = true;
-                    }
-                    return false;
-                  }
-                }
+            for (const [key, value] of Object.entries(requiredFields)) {
+              if (value === null || value === undefined) {
+                console.error(`Error: ${key} is ${value}`);
+                sendError(`Invalid input: ${key} cannot be null or undefined. Please provide a valid value.`);
+                //if (!errorSent) {
+                //  res.status(400).send({
+                //    message: `Invalid input: ${key} cannot be ${value}. Please provide a valid value.`,
+                //  });
+                //  errorSent = true;
+                //}
+                return false;
+              }
+            }
 
-                const numericFields = ['totalBudget'];
-                for (const field of numericFields) {
-                  const value = Number(requiredFields[field]);
-                  if (isNaN(value) || value <= 0) {
-                    console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
-                    if (!errorSent) {
-                      res.status(400).send({
-                        message: `Invalid input: ${field} must be a positive number.`,
-                      });
-                      errorSent = true;
-                    }
-                    return false;
-                  }
-                }
+            const stringFields = ['underlyingDSGDsmartcontractaddress'];
+            for (const field of stringFields) {
+              if (typeof requiredFields[field] !== 'string' || requiredFields[field].trim() === '') {
+                console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
+                sendError(`Invalid input: ${field} must be a non-empty string.`);
+                //if (!errorSent) {
+                //  res.status(400).send({
+                //    message: `Invalid input: ${field} must be a non-empty string.`,
+                //  });
+                //  errorSent = true;
+                //}
+                return false;
+              }
+            }
 
-                if (isNaN(req.body.totalBudget) || req.body.totalBudget < 0) {
-                  console.log("Total budget is invalid: ", req.body.totalBudget);
-                  if (!errorSent) {
-                    res.status(400).send({
-                      message: `Invalid input: totalBudget must be a positive number.`,
-                    });
-                    errorSent = true;
-                  }
+            const numericFields = ['totalBudget'];
+            for (const field of numericFields) {
+              const value = Number(requiredFields[field]);
+              if (isNaN(value) || value <= 0) {
+                console.error(`Error: ${field} is invalid: ${requiredFields[field]}`);
+                sendError(`Invalid input: ${field} must be a positive number.`);
+                //if (!errorSent) {
+                //  res.status(400).send({
+                //    message: `Invalid input: ${field} must be a positive number.`,
+                //  });
+                //  errorSent = true;
+                //}
+                return false;
+              }
+            }
+
+            if (isNaN(req.body.totalBudget) || req.body.totalBudget < 0) {
+              console.error("Total budget is invalid: ", req.body.totalBudget);
+              sendError(`Invalid input: totalBudget must be a positive number.`);
+              //if (!errorSent) {
+              //  res.status(400).send({
+              //    message: `Invalid input: totalBudget must be a positive number.`,
+              //  });
+              //  errorSent = true;
+              //}
+              return false;
+            }
+
+            if (!web3.utils.isAddress(requiredFields.underlyingDSGDsmartcontractaddress)) {
+              console.error(`Error: Invalid underlyingDSGDsmartcontractaddress: ${requiredFields.underlyingDSGDsmartcontractaddress}`);
+              sendError(`Invalid input: underlyingDSGDsmartcontractaddress must be a valid Ethereum address.`);
+              //if (!errorSent) {
+              //  res.status(400).send({
+              //    message: 'Invalid input: underlyingDSGDsmartcontractaddress must be a valid Ethereum address.',
+              //  });
+              //  errorSent = true;
+              //}
+              return false;
+            }
+
+            const startdate = Number(new Date(req.body.startdate));
+            const enddate = Number(new Date(req.body.enddate));
+            if (isNaN(startdate) || isNaN(enddate) || enddate < startdate) {
+              console.error(`Error: Invalid dates - startdate: ${req.body.startdate}, enddate: ${req.body.enddate}`);
+              sendError(`Invalid input: Dates must be valid and maturity date must be after issue date.`);
+              //if (!errorSent) {
+              //  res.status(400).send({
+              //    message: 'Invalid input: Dates must be valid and maturity date must be after issue date.',
+              //  });
+              //  errorSent = true;
+              //}
+              return false;
+            }
+
+            // Validation for milestones mandatory fields
+            console.log("Milestones: ", req.body.milestones);
+            let milestones = req.body.milestones || [];
+            if (typeof milestones === 'string') {
+              milestones = JSON.parse(milestones);
+            }
+            for (const ms of milestones) {
+              const requiredMilestoneFields = ['id', 'name', 'budget', 'startdate', 'enddate', 'dtscf_project_id'];
+              for (const field of requiredMilestoneFields) {
+                if (!ms[field] || (typeof ms[field] === 'string' && ms[field].trim() === '')) {
+                  sendError(`Missing or empty required field '${field}' in milestone '${ms.name || 'unnamed'}'`);
                   return false;
                 }
+              }
+              // Add stricter checks, e.g., if (isNaN(ms.budget) || ms.budget <= 0) throw new Error(...);
+            }
 
-                if (!web3.utils.isAddress(requiredFields.underlyingDSGDsmartcontractaddress)) {
-                  console.error(`Error: Invalid underlyingDSGDsmartcontractaddress: ${requiredFields.underlyingDSGDsmartcontractaddress}`);
-                  if (!errorSent) {
-                    res.status(400).send({
-                      message: 'Invalid input: underlyingDSGDsmartcontractaddress must be a valid Ethereum address.',
-                    });
-                    errorSent = true;
-                  }
+            // Validation for contractors mandatory fields (extends existing wallet check)
+            console.log("Contractors: ", req.body.contractors);
+            let contractors = req.body.contractors || [];
+            if (typeof contractors === 'string') {
+              contractors = JSON.parse(contractors);
+            }
+            for (const con of contractors) {
+              const requiredContractorFields = ['id', 'name', 'budget', 'walletaddress', 'dtscf_project_id'];
+              for (const field of requiredContractorFields) {
+                if (!con[field] || (typeof con[field] === 'string' && con[field].trim() === '')) {
+                  sendError(`Missing or empty required field '${field}' in contractor '${con.name || 'unnamed'}'`);
                   return false;
                 }
+              }
+              // Validate walletaddress is a valid Ethereum address
+              if (!web3.utils.isAddress(con.walletaddress)) {
+                sendError(`Invalid Ethereum wallet address for contractor '${con.name || 'unnamed'}': ${con.walletaddress}`);
+                return false;
+              }
+              // Add stricter checks, e.g., if (isNaN(con.budget) || con.budget <= 0) throw new Error(...);
+            }
 
-                const startdate = Number(new Date(req.body.startdate));
-                const enddate = Number(new Date(req.body.enddate));
-                if (isNaN(startdate) || isNaN(enddate) || enddate <= startdate) {
-                  console.error(`Error: Invalid dates - startdate: ${req.body.startdate}, enddate: ${req.body.enddate}`);
-                  if (!errorSent) {
-                    res.status(400).send({
-                      message: 'Invalid input: Dates must be valid and maturity date must be after issue date.',
-                    });
-                    errorSent = true;
-                  }
-                  return false;
-                }
+            // exit first see how
+            //throw new Error(`exit!!!!!!!!!!!`);
 
-                // Validation for milestones mandatory fields
-                console.log("Milestones: ", req.body.milestones);
-                let milestones = req.body.milestones || [];
-                if (typeof milestones === 'string') {
-                  milestones = JSON.parse(milestones);
-                }
-                for (const ms of milestones) {
-                  const requiredMilestoneFields = ['id', 'name', 'budget', 'startdate', 'enddate', 'dtscf_project_id'];
-                  for (const field of requiredMilestoneFields) {
-                    if (!ms[field] || (typeof ms[field] === 'string' && ms[field].trim() === '')) {
-                      throw new Error(`Missing or empty required field '${field}' in milestone '${ms.name || 'unnamed'}'`);
-                    }
-                  }
-                  // Add stricter checks, e.g., if (isNaN(ms.budget) || ms.budget <= 0) throw new Error(...);
-                }
+            const dtscfConfig = [
+              req.body.underlyingDSGDsmartcontractaddress,
+              scaleToWei(req.body.totalBudget, web3),
+              Math.floor(Number(new Date(req.body.enddate)) / 1000),
+            ];
+            console.log('DtscfConfig:', dtscfConfig);
 
-                // Validation for contractors mandatory fields (extends existing wallet check)
-                console.log("Contractors: ", req.body.contractors);
-                let contractors = req.body.contractors || [];
-                if (typeof contractors === 'string') {
-                  contractors = JSON.parse(contractors);
-                }
-                for (const con of contractors) {
-                  const requiredContractorFields = ['id', 'name', 'budget', 'walletaddress', 'dtscf_project_id'];
-                  for (const field of requiredContractorFields) {
-                    if (!con[field] || (typeof con[field] === 'string' && con[field].trim() === '')) {
-                      throw new Error(`Missing or empty required field '${field}' in contractor '${con.name || 'unnamed'}'`);
-                    }
-                  }
-                  // Validate walletaddress is a valid Ethereum address
-                  if (!web3.utils.isAddress(con.walletaddress)) {
-                    throw new Error(`Invalid Ethereum wallet address for contractor '${con.name || 'unnamed'}': ${con.walletaddress}`);
-                  }
-                  // Add stricter checks, e.g., if (isNaN(con.budget) || con.budget <= 0) throw new Error(...);
-                }
-
-                // exit first see how
-                //throw new Error(`exit!!!!!!!!!!!`);
-
-                const dtscfConfig = [
-                  req.body.underlyingDSGDsmartcontractaddress,
-                  scaleToWei(req.body.totalBudget),
-                  Math.floor(Number(new Date(req.body.enddate)) / 1000),
-                ];
-                console.log('DtscfConfig:', dtscfConfig);
-
-                // Do balance check before deployment
-                const tokenizedBankDeposit_ABI = JSON.parse(fs.readFileSync(tokenizedBank_abiFile, 'utf8').toString());
-                const depositContract = new web3.eth.Contract(tokenizedBankDeposit_ABI, req.body.underlyingDSGDsmartcontractaddress);
-                const requiredAmount = web3.utils.toWei(req.body.totalBudget.toString(), 'ether');
-                const anchorBalance = await depositContract.methods.balanceOf(anchor.address).call();
-                if (web3.utils.toBN(anchorBalance).lt(web3.utils.toBN(requiredAmount))) {
-                  throw new Error(`Insufficient Tokenised Deposit balance in anchor wallet: ${web3.utils.fromWei(anchorBalance, 'ether')} < ${req.body.totalBudget}`);
-                }
-                console.log(`Anchor Tokenised Deposit balance sufficient: ${web3.utils.fromWei(anchorBalance, 'ether')}`);
+            // Do balance check before deployment
+            const tokenizedBankDeposit_ABI = JSON.parse(fs.readFileSync(tokenizedBank_abiFile, 'utf8').toString());
+            const depositContract = new web3.eth.Contract(tokenizedBankDeposit_ABI, req.body.underlyingDSGDsmartcontractaddress);
+            const requiredAmount = web3.utils.toWei(req.body.totalBudget.toString(), 'ether');
+            const anchorBalance = await depositContract.methods.balanceOf(anchor.address).call();
+            if (web3.utils.toBN(anchorBalance).lt(web3.utils.toBN(requiredAmount))) {
+              sendError(`Insufficient Tokenised Deposit balance in anchor wallet: ${web3.utils.fromWei(anchorBalance, 'ether')} < ${req.body.totalBudget}`);
+              return false;
+            }
+            console.log(`Anchor Tokenised Deposit balance sufficient: ${web3.utils.fromWei(anchorBalance, 'ether')}`);
 
 
-                // Step 2: Prepare for deployment, estimate gas fees
-                console.log("=== Step 2: Prepare for deployment, estimate gas fees ===")
-                //res.write("Step 2: Prepare for deployment, estimate gas fees ");
+            // Step 2: Prepare for deployment, estimate gas fees
+            console.log("=== Step 2: Prepare for deployment, estimate gas fees ===")
+            //res.write("Step 2: Prepare for deployment, estimate gas fees ");
 
-                console.log('Attempting to deploy from account:', signer.address);
-                const tokenisedPayableContract = new web3.eth.Contract(ABI);
-                const payableDeployTx = tokenisedPayableContract.deploy({
-                  data: bytecode,
-                  arguments: ['https://tokenising.herokuapp.com/', req.body.underlyingDSGDsmartcontractaddress],
-                });
+            console.log('Attempting to deploy from account:', signer.address);
+            const tokenisedPayableContract = new web3.eth.Contract(ABI);
+            const payableDeployTx = tokenisedPayableContract.deploy({
+              data: bytecode,
+              arguments: ['https://tokenising.herokuapp.com/', req.body.underlyingDSGDsmartcontractaddress],
+            });
 
-                let gasEstimate = await payableDeployTx.estimateGas({ from: signer.address }).catch((error) => {
-                  console.log("Error while estimating Gas fee: ", error);
-                  return 2100000;  // default if cannot estimate
-                });
+            let gasEstimate = await payableDeployTx.estimateGas({ from: signer.address }).catch((error) => {
+              console.error("Error while estimating Gas fee: ", error);
+              return 4000000;  // default if cannot estimate
+            });
 
-                console.log("Initial estimated gas fee: ", gasEstimate);
+            console.log("Initial estimated gas fee: ", gasEstimate);
 
-                const balance = await web3.eth.getBalance(signer.address);
-                console.log("Signer balance:", web3.utils.fromWei(balance, "ether"), "ETH");
-                if (web3.utils.toBN(balance).lt(web3.utils.toBN(gasEstimate).mul(web3.utils.toBN("1000000000")))) {
-                  res.status(400).send({ message: "Insufficient funds for gas." });
-                  return false;
-                }
+            const balance = await web3.eth.getBalance(signer.address);
+            console.log("Signer balance:", web3.utils.fromWei(balance, "ether"), "ETH");
+            if (web3.utils.toBN(balance).lt(web3.utils.toBN(gasEstimate).mul(web3.utils.toBN("1000000000")))) {
+              console.error("Insufficient funds for gas. Please ensure the system wallet has enough balance to cover deployment fees.");
+              sendError("Insufficient funds for gas. Please ensure the system wallet has enough balance to cover deployment fees.");
+              //res.status(400).send({ message: "Insufficient funds for gas." });
+              return false;
+            }
 
-                let gasMultiplier = 1.1; // Initial 10% buffer
-                const gasIncreaseInterval = 30000; // Increase gas every 30 seconds if pending
-                const maxWaitTime = TIMEOUT * 1000; // Total timeout in ms
-                let startTime = Date.now();
+            let gasMultiplier = 1.1; // Initial 10% buffer
+            const gasIncreaseInterval = 30000; // Increase gas every 30 seconds if pending
+            const maxWaitTime = TIMEOUT * 1000; // Total timeout in ms
+            let startTime = Date.now();
 
 
 
 
-                // Step 3: Deployment with retry and gas increase
-                console.log("=== Step 3: Deployment with retry and gas increase ===");
-                //res.write("Step 3: Deployment with retry and gas increase ");
-                const deployWithRetry = async () => {
-                  const block = await web3.eth.getBlock('pending');
+            // Step 3: Deployment with retry and gas increase
+            console.log("=== Step 3: Deployment with retry and gas increase ===");
+            sendLog("Deploying Tokenise Payable smart contract to blockchain. This may take a while...");
+            const deployWithRetry = async () => {
+              const block = await web3.eth.getBlock('pending');
 
+              try {
+                //return await retryWithBackoff(async () => {
+                return await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
+                  let currentGas = Math.floor(gasEstimate * innerGasLimitMultiplier);
+                  let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
+                  let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
+                  let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
+                                    (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
+                  maxFeePerGas = maxFeePerGas.toString();
+                  let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
+
+                  console.log('Current maxFeePerGas:', maxFeePerGas);
+                  console.log('Current maxPriorityFeePerGas:', maxPriorityFeePerGas);
+                  const deployTxData = payableDeployTx.encodeABI();  // Get the encoded deployment data
+
+                  const tx = {
+                    from: signer.address,
+                    data: deployTxData,
+                    gas: currentGas,
+                    // gasPrice: gasPrice  // obsolete
+                    maxFeePerGas: maxFeePerGas,  // Use this instead of gasPrice
+                    maxPriorityFeePerGas: maxPriorityFeePerGas
+                  };
+
+                  const signedTx = await web3.eth.accounts.signTransaction(tx, signer.privateKey);
+
+                  let hash;
                   try {
-                    //return await retryWithBackoff(async () => {
-                    return await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
-                      let currentGas = Math.floor(gasEstimate * innerGasLimitMultiplier);
-                      let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
-                      let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
-                      let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
-                                        (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
-                      maxFeePerGas = maxFeePerGas.toString();
-                      let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
-
-                      console.log('Current maxFeePerGas:', maxFeePerGas);
-                      console.log('Current maxPriorityFeePerGas:', maxPriorityFeePerGas);
-                      const deployTxData = payableDeployTx.encodeABI();  // Get the encoded deployment data
-
-                      const tx = {
-                        from: signer.address,
-                        data: deployTxData,
-                        gas: currentGas,
-                        // gasPrice: gasPrice  // obsolete
-                        maxFeePerGas: maxFeePerGas,  // Use this instead of gasPrice
-                        maxPriorityFeePerGas: maxPriorityFeePerGas
-                      };
-
-                      const signedTx = await web3.eth.accounts.signTransaction(tx, signer.privateKey);
-
-                      let hash;
-                      try {
-                        hash = await new Promise((resolve, reject) => {
-                          web3.eth.sendSignedTransaction(signedTx.rawTransaction)
-                            .once('transactionHash', resolve)
-                            .once('error', reject);
-                        });
-                      } catch (err) {
-                        throw new Error(`Send failed: ${err.message}`);
-                      }
-                      console.log(`Transaction hash: ${hash}`);
-
-                      // Poll for receipt every 10 seconds
-                      let receipt = null;
-                      let pollAttempts = 0;
-                      const maxPollAttempts = 6; // e.g., 1 minute timeout
-
-                      while (!receipt && pollAttempts < maxPollAttempts) {
-                        console.log("Checking receipt for  transaction... #", pollAttempts);
-                        await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
-                        receipt = await web3.eth.getTransactionReceipt(hash);
-                        pollAttempts++;
-                      }
-
-                      if (!receipt) {
-                        throw new Error('not mined');
-                      }
-
-                      if (!receipt.status) {
-                        throw new Error('Deployment failed (status false)');
-                      }
-
-                      console.log('Deployment receipt:', receipt);
-                      newcontractaddress = receipt.contractAddress;
-                      updatestatus = true;
-                      return true;  // Success
-                    }, 5, 10000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('timeout')); // Retry up to 5 times, only on underpriced errors
-
+                    hash = await new Promise((resolve, reject) => {
+                      web3.eth.sendSignedTransaction(signedTx.rawTransaction)
+                        .once('transactionHash', resolve)
+                        .once('error', reject);
+                    });
                   } catch (err) {
-                    console.error('Deployment attempt failed:', err.message);
-                    if (Date.now() - startTime > maxWaitTime) {
-                      throw new Error(`Timeout after ${TIMEOUT} seconds`);
-                    }
-                    gasMultiplier += 0.15;  // Increase for next attempt
-                    return await deployWithRetry();  // Recursive retry
+                    throw new Error(`Send failed: ${err.message}`);
                   }
-                };  // deployWithRetry
+                  console.log(`Transaction hash: ${hash}`);
 
-                await deployWithRetry();
+                  // Poll for receipt every 10 seconds
+                  let receipt = null;
+                  let pollAttempts = 0;
+                  const maxPollAttempts = 18; // e.g., 3 minute timeout
+
+                  while (!receipt && pollAttempts < maxPollAttempts) {
+                    console.log("Checking receipt for  transaction... #", pollAttempts);
+                    await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+                    receipt = await web3.eth.getTransactionReceipt(hash);
+                    pollAttempts++;
+                  }
+
+                  if (!receipt) {
+                    throw new Error('not mined');
+                  }
+
+                  if (!receipt.status) {
+                    throw new Error('Deployment failed (status false)');
+                  }
+
+                  console.log('Deployment receipt:', receipt);
+                  newcontractaddress = receipt.contractAddress;
+                  updatestatus = true;
+                  return true;  // Success
+                }, 5, 15000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('TIMEOUT'));
+
+              } catch (err) {
+                console.error('Deployment attempt failed:', err.message);
+                if (Date.now() - startTime > maxWaitTime) {
+                  throw new Error(`Timeout after ${TIMEOUT} seconds`);
+                }
+                gasMultiplier += 0.15;  // Increase for next attempt
+                return await deployWithRetry();  // Recursive retry
+              }
+            };  // deployWithRetry
+
+            await deployWithRetry();
+            if (!newcontractaddress || !web3.utils.isAddress(newcontractaddress)) {
+              sendError("Deployment succeeded but no contract address was returned");
+              return false;
+            }
+            
+            console.log(`Deployment successful. Tokenised Payable smart contract has been deployed at: ${newcontractaddress}`);
+            sendLog(`Deployment successful. Tokenised Payable smart contract has been deployed at: ${newcontractaddress}`);
+
+            return true;  // Deployment successful
           } // deployContract = async ()
-          await deployContract();
+          
+          if (! await deployContract()) {
+            console.error("TP Smart Contract Deployment failed....");
+            sendError("Tokenised Payable smart contract deployment failed. Please contact tech support.");
+            return false;  // Deployment failed, exit
+          }
+
           
           const wrapDepositToPayable = async () => {
                 console.log('Calling wrapDepositToPayable to fund the contract from anchor account');
-                
                 if (!newcontractaddress) {
-                  throw new Error('Contract address not set after deployment');
+                  sendError('Contract address not set after deployment');
+                  return false;
                 }
-                
+
+
                 const tokenizedBankDeposit_ABI = JSON.parse(fs.readFileSync(tokenizedBank_abiFile, 'utf8').toString());
                 const depositContract = new web3.eth.Contract(tokenizedBankDeposit_ABI, req.body.underlyingDSGDsmartcontractaddress);
                 const tokenisedPayableContract = new web3.eth.Contract(ABI, newcontractaddress);
@@ -1064,7 +1161,8 @@ exports.approveDraftById = async (req, res) => {  //
                 const requiredAmount = web3.utils.toWei(req.body.totalBudget.toString(), 'ether');
                 const anchorBalance = await depositContract.methods.balanceOf(anchor.address).call();
                 if (web3.utils.toBN(anchorBalance).lt(web3.utils.toBN(requiredAmount))) {
-                  throw new Error(`Insufficient Tokenised Deposit balance in anchor wallet: ${web3.utils.fromWei(anchorBalance, 'ether')} < ${req.body.totalBudget}`);
+                  sendError(`Insufficient Tokenised Deposit balance in anchor wallet: ${web3.utils.fromWei(anchorBalance, 'ether')} < ${req.body.totalBudget}`);
+                  return false;
                 }
                 console.log(`Anchor Tokenised Deposit balance sufficient: ${web3.utils.fromWei(anchorBalance, 'ether')}`);
 
@@ -1156,7 +1254,7 @@ exports.approveDraftById = async (req, res) => {  //
                   }
 
                   console.log("Approved Tokenised Payable contract to pull funds. approveReceipt:", approveReceipt);
-                }, 5, 10000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('timeout')); // Retry up to 5 times, only on underpriced errors
+                }, 5, 15000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('TIMEOUT'));
 
                 // Safely parse milestones (assuming first one; adjust if multiple)
                 let milestones = req.body.milestones || [];
@@ -1166,7 +1264,7 @@ exports.approveDraftById = async (req, res) => {  //
                 const milestoneId = milestones.length > 0 ? milestones[0].id : 1;  
 
                             // Call generateMetadataFile BEFORE wrapDepositToPayable
-                            const metadataPath = await generateMetadataFile(
+                            let metadataPath = await generateMetadataFile(
                               newcontractaddress,  // Contract address
                               1, 
                               req.body.totalBudget.toString(), 
@@ -1175,6 +1273,9 @@ exports.approveDraftById = async (req, res) => {  //
                               `Completion of milestone #${milestoneId}`
                             );
                             console.log("Image and metadata file for TP is created:", metadataPath);
+                            const newUri = `${metadataUrl}?id=${Date.now()}.json`; 
+                            metadataUrl = newUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                            console.log("Changing metadataPath to https pinata gateway:", metadataPath);
 
                 // Step 5: Wrap (sign and send signed tx), new TP is created by Anchor
                 console.log("=== Step 5: Wrap (sign and send signed tx), new TP is created by Anchor ===");
@@ -1261,7 +1362,7 @@ exports.approveDraftById = async (req, res) => {  //
 
                     console.log("Funds wrapped successfully. wrapReceipt:", receipt);
                     return receipt;
-                }, 5, 10000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('timeout'));
+                }, 5, 15000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('TIMEOUT'));
 
                 const newId = 1;
                 console.log(`Wrapped ${requiredAmount} into payable token ID ${newId}`);
@@ -1282,301 +1383,316 @@ exports.approveDraftById = async (req, res) => {  //
 
           // Step 6: Transfer TP to contractors as per milestones
           console.log("=== Step 6: transfer TP to contractors as per milestones ===");
-          //res.write("Step 6: transfer TP to contractors as per milestones ");
+          //log("Transferring Tokenised Payable tokens to contractors as per milestones ");
           const transferTPtoContractors = async (wrapReceipt, tokenisedPayableContract, milestoneId, newId0) => {
-                console.log("Transferring Tokenised Payable tokens to contractors as per milestones");
+            console.log("Transferring Tokenised Payable tokens to contractors as per milestones");
 
-                if (!newId0) {
-                  console.warn('newId0 is undefined - skipping transfer.');
-                  return; // Or throw new Error('Missing token ID');
-                }
-                // Await the wrapReceipt if it's a promise
-                const resolvedReceipt = await wrapReceipt;
-                console.log('Resolved wrapReceipt:', resolvedReceipt);                
-                try {
-                  // In transferTPtoContractors, update balance check
-                  let balance = await tokenisedPayableContract.methods.balanceOf(anchor.address, newId0).call();  // Use anchor.address and newId0
-                  let attempts = 0;
-                  while (balance === '0' && attempts < 10) {
-                    console.log("Checking receipt for checking balanceOf... #", attempts);
-                    await new Promise(resolve => setTimeout(resolve, 10000));  // Increase to 10s
-                    balance = await tokenisedPayableContract.methods.balanceOf(anchor.address, newId0).call();
-                    attempts++;
+            if (!newId0) {
+              console.warn('newId0 is undefined - skipping transfer.');
+              return; // Or throw new Error('Missing token ID');
+            }
+            // Await the wrapReceipt if it's a promise
+            const resolvedReceipt = await wrapReceipt;
+            console.log('Resolved wrapReceipt:', resolvedReceipt);                
+            try {
+              // In transferTPtoContractors, update balance check
+              let balance = await tokenisedPayableContract.methods.balanceOf(anchor.address, newId0).call();  // Use anchor.address and newId0
+              let attempts = 0;
+              while (balance === '0' && attempts < 10) {
+                console.log("Checking receipt for checking balanceOf... #", attempts);
+                await new Promise(resolve => setTimeout(resolve, 10000));  // Increase to 10s
+                balance = await tokenisedPayableContract.methods.balanceOf(anchor.address, newId0).call();
+                attempts++;
+              }
+              if (balance === '0') { 
+                sendError('No payable tokens found after wrap - deployment may have failed');
+                return false;
+              }
+
+              // Fetch all token IDs from the contract (robust alternative to event parsing)
+              let allIds = [];
+              try {
+                allIds = await tokenisedPayableContract.methods.getAllTokenIds().call();
+              } catch (err) {
+                console.warn('getAllTokenIds failed:', err.message);
+                allIds = [newId0]; // Fallback to known ID
+              }                  // Assume the last (most recent) ID is the original wrapped one, as contract is new
+              let originalId = allIds[allIds.length - 1];
+              console.log(`Original payable ID: ${originalId}`);
+
+              // Parse contractors to calculate and split/transfer portions
+              let contractors = req.body.contractors || [];
+              if (typeof contractors === 'string') { contractors = JSON.parse(contractors); }
+
+              for (const con of contractors) {
+                let contractorAmount = 0;
+                for (const pur of con.purchases || []) { contractorAmount += parseFloat(pur.amount) || 0;}
+                const amountWei = web3.utils.toWei(contractorAmount.toString(), 'ether');
+
+                if (web3.utils.toBN(amountWei).gt(0)) {
+                  if (!con.walletaddress) { 
+                    sendError(`Contractor wallet address not found for ${con.name}`);
+                    return false;
                   }
-                  if (balance === '0') { throw new Error('No payable tokens found after wrap - deployment may have failed');}
 
-                  // Fetch all token IDs from the contract (robust alternative to event parsing)
-                  let allIds = [];
-                  try {
-                    allIds = await tokenisedPayableContract.methods.getAllTokenIds().call();
-                  } catch (err) {
-                    console.warn('getAllTokenIds failed:', err.message);
-                    allIds = [newId0]; // Fallback to known ID
-                  }                  // Assume the last (most recent) ID is the original wrapped one, as contract is new
-                  let originalId = allIds[allIds.length - 1];
-                  console.log(`Original payable ID: ${originalId}`);
+                  const block = await web3.eth.getBlock('pending');
+                  //let innerPriorityMultiplier = 1.0;  // For maxPriorityFeePerGas
+                  //let innerGasMultiplier = 1.1; // Initial 10% buffer
+                  //let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
+                  //let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei
+                  //let gasPrice = (baseFee * BigInt(Math.floor(gasMultiplier * 100)) / BigInt(100)) + (maxPriorityFee * BigInt(Math.floor(priorityMultiplier * 100)) / BigInt(100));
+                  //gasPrice = gasPrice.toString();
 
-                  // Parse contractors to calculate and split/transfer portions
-                  let contractors = req.body.contractors || [];
-                  if (typeof contractors === 'string') { contractors = JSON.parse(contractors); }
+                  //let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
+                  //let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
+                  //let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
+                  //                (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
+                  //maxFeePerGas = maxFeePerGas.toString();
+                  //let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
 
-                  for (const con of contractors) {
-                    let contractorAmount = 0;
-                    for (const pur of con.purchases || []) { contractorAmount += parseFloat(pur.amount) || 0;}
-                    const amountWei = web3.utils.toWei(contractorAmount.toString(), 'ether');
+                  // Step 7: split TP 
+                  console.log("=== Step 7: split TP ===");
+                  sendLog("Splitting Tokenised Payable");
 
-                    if (web3.utils.toBN(amountWei).gt(0)) {
-                      if (!con.walletaddress) { throw new Error(`Contractor wallet address not found for ${con.name}`);}
+                  // Call generateMetadataFile BEFORE splitPayable
+                  let metadataPath = await generateMetadataFile(
+                    newcontractaddress,  // Contract address
+                    parseInt(originalId)+1, // make assumption, make be risky leading to bug
+                    contractorAmount.toString(), 
+                    milestoneId, 
+                    Math.floor(new Date(req.body.enddate).getTime() / 1000),
+                    `Completion of milestone #${milestoneId}`
+                  );
+                  console.log("Image and metadata file for TP is created:", metadataPath);
+                  const newUri = `${metadataUrl}?id=${Date.now()}.json`; 
+                  metadataUrl = newUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                  console.log("Changing metadataPath to https pinata gateway:", metadataPath);
 
-                      const block = await web3.eth.getBlock('pending');
-                      //let innerPriorityMultiplier = 1.0;  // For maxPriorityFeePerGas
-                      //let innerGasMultiplier = 1.1; // Initial 10% buffer
-                      //let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
-                      //let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei
-                      //let gasPrice = (baseFee * BigInt(Math.floor(gasMultiplier * 100)) / BigInt(100)) + (maxPriorityFee * BigInt(Math.floor(priorityMultiplier * 100)) / BigInt(100));
-                      //gasPrice = gasPrice.toString();
+                  const splitReceipt = await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
+                      let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
+                      let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
+                      let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
+                                  (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
+                      maxFeePerGas = maxFeePerGas.toString();
+                      let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
 
-                      //let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
-                      //let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
-                      //let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
-                      //                (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
-                      //maxFeePerGas = maxFeePerGas.toString();
-                      //let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
+                      let splitGas = await tokenisedPayableContract.methods.splitPayable(originalId, amountWei, metadataPath).estimateGas({ from: anchor.address });
+                          splitGas = Math.floor(splitGas * innerGasLimitMultiplier);
 
-                      // Step 7: split TP 
-                      console.log("=== Step 7: split TP ===");
-                      //res.write("Step 7: split TP ");
+                      const splitData = tokenisedPayableContract.methods.splitPayable(
+                        originalId,
+                        amountWei,
+                        metadataPath
+                      ).encodeABI();
 
-                      // Call generateMetadataFile BEFORE splitPayable
-                      const metadataPath = await generateMetadataFile(
-                        newcontractaddress,  // Contract address
-                        parseInt(originalId)+1, // make assumption, make be risky leading to bug
-                        contractorAmount.toString(), 
-                        milestoneId, 
-                        Math.floor(new Date(req.body.enddate).getTime() / 1000),
-                        `Completion of milestone #${milestoneId}`
-                      );
-                      console.log("Image and metadata file for TP is created:", metadataPath);
+                      const splitTx = {
+                        from: anchor.address,
+                        to: newcontractaddress,
+                        data: splitData,
+                        gas: splitGas,
+                        maxPriorityFeePerGas: maxPriorityFeePerGas,
+                        maxFeePerGas: maxFeePerGas
+                      };
 
-                      const splitReceipt = await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
-                          let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
-                          let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
-                          let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
-                                      (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
-                          maxFeePerGas = maxFeePerGas.toString();
-                          let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
+                      const signedSplit = await web3.eth.accounts.signTransaction(splitTx, ANCHOR_PRIVATE_KEY);
+                      const sentTx = await web3.eth.sendSignedTransaction(signedSplit.rawTransaction);
 
-                          let splitGas = await tokenisedPayableContract.methods.splitPayable(originalId, amountWei, metadataPath).estimateGas({ from: anchor.address });
-                              splitGas = Math.floor(splitGas * innerGasLimitMultiplier);
-
-                          const splitData = tokenisedPayableContract.methods.splitPayable(
-                            originalId,
-                            amountWei,
-                            metadataPath
-                          ).encodeABI();
-
-                          const splitTx = {
-                            from: anchor.address,
-                            to: newcontractaddress,
-                            data: splitData,
-                            gas: splitGas,
-                            maxPriorityFeePerGas: maxPriorityFeePerGas,
-                            maxFeePerGas: maxFeePerGas
-                          };
-
-                          const signedSplit = await web3.eth.accounts.signTransaction(splitTx, ANCHOR_PRIVATE_KEY);
-                          const sentTx = await web3.eth.sendSignedTransaction(signedSplit.rawTransaction);
-
-                          // Wait for confirmation (simple polling for receipt)
-                          let splitReceipt = null;
-                          let attempts = 0;
-                          while (!splitReceipt && attempts < 30) {  // Max 30 attempts (~5 min at 10s blocks)
-                            console.log("Checking receipt for split transaction... #", attempts);
-                            splitReceipt = await web3.eth.getTransactionReceipt(sentTx.transactionHash);
-                            if (!splitReceipt) {
-                              await new Promise(resolve => setTimeout(resolve, 5000));  // Wait 5s
-                              attempts++;
-                            }
-                          }
-                          if (!splitReceipt || !splitReceipt.status) {
-                            throw new Error('Split transaction failed or not confirmed');
-                          }
-
-                          console.log("Funds split successfully. splitReceipt:", splitReceipt);
-
-                        return splitReceipt;
-                      }, 5, 10000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('timeout'));
-
-                      // Extract newId from PayableSplit event in splitReceipt
-                      let newId;
-                      for (const log of splitReceipt.logs) {
-                        if (log.topics[0] === web3.utils.keccak256('PayableSplit(uint256,uint256,uint256)')) {
-                          const decoded = web3.eth.abi.decodeLog([
-                            { type: 'uint256', name: 'originalId', indexed: true },
-                            { type: 'uint256', name: 'newId' },
-                            { type: 'uint256', name: 'splitValue' }
-                          ], log.data, log.topics);
-                          newId = decoded.newId;
-                          break;
+                      // Wait for confirmation (simple polling for receipt)
+                      let splitReceipt = null;
+                      let attempts = 0;
+                      while (!splitReceipt && attempts < 30) {  // Max 30 attempts (~5 min at 10s blocks)
+                        console.log("Checking receipt for split transaction... #", attempts);
+                        splitReceipt = await web3.eth.getTransactionReceipt(sentTx.transactionHash);
+                        if (!splitReceipt) {
+                          await new Promise(resolve => setTimeout(resolve, 5000));  // Wait 5s
+                          attempts++;
                         }
                       }
-                      if (!newId) {
-                        throw new Error('Failed to extract new payable ID from split receipt');
+                      if (!splitReceipt || !splitReceipt.status) {
+                        throw new Error('Split transaction failed or not confirmed');
                       }
 
-                      console.log(`Split new payable ID ${newId} with value ${contractorAmount} for contractor ${con.name}`);
-                      
-                      // Reduce the balance in the original NFT index 1, by the split value
-                      // 1. Query the NEW reduced value of the original payable (robust; avoids drift)
-                      const updatedOriginalValueWei = await tokenisedPayableContract.methods
-                        .payables(originalId)
-                        .call()
-                        .then(p => p.value); // struct field .value
+                      console.log("Funds split successfully. splitReceipt:", splitReceipt);
 
-                      const updatedOriginalValue = web3.utils.fromWei(updatedOriginalValueWei, 'ether');
+                    return splitReceipt;
+                  }, 5, 15000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('TIMEOUT'));
 
-                      // 2. Generate NEW metadata + image for the ORIGINAL token (with reduced value)
-                      const originalMetadataPath = await generateMetadataFile(
-                        newcontractaddress,                     // Contract address
-                        parseInt(originalId),                   // Original ID (e.g. 1)
-                        updatedOriginalValue.toString(),        // Reduced value
-                        milestoneId,
-                        Math.floor(new Date(req.body.enddate).getTime() / 1000),
-                        `Completion of milestone #${milestoneId}` // or any updated description
-                      );
-                      console.log(`Updated metadata for ORIGINAL payable #${originalId}:`, originalMetadataPath);
-
-                      // 3. Call setTokenURI (onlyOwner → from anchor)
-                      await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
-
-                        const currentOwner = await tokenisedPayableContract.methods.owner().call();
-                        console.log(`tokenisedPayableContract contract owner: ${currentOwner}, Anchor address: ${anchor.address}`); 
-                        //if (currentOwner.toLowerCase() !== anchor.address.toLowerCase()) {
-                        //  throw new Error(`Anchor address ${anchor.address} is not the contract owner (${currentOwner}). Use the correct private key.`);
-                        //}
-
-                        console.log("Estimating gas for setTokenURI on original payable...");
-                        let setUriGas = await tokenisedPayableContract.methods
-                          .setTokenURI(parseInt(originalId), originalMetadataPath)
-                          .estimateGas({ from: signer.address });   // contract owner is signer
-                        setUriGas = Math.floor(setUriGas * innerGasLimitMultiplier);
-
-                        const block = await web3.eth.getBlock('pending');
-                        let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
-                        let maxPriorityFee = BigInt(2000000000);
-                        let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) +
-                                          (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
-                        maxFeePerGas = maxFeePerGas.toString();
-                        let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
-
-                        console.log("Encoding setTokenURI transaction data...");
-                        const setUriData = tokenisedPayableContract.methods
-                          .setTokenURI(parseInt(originalId), originalMetadataPath)
-                          .encodeABI();
-
-                        const setUriTx = {
-                          from: signer.address,   // contract owner is signer
-                          to: newcontractaddress,
-                          data: setUriData,
-                          gas: setUriGas,
-                          maxPriorityFeePerGas: maxPriorityFeePerGas,
-                          maxFeePerGas: maxFeePerGas
-                        };
-                        const signedSetUri = await web3.eth.accounts.signTransaction(setUriTx, SIGNER_PRIVATE_KEY);  // sign using signer's private key
-
-                        console.log("Sending setTokenURI transaction:", setUriTx);
-                        const sentSetUri = await web3.eth.sendSignedTransaction(signedSetUri.rawTransaction);
-
-                        // Poll for receipt (same pattern you already use)
-                        let receipt = null;
-                        let attempts = 0;
-                        while (!receipt && attempts < 30) {
-                          console.log("Checking receipt for split transaction... #", attempts);
-                          receipt = await web3.eth.getTransactionReceipt(sentSetUri.transactionHash);
-                          console.log("Checking receipt for setTokenURI transaction... #", attempts);
-                          if (!receipt) {
-                            await new Promise(r => setTimeout(r, 5000));
-                            attempts++;
-                          }
-                        }
-                        if (!receipt || !receipt.status) {
-                          throw new Error('setTokenURI transaction failed');
-                        }
-
-                        console.log(`ORIGINAL payable #${originalId} metadata/image updated successfully`);
-                      }, 5, 10000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('timeout'));
-
-                      const currentUri = await tokenisedPayableContract.methods.uri(1).call();
-                      console.log(`Current on-chain URI for NFT #1: ${currentUri}`);
-
-                      // Step 8: Transfer the split TP to contractor
-                      console.log("=== Step 8: Transfer the split TP to contractor ===");
-                      //res.write("Step 8: Transfer the split TP to contractor ");
-                      await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
-                        let transferGas = await tokenisedPayableContract.methods.safeTransferFrom(anchor.address, con.walletaddress, newId, 1, '0x').estimateGas({ from: anchor.address, to: newcontractaddress });
-                        transferGas = Math.floor(transferGas * innerGasLimitMultiplier);
-
-                        let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
-                        let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
-                        let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
-                                      (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
-                        maxFeePerGas = maxFeePerGas.toString();
-                        let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
-
-                        const transferData = tokenisedPayableContract.methods.safeTransferFrom(
-                          anchor.address, 
-                          con.walletaddress, 
-                          newId, 
-                          1, 
-                          '0x'                                  
-                        ).encodeABI();
-
-                        const transferTx = {
-                          from: anchor.address,
-                          to: newcontractaddress,
-                          data: transferData,
-                          gas: transferGas,
-                          maxPriorityFeePerGas: maxPriorityFeePerGas,
-                          maxFeePerGas: maxFeePerGas
-                        };
-
-                        const signedTransfer = await web3.eth.accounts.signTransaction(transferTx, ANCHOR_PRIVATE_KEY);
-                        const sentTx = await web3.eth.sendSignedTransaction(signedTransfer.rawTransaction);
-
-                        // Wait for confirmation (simple polling for receipt)
-                        let transferReceipt = null;
-                        let attempts = 0;
-                        while (!transferReceipt && attempts < 30) {  // Max 30 attempts (~5 min at 10s blocks)
-                          transferReceipt = await web3.eth.getTransactionReceipt(sentTx.transactionHash);
-                          console.log("Checking receipt for transfer transaction... #", attempts);
-                          if (!transferReceipt) {
-                            await new Promise(resolve => setTimeout(resolve, 5000));  // Wait 5s
-                            attempts++;
-                          }
-                        }
-                        if (!transferReceipt || !transferReceipt.status) {
-                          throw new Error('Transfer transaction failed or not confirmed');
-                        }
-
-                        console.log("Funds split successfully. transferReceipt:", transferReceipt);
-
-                        console.log(`Transferred payable ID ${newId} (${contractorAmount} value) to contractor ${con.name}. Receipt:`, transferReceipt);
-                      }, 5, 10000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('timeout'));
+                  // Extract newId from PayableSplit event in splitReceipt
+                  let newId;
+                  for (const log of splitReceipt.logs) {
+                    if (log.topics[0] === web3.utils.keccak256('PayableSplit(uint256,uint256,uint256)')) {
+                      const decoded = web3.eth.abi.decodeLog([
+                        { type: 'uint256', name: 'originalId', indexed: true },
+                        { type: 'uint256', name: 'newId' },
+                        { type: 'uint256', name: 'splitValue' }
+                      ], log.data, log.topics);
+                      newId = decoded.newId;
+                      break;
                     }
                   }
-                } catch (err) {
-                  console.error('Error in transferTPtoContractors:', err.message);
-                  throw err;
+                  if (!newId) {
+                    sendError('Failed to extract new payable ID from split receipt');
+                    return false;
+                  }
+
+                  console.log(`Split new payable ID ${newId} with value ${contractorAmount} for contractor ${con.name}`);
+                  
+                  // Reduce the balance in the original NFT index 1, by the split value
+                  // 1. Query the NEW reduced value of the original payable (robust; avoids drift)
+                  const updatedOriginalValueWei = await tokenisedPayableContract.methods
+                    .payables(originalId)
+                    .call()
+                    .then(p => p.value); // struct field .value
+
+                  const updatedOriginalValue = web3.utils.fromWei(updatedOriginalValueWei, 'ether');
+
+                  // 2. Generate NEW metadata + image for the ORIGINAL token (with reduced value)
+                  let originalMetadataPath = await generateMetadataFile(
+                    newcontractaddress,                     // Contract address
+                    parseInt(originalId),                   // Original ID (e.g. 1)
+                    updatedOriginalValue.toString(),        // Reduced value
+                    milestoneId,
+                    Math.floor(new Date(req.body.enddate).getTime() / 1000),
+                    `Completion of milestone #${milestoneId}` // or any updated description
+                  );
+                  console.log("Image and metadata file for TP is created:", originalMetadataPath);
+                  const newUri0 = `${metadataUrl}?id=${Date.now()}.json`; 
+                  metadataUrl = newUri0.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                  console.log("Changing metadataPath to https pinata gateway:", originalMetadataPath);
+                  console.log(`Updated metadata for ORIGINAL payable #${originalId}:`, originalMetadataPath);
+
+                  // 3. Call setTokenURI (onlyOwner → from anchor)
+                  await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
+
+                    const currentOwner = await tokenisedPayableContract.methods.owner().call();
+                    console.log(`tokenisedPayableContract contract owner: ${currentOwner}, Anchor address: ${anchor.address}`); 
+                    //if (currentOwner.toLowerCase() !== anchor.address.toLowerCase()) {
+                    //  throw new Error(`Anchor address ${anchor.address} is not the contract owner (${currentOwner}). Use the correct private key.`);
+                    //}
+
+                    console.log("Estimating gas for setTokenURI on original payable...");
+                    let setUriGas = await tokenisedPayableContract.methods
+                      .setTokenURI(parseInt(originalId), originalMetadataPath)
+                      .estimateGas({ from: signer.address });   // contract owner is signer
+                    setUriGas = Math.floor(setUriGas * innerGasLimitMultiplier);
+
+                    const block = await web3.eth.getBlock('pending');
+                    let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
+                    let maxPriorityFee = BigInt(2000000000);
+                    let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) +
+                                      (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
+                    maxFeePerGas = maxFeePerGas.toString();
+                    let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
+
+                    console.log("Encoding setTokenURI transaction data...");
+                    const setUriData = tokenisedPayableContract.methods
+                      .setTokenURI(parseInt(originalId), originalMetadataPath)
+                      .encodeABI();
+
+                    const setUriTx = {
+                      from: signer.address,   // contract owner is signer
+                      to: newcontractaddress,
+                      data: setUriData,
+                      gas: setUriGas,
+                      maxPriorityFeePerGas: maxPriorityFeePerGas,
+                      maxFeePerGas: maxFeePerGas
+                    };
+                    const signedSetUri = await web3.eth.accounts.signTransaction(setUriTx, SIGNER_PRIVATE_KEY);  // sign using signer's private key
+
+                    console.log("Sending setTokenURI transaction:", setUriTx);
+                    const sentSetUri = await web3.eth.sendSignedTransaction(signedSetUri.rawTransaction);
+
+                    // Poll for receipt (same pattern you already use)
+                    let receipt = null;
+                    let attempts = 0;
+                    while (!receipt && attempts < 30) {
+                      console.log("Checking receipt for split transaction... #", attempts);
+                      receipt = await web3.eth.getTransactionReceipt(sentSetUri.transactionHash);
+                      console.log("Checking receipt for setTokenURI transaction... #", attempts);
+                      if (!receipt) {
+                        await new Promise(r => setTimeout(r, 5000));
+                        attempts++;
+                      }
+                    }
+                    if (!receipt || !receipt.status) {
+                      throw new Error('setTokenURI transaction failed');
+                    }
+
+                    console.log(`ORIGINAL payable #${originalId} metadata/image updated successfully`);
+                  }, 5, 15000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('TIMEOUT'));
+
+                  const currentUri = await tokenisedPayableContract.methods.uri(1).call();
+                  console.log(`Current on-chain URI for NFT #1: ${currentUri}`);
+
+                  // Step 8: Transfer the split TP to contractor
+                  console.log("=== Step 8: Transfer the split TP to contractor ===");
+                  sendLog("Transferring the split Tokenised Payable to contractor ");
+                  await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
+                    let transferGas = await tokenisedPayableContract.methods.safeTransferFrom(anchor.address, con.walletaddress, newId, 1, '0x').estimateGas({ from: anchor.address, to: newcontractaddress });
+                    transferGas = Math.floor(transferGas * innerGasLimitMultiplier);
+
+                    let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
+                    let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
+                    let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
+                                  (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
+                    maxFeePerGas = maxFeePerGas.toString();
+                    let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
+
+                    const transferData = tokenisedPayableContract.methods.safeTransferFrom(
+                      anchor.address, 
+                      con.walletaddress, 
+                      newId, 
+                      1, 
+                      '0x'                                  
+                    ).encodeABI();
+
+                    const transferTx = {
+                      from: anchor.address,
+                      to: newcontractaddress,
+                      data: transferData,
+                      gas: transferGas,
+                      maxPriorityFeePerGas: maxPriorityFeePerGas,
+                      maxFeePerGas: maxFeePerGas
+                    };
+
+                    const signedTransfer = await web3.eth.accounts.signTransaction(transferTx, ANCHOR_PRIVATE_KEY);
+                    const sentTx = await web3.eth.sendSignedTransaction(signedTransfer.rawTransaction);
+
+                    // Wait for confirmation (simple polling for receipt)
+                    let transferReceipt = null;
+                    let attempts = 0;
+                    while (!transferReceipt && attempts < 30) {  // Max 30 attempts (~5 min at 10s blocks)
+                      transferReceipt = await web3.eth.getTransactionReceipt(sentTx.transactionHash);
+                      console.log("Checking receipt for transfer transaction... #", attempts);
+                      if (!transferReceipt) {
+                        await new Promise(resolve => setTimeout(resolve, 5000));  // Wait 5s
+                        attempts++;
+                      }
+                    }
+                    if (!transferReceipt || !transferReceipt.status) {
+                      throw new Error('Transfer transaction failed or not confirmed');
+                    }
+
+                    console.log("Funds split successfully. transferReceipt:", transferReceipt);
+
+                    console.log(`Transferred payable ID ${newId} (${contractorAmount} value) to contractor ${con.name}. Receipt:`, transferReceipt);
+                  }, 5, 15000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('TIMEOUT'));
                 }
+              }
+            } catch (err) {
+              console.error('Error in transferTPtoContractors:', err.message);
+              throw err;
+            }
           };  // transferTPtoContractors
           await transferTPtoContractors(wrapReceipt, tokenisedPayableContract, milestoneId, newId0);
 
         } catch (error) {
           console.error('Error in dAppCreate:', error);
-          if (!errorSent) {
-            res.status(500).send({ message: "Error during contract deployment: " + error.message });
-            errorSent = true;
-          }
+          sendError("Error during contract deployment: " + error.message);
+          //if (!errorSent) {
+          //  res.status(500).send({ message: "Error during contract deployment: " + error.message });
+          //  errorSent = true;
+          //}
           return false;
         }
         return updatestatus;
@@ -1588,7 +1704,7 @@ exports.approveDraftById = async (req, res) => {  //
         // Readng ABI from JSON file
         fs = require("fs");
         ABI = JSON.parse(fs.readFileSync(abiFile).toString());
-    
+/*    
         // Creation of Web3 class
         Web3 = require("web3");
     
@@ -1601,7 +1717,7 @@ exports.approveDraftById = async (req, res) => {  //
         web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://${ETHEREUM_NETWORK}.infura.io/ws/v3/${INFURA_API_KEY}`));
 
         //console.log("web3: =========>", web3);
-    
+*/    
         console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
         // Creating a signing account from a private key
         const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
@@ -1614,7 +1730,7 @@ exports.approveDraftById = async (req, res) => {  //
             const tokenisedPayableContract = new web3.eth.Contract(ABI);
     
             // https://github.com/web3/web3.js/issues/1001
-            web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+//            web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
             
             let setToTalSupply = (isNaN(+req.body.totalsupply)? req.body.totalsupply: req.body.totalsupply.toString())   
             + createStringWithZeros(adjustdecimals);  // pad zeros behind
@@ -1644,13 +1760,14 @@ exports.approveDraftById = async (req, res) => {  //
               function (error1, hash) {
                 if (error1) {
                     console.log("Error111 submitting your signed transaction:", error1);
-                    if (!errorSent) {
-                      console.log("Sending error 400 back to client");
-                      res.status(400).send({ 
-                        message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
-                      });
-                      errorSent = true;
-                    }
+                    sendError("Error when signing transaction. Please try again. Report to tech support if problem is recurring.");
+                    //if (!errorSent) {
+                    //  console.log("Sending error 400 back to client");
+                    //  res.status(400).send({ 
+                    //    message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
+                    //  });
+                    //  errorSent = true;
+                    //}
                     return false;
             } else {
                   console.log("Txn sent!, hash: ", hash);
@@ -1673,26 +1790,28 @@ exports.approveDraftById = async (req, res) => {  //
                       }
                       if (error3) {
                         console.log("!! getTransactionReceipt error (2): ", error3)
-                        if (!errorSent) {
-                          console.log("Sending error 400 back to client");
-                          res.status(400).send({ 
-                            message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
-                          });
-                          errorSent = true;
-                        }
+                        sendError("Error when signing transaction. Please try again. Report to tech support if problem is recurring.");
+                        //if (!errorSent) {
+                        //  console.log("Sending error 400 back to client");
+                        //  res.status(400).send({ 
+                        //    message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
+                        //  });
+                        //  errorSent = true;
+                        //}
                         clearInterval(interval);
                         return false;
                       }
                       if (timer > TIMEOUT) {
                         console.log("!! getTransactionReceipt error (2): timeout after "+TIMEOUT.toString()+" seconds");
                         clearInterval(interval);
-                        if (!errorSent) {
-                          console.log("Sending error 400 back to client");
-                          res.status(400).send({ 
-                            message: "Timeout after "+TIMEOUT.toString()+" seconds, please check the Dtscf tab after 5 minutes and try again if the Dtscf isnt created.",
-                          });
-                          errorSent = true;
-                        }
+                        sendError("Timeout after "+TIMEOUT.toString()+" seconds, please check the Dtscf tab after 5 minutes and try again if the Dtscf isnt created.");
+                        //if (!errorSent) {
+                        //  console.log("Sending error 400 back to client");
+                        //  res.status(400).send({ 
+                        //    message: "Timeout after "+TIMEOUT.toString()+" seconds, please check the Dtscf tab after 5 minutes and try again if the Dtscf isnt created.",
+                        //  });
+                        //  errorSent = true;
+                        //}
                         return false;
                       }
                     });
@@ -1702,13 +1821,14 @@ exports.approveDraftById = async (req, res) => {  //
               })
               .on("error", err => {
                   console.log("sentSignedTxn error2: ", err)
-                  if (!errorSent) {
-                    console.log("Sending error 400 back to client");
-                    res.status(400).send({ 
-                      message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
-                    });
-                    errorSent = true;
-                  }
+                  sendError("Error when signing transaction. Please try again. Report to tech support if problem is recurring.");
+                  //if (!errorSent) {
+                  //  console.log("Sending error 400 back to client");
+                  //  res.status(400).send({ 
+                  //    message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
+                  //  });
+                  //  errorSent = true;
+                  //}
                   return false;
             // do something on transaction error
               }); // sendSignedTransaction
@@ -1716,14 +1836,15 @@ exports.approveDraftById = async (req, res) => {  //
             console.log('**** Dtscf Txn executed:', createReceipt);
             return true;
           } catch(error) {
-            console.log('Error4 encountered -->: ',error)   
-            if (!errorSent) {
-              console.log("Sending error 400 back to client");
-              res.status(400).send({ 
-                message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
-              });
-              errorSent = true;
-            }
+            console.log('Error4 encountered -->: ',error);
+            sendError("Error when signing transaction. Please try again. Report to tech support if problem is recurring.");
+            //if (!errorSent) {
+            //  console.log("Sending error 400 back to client");
+            //  res.status(400).send({ 
+            //    message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
+            //  });
+            //  errorSent = true;
+            //}
             return false;
           } // try catch
         }; // UpdateContract()
@@ -1736,8 +1857,16 @@ exports.approveDraftById = async (req, res) => {  //
 
   if (isNewDtscf) {   // new dtscf
     updatestatus = await dAppCreate();
-  } else {                              // update dtscf
+    if (!updatestatus) {
+      console.error("Error in dAppCreate, sending error response to client.");
+      sendError("Error during contract deployment. Please try again. Report to tech support if problem is recurring.");
+    }
+  } else {            // update dtscf
     updatestatus = await dAppUpdate(); 
+    if (!updatestatus) {
+      console.error("Error in dAppUpdate, sending error response to client.");
+      sendError("Error during update. Please try again. Report to tech support if problem is recurring.");
+    }
   }
   console.log("approveDraftById Update status (1):", updatestatus);
 
@@ -1745,7 +1874,7 @@ exports.approveDraftById = async (req, res) => {  //
 
   console.log('New Dtscf Contract deployed updating DB: ', newcontractaddress);
 
-  if (updatestatus) {
+  if (updatestatus) { // updatestatus
   // update draft table
     console.log("Updating row in dtscf draft table with status=3 and newcontractaddress("+newcontractaddress+").");
     await Dtscf_Draft.update(  // update draft table status to "3"
@@ -1761,23 +1890,25 @@ exports.approveDraftById = async (req, res) => {  //
 
 
       } else {
-        if (!errorSent) {
-          res.send({
-            message: `${req.body}. Record updated =${num}. Cannot update Dtscf with id=${id}. Maybe Dtscf was not found or req.body is empty!`
-          });
-          errorSent = true;
-        }
+        sendError(`Record updated =${num}. Cannot update Dtscf draft with id=${id}. Maybe Dtscf was not found or req.body is empty!`);
+        //if (!errorSent) {
+        //  res.send({
+        //    message: `${req.body}. Record updated =${num}. Cannot update Dtscf with id=${id}. Maybe Dtscf was not found or req.body is empty!`
+        //  });
+        //  errorSent = true;
+        //}
       }
     })
     .catch(err => {
       console.log(err);
-      if (!errorSent) {
-        console.log("Sending error 400 back to client");
-        res.status(400).send({ 
-          message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
-        });
-        errorSent = true;
-      }
+      sendError('Error when signing transaction. Please try again. Report to tech support if problem is recurring.');
+      //if (!errorSent) {
+      //  console.log("Sending error 400 back to client");
+      //  res.status(400).send({ 
+      //    message: 'Error when signing transaction. Please try again. Report to tech support if problem is recurring.',
+      //  });
+      //  errorSent = true;
+      //}
       return false;
     });
 
@@ -1890,10 +2021,11 @@ exports.approveDraftById = async (req, res) => {  //
         await copyContractorsAndPurchases();
         console.log("Finished creating milestones, contractor and purchase.");
 
-        if (!errorSent) {
-          res.send({ id: approved_id, smartcontractaddress: newcontractaddress, message: "Tokenised Payable created successfully."});
-          errorSent = true;
-        }
+        sendSuccess("Tokenised Payable created successfully, and transferred to Anchor and Contractors.");
+        //if (!errorSent) {
+        //  res.send({ id: approved_id, smartcontractaddress: newcontractaddress, message: "Tokenised Payable created successfully."});
+        //  errorSent = true;
+        //}
         return true;
       } else { // not isNewDtscf
         await Dtscf.update( // update Dtscf in the database !!!!! 
@@ -1916,11 +2048,11 @@ exports.approveDraftById = async (req, res) => {  //
         )
         .then(data => {
           logDataValues("Dtscf update success: ", data);
-
-          if (!errorSent) {
-            res.send(data);
-            errorSent = true;
-          }
+          sendSuccess("Dtscf updated successfully. "+data.message);
+          //if (!errorSent) {
+          //  res.send(data);
+          //  errorSent = true;
+          //}
         })
         .catch(err => {
           console.log("Error while updating dtscf: "+err.message);
@@ -1928,14 +2060,15 @@ exports.approveDraftById = async (req, res) => {  //
         });
       }
     } catch(err) {
-      if (!errorSent) {
-        console.log("Sending error 400 back to client");
-        res.status(400).send({ message: "Error during contract deployment: " + err.message });
-        errorSent = true;
-      }
+      sendError("Error during contract deployment: " + err.message );
+      //if (!errorSent) {
+      //  console.log("Sending error 400 back to client");
+      //  res.status(400).send({ message: "Error during contract deployment: " + err.message });
+      //  errorSent = true;
+      //}
       return false;   
     }
-  } // updatestatus
+  }  
 }; // approveDraftById
 
 exports.triggerDtscfCouponPaymentById = async (req, res) => {
@@ -2051,7 +2184,7 @@ exports.triggerDtscfCouponPaymentById = async (req, res) => {
     //const web3 = new Web3(new Web3.providers.HttpProvider(
     //  `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
     //));
-    const web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://${ETHEREUM_NETWORK}.infura.io/ws/v3/${INFURA_API_KEY}`));
+    const web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
 
     console.log("Signer:", SIGNER_PRIVATE_KEY.substring(0,4) + "..." + SIGNER_PRIVATE_KEY.slice(-3));
     const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY);
@@ -2073,7 +2206,7 @@ exports.triggerDtscfCouponPaymentById = async (req, res) => {
         console.log('Attempting to pay coupon from account:', signer.address);
 
         // Estimate gas
-        let gasFees = 2100000; // Default gas limit
+        let gasFees = 4000000; // Default gas limit
         /*
         try {
           gasFees = await dtscfContract.methods.payCoupon(lowestUnpaidCouponIndex, holders, amountsHeld)
@@ -2373,7 +2506,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     //    `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
     //  ) 
     //);
-    web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://${ETHEREUM_NETWORK}.infura.io/ws/v3/${INFURA_API_KEY}`));
+    web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
 
     const _tokenAddress = data[0].smartcontractaddress;
 
@@ -2655,7 +2788,7 @@ exports.getAllDraftsByDtscfId = async (req, res) => {
   });
 
   draft.dataValues.dtscf_contractors_drafts = topLevel;
-
+  console.log("Draft with milestones, contractors and purchases: ", JSON.stringify(draft, null, 2));
   res.send(draft);
 }; // getAllDraftsByDtscfId
 
@@ -2770,7 +2903,7 @@ exports.getAllInvestorsById = (req, res) => {
     let couponStatuses = [];
     let lowestUnpaidCouponIndex = null;
 
-    const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 10000, shouldRetry = () => true) => {
+    const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 15000, shouldRetry = () => true) => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           return await fn();
@@ -2980,7 +3113,7 @@ exports.submitDraftById = async (req, res) => {
           maker             : req.body.maker,
           checker           : req.body.checker,
           approver          : req.body.approver,
-          checkerComments   : req.body.checkerComments || '',
+//          checkerComments   : req.body.checkerComments || '',
           approverComments  : req.body.approverComments || ''
         },
         { where: { id: draft_id } }
@@ -3031,7 +3164,7 @@ exports.submitDraftById = async (req, res) => {
         checker: req.body.checker,
         approver: req.body.approver,
         actionby: req.body.actionby,
-        checkerComments: req.body.checkerComments,
+//        checkerComments: req.body.checkerComments,
         approverComments: req.body.approverComments,
         status: 1,   // pending checker
       })
@@ -3063,48 +3196,117 @@ exports.submitDraftById = async (req, res) => {
     'Transfer-Encoding': 'chunked'
   });
 
-  const log = message => {
+  const sendLog = message => {
     console.log(message);  // Server-side log for debugging
     res.write(`LOG: ${message}\n`);
   };
 
-  const success = message => {
+  const sendSuccess = message => {
     console.log(message);  // Server-side log for debugging
     res.write(`SUCCESS: ${message}\n`);
     res.end();
   };
 
-  const error = message => {
-    console.log(message);  // Server-side log for debugging
+  const sendError = message => {
+    console.error(message);  // Server-side log for debugging
     res.write(`ERROR: ${message}\n`);
     res.end();
   };
-
   
   try {
     const draft_id = req.params.id;
     console.log(`Received submitDraftById for id=${draft_id}`);
+    console.log("Content-Type:", req.headers['content-type']);
+    console.log("Content-Length:", req.headers['content-length']);
     console.log(`Request headers: ${JSON.stringify(req.headers)}`);  // Debug: Log headers to check Content-Type
     console.log(`Raw body (before parsing): ${req.rawBody || 'No raw body'}`);  // Debug: If you add req.rawBody via middleware (optional)
     console.log(`Parsed req.body: ${JSON.stringify(req.body)}`);  // Debug: What was parsed
     console.log("id=", draft_id);
     console.log(req.body);
-    console.log(req.body.approver);
 
-    console.log("Content-Type:", req.headers['content-type']);
-    console.log("Content-Length:", req.headers['content-length']);
-    console.log("Headers:", JSON.stringify(req.headers));
+    sendLog("Updating draft...");
 
-    log("Updating draft...");
+    const parsedBody = buildNestedObject(req.body);
+    console.log('LOG: Parsed form data successfully.\n');
+
+    const {
+      name, description, totalBudget, anchor_id, underlyingTokenID,
+      underlyingDSGDsmartcontractaddress, blockchain, campaign_id,
+      startdate, enddate, milestones = [], contractors = [],
+      maker, approver, approverComments, actionby, approveddtscfid, txntype
+    } = parsedBody;
+
+    if (!name || !totalBudget || !startdate || !enddate) {
+      throw new Error('Missing required fields');
+    }
 
     const [num] = await Dtscf_Draft.update(
       {
-        status: 1,
-        checker: req.body.checker,
-        approver: req.body.approver,
+        status: 2, // pending approver
+
+        name,
+        description,
+        anchor_id,
+        totalBudget,
+        underlyingTokenID,
+        underlyingDSGDsmartcontractaddress,
+        campaign_id,
+        blockchain,
+        startdate,
+        enddate,
+        txntype,
+        maker,
+        approver,
+//        checkerComments,
+        approverComments
       },
       { where: { id: draft_id } }
     );
+
+    for (const [index, ms] of milestones.entries()) {
+      await Milestone.update({
+        dtscf_project_id: draft_id,
+        name: ms.name,
+        budget: parseInt(ms.budget) || 0,
+        startdate: ms.startdate,
+        enddate: ms.enddate,
+        description: ms.description || '',
+        name_changed: false,
+        budget_changed: false,
+        startdate_changed: false,
+        enddate_changed: false
+      }, { where: { id: ms.id } });
+      console.log(`LOG: Updated milestone ${index + 1}/${milestones.length}.\n`);
+    }
+
+    for (const [index, con] of contractors.entries()) {
+      const newContractor = await Contractor.update({
+        dtscf_project_id: draft_id,
+        name: con.name,
+        budget: parseInt(con.budget) || 0,
+        walletaddress: con.walletaddress || '',
+        name_changed: false,
+        budget_changed: false,
+        walletaddress_changed: false,
+        dtscf_project_id_changed: false,
+        dtscf_parent_contractor_id_changed: false
+      }, { where: { id: con.id } });
+      console.log(`LOG: Updated contractor ${index + 1}/${contractors.length}.\n`);
+
+      for (const [purIndex, pur] of (con.purchases || []).entries()) {
+        await Purchase.update({
+          dtscf_project_id: draft_id,
+          dtscf_contractor_id: newContractor.id,
+          description: pur.description,
+          amount: parseInt(pur.amount) || 0,
+          description_changed: false,
+          amount_changed: false,
+          dtscf_project_id_changed: false,
+          dtscf_contractor_id_changed: false
+        }, { where: { id: pur.id } });
+        console.log(`LOG: Updated purchase ${purIndex + 1} for contractor ${index + 1}.\n`);
+      }
+    }
 
     console.log(`Update completed. Rows affected: ${num}`);
 
@@ -3127,7 +3329,7 @@ exports.submitDraftById = async (req, res) => {
             checker: req.body.checker,
             approver: req.body.approver,
             actionby: req.body.actionby,
-            checkerComments: req.body.checkerComments,
+//            checkerComments: req.body.checkerComments,
             approverComments: req.body.approverComments,
             status: 1,
           }
@@ -3138,16 +3340,16 @@ exports.submitDraftById = async (req, res) => {
         throw auditErr;
       }
 
-      success(`SUCCESS: Draft was submitted successfully.\n`);
+      sendSuccess(`SUCCESS: Draft was submitted successfully.\n`);
     } else {
       throw new Error(`Cannot submit Dtscf with id=${draft_id}. Maybe Dtscf was not found or req.body is empty!`);
     }
     res.end();
   } catch (err) {
-    error(`ERROR: ${err.message}\n`);
+    sendError(err.message);
   } finally {
   }
-};
+};  // submitDraftById for updating drafts
 
 exports.acceptDraftById = async (req, res) => {
   const id = req.params.id;
@@ -3160,7 +3362,7 @@ exports.acceptDraftById = async (req, res) => {
   await Dtscf_Draft.update(
   { 
     status :          2,
-    checkerComments: req.body.checkerComments,
+//    checkerComments: req.body.checkerComments,
     approverComments: req.body.approverComments,
   }, 
   { where:      { id: draft_id }},
@@ -3178,7 +3380,7 @@ exports.acceptDraftById = async (req, res) => {
           underlyingTokenID     : req.body.underlyingTokenID || null,
           underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
           campaign_id           : req.body.campaign_id || null,
-          anchor_id          : req.body.anchor_id || null,
+          anchor_id             : req.body.anchor_id || null,
 
           startdate             : req.body.startdate, 
           enddate               : req.body.enddate,
@@ -3187,7 +3389,7 @@ exports.acceptDraftById = async (req, res) => {
           checker               : req.body.checker,
           approver              : req.body.approver,
           actionby              : req.body.actionby,
-          checkerComments       : req.body.checkerComments,
+//          checkerComments       : req.body.checkerComments,
           approverComments      : req.body.approverComments,
           status                : 2,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
         }, 
@@ -3229,7 +3431,7 @@ exports.rejectDraftById = async (req, res) => {
   await Dtscf_Draft.update(
   { 
     status :          -1,
-    checkerComments: req.body.checkerComments,
+//    checkerComments: req.body.checkerComments,
     approverComments: req.body.approverComments,
   }, 
   { where:      { id: draft_id }},
@@ -3253,7 +3455,7 @@ exports.rejectDraftById = async (req, res) => {
           checker               : req.body.checker,
           approver              : req.body.approver,
           actionby              : req.body.actionby,
-          checkerComments       : req.body.checkerComments,
+//         checkerComments       : req.body.checkerComments,
           approverComments      : req.body.approverComments,
           status                : -1,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
         }, 
@@ -3360,7 +3562,7 @@ exports.update = async (req, res) => {
     //    `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
     //  ) 
     //);
-    web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://${ETHEREUM_NETWORK}.infura.io/ws/v3/${INFURA_API_KEY}`));
+    web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
 
     //console.log("web3: =========>", web3);
 
@@ -3432,14 +3634,14 @@ exports.update = async (req, res) => {
                     return(receipt.status);
                   }
                   if (error3) {
-                    console.log("!! getTransactionReceipt error(6): ", error3)
+                    console.error("!! getTransactionReceipt error(6): ", error3)
                     clearInterval(interval);
                     return false;
                   }
                   if (timer > TIMEOUT) {
-                    console.log("!! getTransactionReceipt error (6): timeout after "+TIMEOUT.toString()+" seconds");
+                    console.error("!! getTransactionReceipt error (6): timeout after "+TIMEOUT.toString()+" seconds");
                     clearInterval(interval);                      
-                    console.log("Sending 22222 error 400 back to client");
+                    console.error("Sending 22222 error 400 back to client");
                     if (!errorSent) {
                       res.status(400).send({ 
                         message: "Timeout after "+TIMEOUT.toString()+" seconds, please check the Dtscf tab after 5 minutes and try again if the Dtscf is not created.",
@@ -3519,7 +3721,7 @@ exports.update = async (req, res) => {
               checker               : req.body.checker,
               approver              : req.body.approver,
               actionby              : req.body.actionby,
-              checkerComments       : req.body.checkerComments,
+//              checkerComments       : req.body.checkerComments,
               approverComments      : req.body.approverComments,
               status                : 3,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
             }, 
@@ -3606,7 +3808,7 @@ exports.approveDeleteDraftById = async (req, res) => {
           checker               : req.body.checker,
           approver              : req.body.approver,
           actionby              : req.body.actionby,
-          checkerComments       : req.body.checkerComments,
+//          checkerComments       : req.body.checkerComments,
           approverComments      : req.body.approverComments,
           status                : 3,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
         }, 
@@ -3708,7 +3910,7 @@ exports.dropRequestById = async (req, res) => {
           checker               : req.body.checker,
           approver              : req.body.approver,
           actionby              : req.body.actionby,
-          checkerComments       : req.body.checkerComments,
+//          checkerComments       : req.body.checkerComments,
           approverComments      : req.body.approverComments,
           status                : 9,   // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
         }, 

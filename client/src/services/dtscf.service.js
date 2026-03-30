@@ -113,130 +113,130 @@ class DtscfDataService {
     });
   }
 */
-draftCreate(data, onLog = () => {}) {
-  const baseURL = http.defaults.baseURL;
-  return new Promise((resolve, reject) => {
-    const hasFiles = data.contractors && data.contractors.some(con => 
-      con.purchases && con.purchases.some(pur => 
-        pur.invoices && pur.invoices.length > 0 && pur.invoices.some(file => file instanceof File)
-      )
-    );
-    let body;
-    let headers = {};
-    if (hasFiles) {
-      const formData = new FormData();
-      formData.append('name', data.name || '');
-      formData.append('description', data.description || '');
-      formData.append('totalBudget', data.totalBudget || 0);
-      formData.append('anchor_id', data.anchor_id || 0);
-      formData.append('underlyingTokenID', data.underlyingTokenID || 0);
-      formData.append('underlyingDSGDsmartcontractaddress', data.underlyingDSGDsmartcontractaddress || '');
-      formData.append('blockchain', data.blockchain || 0);
-      formData.append('campaign_id', data.campaign_id || 0);
-      formData.append('startdate', data.startdate || '');
-      formData.append('enddate', data.enddate || '');
+  draftCreate(data, onLog = () => {}) {
+    const baseURL = http.defaults.baseURL;
+    return new Promise((resolve, reject) => {
+      const hasFiles = data.contractors && data.contractors.some(con => 
+        con.purchases && con.purchases.some(pur => 
+          pur.invoices && pur.invoices.length > 0 && pur.invoices.some(file => file instanceof File)
+        )
+      );
+      let body;
+      let headers = {};
+      if (hasFiles) {
+        const formData = new FormData();
+        formData.append('name', data.name || '');
+        formData.append('description', data.description || '');
+        formData.append('totalBudget', data.totalBudget || 0);
+        formData.append('anchor_id', data.anchor_id || 0);
+        formData.append('underlyingTokenID', data.underlyingTokenID || 0);
+        formData.append('underlyingDSGDsmartcontractaddress', data.underlyingDSGDsmartcontractaddress || '');
+        formData.append('blockchain', data.blockchain || 0);
+        formData.append('campaign_id', data.campaign_id || 0);
+        formData.append('startdate', data.startdate || '');
+        formData.append('enddate', data.enddate || '');
 
-      (data.milestones || []).forEach((ms, msIndex) => {
-        if (ms.id) formData.append(`milestones[${msIndex}][id]`, ms.id);
-        formData.append(`milestones[${msIndex}][name]`, ms.name || '');
-        formData.append(`milestones[${msIndex}][budget]`, ms.budget || 0);
-        formData.append(`milestones[${msIndex}][startdate]`, ms.startdate || '');
-        formData.append(`milestones[${msIndex}][enddate]`, ms.enddate || '');
-      });
+        (data.milestones || []).forEach((ms, msIndex) => {
+          if (ms.id) formData.append(`milestones[${msIndex}][id]`, ms.id);
+          formData.append(`milestones[${msIndex}][name]`, ms.name || '');
+          formData.append(`milestones[${msIndex}][budget]`, ms.budget || 0);
+          formData.append(`milestones[${msIndex}][startdate]`, ms.startdate || '');
+          formData.append(`milestones[${msIndex}][enddate]`, ms.enddate || '');
+        });
 
-      (data.contractors || []).forEach((con, conIndex) => {
-        if (con.id) formData.append(`contractors[${conIndex}][id]`, con.id);
-        formData.append(`contractors[${conIndex}][name]`, con.name || '');
-        formData.append(`contractors[${conIndex}][budget]`, con.budget || 0);
-        formData.append(`contractors[${conIndex}][walletaddress]`, con.walletaddress || '');
+        (data.contractors || []).forEach((con, conIndex) => {
+          if (con.id) formData.append(`contractors[${conIndex}][id]`, con.id);
+          formData.append(`contractors[${conIndex}][name]`, con.name || '');
+          formData.append(`contractors[${conIndex}][budget]`, con.budget || 0);
+          formData.append(`contractors[${conIndex}][walletaddress]`, con.walletaddress || '');
 
-        (con.purchases || []).forEach((pur, purIndex) => {
-          if (pur.id) formData.append(`contractors[${conIndex}][purchases][${purIndex}][id]`, pur.id);
-          formData.append(`contractors[${conIndex}][purchases][${purIndex}][description]`, pur.description || '');
-          formData.append(`contractors[${conIndex}][purchases][${purIndex}][amount]`, pur.amount || 0);
+          (con.purchases || []).forEach((pur, purIndex) => {
+            if (pur.id) formData.append(`contractors[${conIndex}][purchases][${purIndex}][id]`, pur.id);
+            formData.append(`contractors[${conIndex}][purchases][${purIndex}][description]`, pur.description || '');
+            formData.append(`contractors[${conIndex}][purchases][${purIndex}][amount]`, pur.amount || 0);
 
-          (pur.invoices || []).forEach((file) => {
-            if (file instanceof File) {
-              formData.append(`contractors[${conIndex}][purchases][${purIndex}][invoices]`, file);
-            }
+            (pur.invoices || []).forEach((file) => {
+              if (file instanceof File) {
+                formData.append(`contractors[${conIndex}][purchases][${purIndex}][invoices]`, file);
+              }
+            });
           });
         });
-      });
-      body = formData;
-    } else {
-      body = JSON.stringify(data);
-      headers = { 'Content-Type': 'application/json' };
-    }
-
-    const url = `${baseURL}/dtscf/draftcreate`;
-    console.log(`[CLIENT] Sending draftCreate request to ${url} | hasFiles: ${hasFiles} | headers:`, headers);
-
-    fetch(url, {
-      method: 'POST',
-      headers: headers,
-      body: body
-    })
-    .then(response => {
-      console.log('[CLIENT] Received response status:', response.status, '| Headers:', response.headers);
-      if (!response.ok) {
-        reject(new Error(`HTTP error! status: ${response.status}`));
-        return;
+        body = formData;
+      } else {
+        body = JSON.stringify(data);
+        headers = { 'Content-Type': 'application/json' };
       }
-      const reader = response.body.getReader();
-      let buffer = '';
-      const processStream = ({ done, value }) => {
-        console.log('[CLIENT STREAM] Read event | done:', done, '| value length:', value ? value.length : 'none'); // NEW: Log each read
-        if (done) {
-          const lines = (buffer ? [buffer] : []);
+
+      const url = `${baseURL}/dtscf/draftcreate`;
+      console.log(`[CLIENT] Sending draftCreate request to ${url} | hasFiles: ${hasFiles} | headers:`, headers);
+
+      fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: body
+      })
+      .then(response => {
+        console.log('[CLIENT] Received response status:', response.status, '| Headers:', response.headers);
+        if (!response.ok) {
+          reject(new Error(`HTTP error! status: ${response.status}`));
+          return;
+        }
+        const reader = response.body.getReader();
+        let buffer = '';
+        const processStream = ({ done, value }) => {
+          console.log('[CLIENT STREAM] Read event | done:', done, '| value length:', value ? value.length : 'none'); // NEW: Log each read
+          if (done) {
+            const lines = (buffer ? [buffer] : []);
+            lines.forEach(line => {
+              if (line) {
+                console.log('[CLIENT STREAM DONE] Processing line:', line); // NEW: Log remaining lines
+                if (line.startsWith('LOG: ')) {
+                  onLog(line.substring(5));
+                } else if (line.startsWith('SUCCESS: ')) {
+                  resolve({ message: line.substring(9) });
+                  return;
+                } else if (line.startsWith('ERROR: ')) {
+                  reject(new Error(line.substring(7)));
+                  return;
+                }
+              }
+            });
+            if (!resolve) { // Avoid double resolve
+              resolve({ message: 'Operation completed successfully.' });
+            }
+            console.log('[CLIENT STREAM] Stream ended and resolved.'); // NEW: Confirm end
+            return;
+          }
+          buffer += new TextDecoder().decode(value);
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
           lines.forEach(line => {
             if (line) {
-              console.log('[CLIENT STREAM DONE] Processing line:', line); // NEW: Log remaining lines
+              console.log('[CLIENT STREAM] Processing line:', line); // NEW: Log each complete line
               if (line.startsWith('LOG: ')) {
                 onLog(line.substring(5));
               } else if (line.startsWith('SUCCESS: ')) {
                 resolve({ message: line.substring(9) });
+                console.log('[CLIENT STREAM] Resolved on SUCCESS.'); // NEW
                 return;
               } else if (line.startsWith('ERROR: ')) {
                 reject(new Error(line.substring(7)));
+                console.log('[CLIENT STREAM] Rejected on ERROR.'); // NEW
                 return;
               }
             }
           });
-          if (!resolve) { // Avoid double resolve
-            resolve({ message: 'Operation completed successfully.' });
-          }
-          console.log('[CLIENT STREAM] Stream ended and resolved.'); // NEW: Confirm end
-          return;
-        }
-        buffer += new TextDecoder().decode(value);
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        lines.forEach(line => {
-          if (line) {
-            console.log('[CLIENT STREAM] Processing line:', line); // NEW: Log each complete line
-            if (line.startsWith('LOG: ')) {
-              onLog(line.substring(5));
-            } else if (line.startsWith('SUCCESS: ')) {
-              resolve({ message: line.substring(9) });
-              console.log('[CLIENT STREAM] Resolved on SUCCESS.'); // NEW
-              return;
-            } else if (line.startsWith('ERROR: ')) {
-              reject(new Error(line.substring(7)));
-              console.log('[CLIENT STREAM] Rejected on ERROR.'); // NEW
-              return;
-            }
-          }
-        });
+          reader.read().then(processStream).catch(reject);
+        };
         reader.read().then(processStream).catch(reject);
-      };
-      reader.read().then(processStream).catch(reject);
-    })
-    .catch(err => {
-      console.error('[CLIENT] Fetch error:', err);
-      reject(err);
+      })
+      .catch(err => {
+        console.error('[CLIENT] Fetch error:', err);
+        reject(err);
+      });
     });
-  });
-}
+  }
 
   update(id, data, onLog = () => {}) {
     const baseURL = http.defaults.baseURL;
@@ -349,6 +349,7 @@ draftCreate(data, onLog = () => {}) {
   }
 
   submitDraftById(id, data, onLog = () => {}) {
+    console.log(`Calling /dtscf/submitdraftbyid?${id}`);
     const baseURL = http.defaults.baseURL;
     return new Promise((resolve, reject) => {
       fetch(`${baseURL}/dtscf/submitdraftbyid/${id}`, {
@@ -410,9 +411,65 @@ draftCreate(data, onLog = () => {}) {
     console.log("Calling /dtscf/acceptdraftbyid?id");
     return http.put(`/dtscf/acceptdraftbyid/${id}`, data);
   }
-  approveDraftById(id, data) {
-    console.log("Calling /dtscf/approvedraftbyid?id");
-    return http.put(`/dtscf/approvedraftbyid/${id}`, data);
+
+  approveDraftById(id, data, onLog = () => {}) {
+    console.log(`Calling /dtscf/approvedraftbyid?${id}`);
+
+    const baseURL = http.defaults.baseURL;
+    return new Promise((resolve, reject) => {
+      fetch(`${baseURL}/dtscf/approvedraftbyid/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => {
+        if (!response.ok) {
+          reject(new Error(`HTTP error! status: ${response.status}`));
+          return;
+        }
+        const reader = response.body.getReader();
+        let buffer = '';
+        const processStream = ({ done, value }) => {
+          if (done) {
+            const lines = (buffer ? [buffer] : []); // Treat remaining buffer as a line if present
+            lines.forEach(line => {
+              if (line) {
+                if (line.startsWith('LOG: ')) {
+                  onLog(line.substring(5));
+                } else if (line.startsWith('SUCCESS:')) {
+                  resolve({ message: line.substring(9) });
+                  return; // Prevent double resolve
+                } else if (line.startsWith('ERROR:')) {
+                  reject(new Error(line.substring(7)));
+                  return;
+                }
+              }
+            });
+            resolve({ message: 'Operation completed successfully.' });
+            return;
+          }
+          buffer += new TextDecoder().decode(value);
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          lines.forEach(line => {
+            if (line) {
+              if (line.startsWith('LOG: ')) {
+                onLog(line.substring(5));
+              } else if (line.startsWith('SUCCESS: ')) {
+                resolve({ message: line.substring(9) });
+              } else if (line.startsWith('ERROR: ')) {
+                reject(new Error(line.substring(7)));
+              }
+            }
+          });
+          reader.read().then(processStream).catch(reject);
+        };
+        reader.read().then(processStream).catch(reject);
+      })
+      .catch(reject);
+    });
   }
   triggerDtscfCouponPaymentById(id, data) {
     console.log("Calling /dtscf/triggerDtscfCouponPaymentById?id");

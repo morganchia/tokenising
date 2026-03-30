@@ -13,6 +13,28 @@ import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
 import moment from 'moment';
 //import { recipients } from "../../../server/app/models/index.js";
+// Requires js-sha3 library: npm install js-sha3
+import { keccak256 } from 'js-sha3';
+
+function isChecksumAddress(address) {
+  address = address.replace('0x', '');
+  const addressHash = keccak256(address.toLowerCase());
+  
+  for (let i = 0; i < 40; i++) {
+    // Check if the nth letter should be uppercase
+    if ((parseInt(addressHash[i], 16) > 7 && address[i].toUpperCase() !== address[i]) ||
+        (parseInt(addressHash[i], 16) <= 7 && address[i].toLowerCase() !== address[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isValidAddress(address) {
+  if (!/^(0x)?[0-9a-f]{40}$/i.test(address)) return false;
+  if (/^(0x)?[0-9a-f]{40}$/.test(address) || /^(0x)?[0-9A-F]{40}$/.test(address)) return true;
+  return isChecksumAddress(address);
+}
 
 function getToday() {
   const today = new Date();
@@ -151,13 +173,15 @@ class DTSCFProjectCreation extends Component {
       this.setState({ isApprover: (isapprover === undefined? false: true),});
 
       this.getAllUnderlyingAssets();
-      this.getProject(user, this.props.router.params.id);
+      this.getProject(user, typeof this.props.router.params.id === "string" ? parseInt(this.props.router.params.id) : this.props.router.params.id);
       this.retrieveAllMakersCheckersApprovers();
     }
   }
 
   async getProject(user, id) {
-    console.log("+++ id:", id);
+    console.log("+++ id:'"+id+"' +++");
+    console.log("typeof id:'"+typeof id+"' +++");
+
     this.setState({ isLoading: true });
     if (id !== undefined && id !== 0) {
       console.log("Calling getAllDraftsByDtscfId... ");
@@ -193,6 +217,7 @@ class DTSCFProjectCreation extends Component {
               approverComments: data.approverComments,
               milestones: (data.dtscf_milestones_drafts || []).map(ms => ({
                 ...ms,
+                id: ms.id,
                 description: ms.description || "",
                 budget: ms.budget || 0,
                 startdate: moment(ms.startdate).format('YYYY-MM-DD'),
@@ -200,11 +225,13 @@ class DTSCFProjectCreation extends Component {
               })),
               contractors: (data.dtscf_contractors_drafts || []).map(con => ({
                 ...con,
+                id: con.id,
                 name: con.name || "",
                 budget: con.budget || 0,
                 walletaddress: con.walletaddress || "",
                 purchases: (con.dtscf_purchases_drafts || []).map(pur => ({
                   ...pur,
+                  id: pur.id,
                   description: pur.description || "",
                   amount: pur.amount || 0,
                   invoices: [] // Initialize as empty array for new uploads
@@ -543,17 +570,34 @@ class DTSCFProjectCreation extends Component {
       err += "- Name cannot be empty\n";
     } 
 
-    if (!(typeof this.state.currentProject.contractors[0].name ==='string' || this.state.currentProject.contractors[0].name instanceof String) || (this.state.currentProject.contractors[0].name.trim() === "" || this.state.currentProject.contractors[0].name === null || this.state.currentProject.contractors[0].name === undefined)) {
-      err += "- Contractor's Name cannot be empty\n"; 
-    } 
+    this.state.currentProject.contractors.forEach(con => {
+      if (!(typeof con.name ==='string' || con.name instanceof String) || (con.name.trim() === "" || con.name === null || con.name === undefined)) {
+        err += "- Contractor's Name cannot be empty\n"; 
+      } 
 
-    if (!(typeof this.state.currentProject.contractors[0].walletaddress ==='string' || this.state.currentProject.contractors[0].walletaddress instanceof String) || (this.state.currentProject.contractors[0].walletaddress.trim() === "" || this.state.currentProject.contractors[0].walletaddress === null || this.state.currentProject.contractors[0].walletaddress === undefined)) {
-      err += "- Contractor's Wallet Address cannot be empty\n"; 
-    } 
+      if (!(typeof con.walletaddress ==='string' || con.walletaddress instanceof String) || (con.walletaddress.trim() === "" || con.walletaddress === null || con.walletaddress === undefined)) {
+        err += "- Contractor's Wallet Address cannot be empty\n"; 
+      } else if (!isValidAddress(con.walletaddress)) {
+        err += `- Contractor ${con.name}'s Wallet Address is invalid\n`;
+      }
+    });
+
+    this.state.currentProject.milestones.forEach(ms => {
+      if (! validator.isDate(ms.startdate)) err += "- Milestone '" + ms.name + "' Start Date is invalid\n";
+      if (! validator.isDate(ms.enddate)) err += "- Milestone '" + ms.name + "' End Date is invalid\n";
+      if (validator.isDate(ms.startdate) && validator.isDate(ms.enddate)) {
+        if (moment(ms.startdate).isAfter(moment(ms.enddate))) err += "- Milestone '" + ms.name + "' Start date cannot be later than End date\n";
+        if (! moment(ms.enddate).isAfter(moment(ms.startdate))) err += "- Milestone '" + ms.name + "' End date must be after Start date\n";
+      }
+    });
 
       // dont need t check description, it can be empty
     if (! validator.isDate(this.state.currentProject.startdate)) err += "- Start Date is invalid\n";
     if (! validator.isDate(this.state.currentProject.enddate)) err += "- End Date is invalid\n";
+    if (validator.isDate(this.state.currentProject.startdate) && validator.isDate(this.state.currentProject.enddate)) {
+      if (moment(this.state.currentProject.startdate).isAfter(moment(this.state.currentProject.enddate))) err += "- Project Start date cannot be later than End date\n";
+      if (! moment(this.state.currentProject.enddate).isAfter(moment(this.state.currentProject.startdate))) err += "- Project End date must be after Start date\n";
+    }
     if (this.state.currentProject.underlyingTokenID === 0 || this.state.currentProject.underlyingTokenID === "" || this.state.currentProject.underlyingTokenID === null || this.state.currentProject.underlyingTokenID === undefined) err += "- Underlying Digital Money cannot be empty\n";
     if (this.state.currentProject.totalBudget === "" || this.state.currentProject.totalBudget === null || this.state.currentProject.totalBudget === undefined) 
     {
@@ -697,6 +741,7 @@ class DTSCFProjectCreation extends Component {
         //this.setState({ logs: [...this.state.logs, log1] });
       });
     }
+    this.hide_loading();
 
   }
 /*
@@ -904,7 +949,7 @@ class DTSCFProjectCreation extends Component {
   */
   
   async submitDtscf() {
-    this.setState({
+    this.setState({ // show loading modal with logs
       isLoading: true,
       logs: [] ,
       message: "",
@@ -919,50 +964,50 @@ class DTSCFProjectCreation extends Component {
 
     if (await this.validateForm() === true) {   
       const submitData = {
-          name: this.state.currentProject.name,
-          description: this.state.currentProject.description,
-          totalBudget: this.state.currentProject.totalBudget,
-          underlyingDSGDsmartcontractaddress: this.state.currentProject.underlyingDSGDsmartcontractaddress,
-          underlyingTokenID: this.state.currentProject.underlyingTokenID,
-          campaign_id: this.state.currentProject.campaign_id,
-          blockchain: this.state.currentProject.blockchain,
-          startdate: this.state.currentProject.startdate,
-          enddate: this.state.currentProject.enddate,
-          txntype: this.state.currentProject.txntype || 0,  // Fallback only if truly missing, but ensure set
-          anchor_id: this.state.currentProject.anchor_id,  // From state, even if undefined
-          maker: this.state.currentProject.maker || this.state.currentUser.id,
-          approver: this.state.currentProject.approver,
-          actionby: this.state.currentUser.username,  // Use username for consistency
-          approveddtscfid: this.state.currentProject.approveddtscfid || -1,
-          milestones: this.state.currentProject.milestones.map(ms => ({
-            id: ms.id,
-            name: ms.name,
-            budget: ms.budget,
-            startdate: ms.startdate,
-            enddate: ms.enddate,
-            description: ms.description || ''  // Include if needed
+        name: this.state.currentProject.name,
+        description: this.state.currentProject.description,
+        totalBudget: this.state.currentProject.totalBudget,
+        underlyingDSGDsmartcontractaddress: this.state.currentProject.underlyingDSGDsmartcontractaddress,
+        underlyingTokenID: this.state.currentProject.underlyingTokenID,
+        campaign_id: this.state.currentProject.campaign_id,
+        blockchain: this.state.currentProject.blockchain,
+        startdate: this.state.currentProject.startdate,
+        enddate: this.state.currentProject.enddate,
+        txntype: this.state.currentProject.txntype || 0,  // Fallback only if truly missing, but ensure set
+        anchor_id: this.state.currentProject.anchor_id,  // From state, even if undefined
+        maker: this.state.currentProject.maker || this.state.currentUser.id,
+        approver: this.state.currentProject.approver,
+        actionby: this.state.currentUser.username,  // Use username for consistency
+        approveddtscfid: this.state.currentProject.approveddtscfid || -1,
+        milestones: this.state.currentProject.milestones.map(ms => ({
+          id: ms.id,
+          name: ms.name,
+          budget: ms.budget,
+          startdate: ms.startdate,
+          enddate: ms.enddate,
+          description: ms.description || ''  // Include if needed
+        })),
+        contractors: this.state.currentProject.contractors.map(con => ({
+          id: con.id,
+          name: con.name,
+          budget: con.budget,
+          walletaddress: con.walletaddress,
+          purchases: con.purchases.map(pur => ({
+            id: pur.id,
+            description: pur.description,
+            amount: pur.amount
+            // invoices: pur.invoices  // Omit files since no upload in submit; already handled in create/update
           })),
-          contractors: this.state.currentProject.contractors.map(con => ({
-            id: con.id,
-            name: con.name,
-            budget: con.budget,
-            walletaddress: con.walletaddress,
-            purchases: con.purchases.map(pur => ({
-              id: pur.id,
-              description: pur.description,
-              amount: pur.amount
-              // invoices: pur.invoices  // Omit files since no upload in submit; already handled in create/update
-            })),
-            subcontractors: con.subcontractors || []  // If applicable
-          }))
-        };
+          subcontractors: con.subcontractors || []  // If applicable
+        }))
+      };
 
-        console.log('Full submitData being sent:', JSON.stringify(submitData));  // This should now show all data
+      console.log('Full submitData being sent:', JSON.stringify(submitData));  // This should now show all data
 
-        this.setState({ isLoading: true });
+      this.setState({ isLoading: true });
 
-        DtscfDataService.submitDraftById(this.state.currentProject.id, submitData, (log1) => {
-            this.setState(prevState => ({
+      DtscfDataService.submitDraftById(this.state.currentProject.id, submitData, (log1) => {
+        this.setState(prevState => ({
           modalmsg: prevState.modalmsg + log1 + "\n"
         }));
         //this.setState({ logs: [...this.state.logs, log1] });
@@ -998,6 +1043,7 @@ class DTSCFProjectCreation extends Component {
         //this.setState({ logs: [...this.state.logs, log1] });
       });
     }
+    this.setState({ isLoading: false });
   } // submitDtscf()
 
   async acceptDtscf() {
@@ -1046,6 +1092,7 @@ class DTSCFProjectCreation extends Component {
     this.hide_loading();
   } //  acceptDtscf()
 
+/*
   async approveDtscf() {
   
     //    if (await this.validateForm()) { 
@@ -1099,6 +1146,66 @@ class DTSCFProjectCreation extends Component {
     });
 //    }
     this.hide_loading();
+  } // approveDtscf()
+*/
+
+  async approveDtscf() {
+    this.setState({ // show loading modal with logs
+      isLoading: true,
+      logs: [] ,
+      message: "",
+      showm: true,
+      modalmsg: "Processing...\n",
+      button1text: null,
+      button2text: null,
+      button3text: null,
+      button0text: null,
+      afterModalClose: null,
+    });
+    
+    console.log("IsLoad=true");
+    this.show_loading();
+
+    console.log("Approving Dtscf ID:", this.state.currentProject.id);
+    console.log("Approving Dtscf:", this.state.currentProject);
+
+    await DtscfDataService.approveDraftById(this.state.currentProject.id, this.state.currentProject, (log1) => {
+      this.setState(prevState => ({
+        modalmsg: prevState.modalmsg + log1 + "\n"
+      }));
+      //this.setState({ logs: [...this.state.logs, log1] });
+    })
+    .then(response => {
+      this.setState(prevState => ({
+        modalmsg: prevState.modalmsg + response.message + "\n",
+        button0text: "Close",
+        isLoading: false,
+        afterModalClose: () => this.props.router.navigate("/dtscf")
+      }));
+      //this.setState({ logs: [...this.state.logs, log1] });
+
+      this.setState({
+/*          currentProject: {
+          ...this.state.currentProject,
+          id: response.data.id || response.message?.match(/id=(\d+)/)?.[1] || this.state.currentProject.id,  // Parse id if in message
+          maker: this.state.currentUser.id,
+          txntype: 0  // For new creation requests
+        },
+*/
+        message: response.message,
+        isLoading: false
+      });
+    })
+    .catch(e => {
+      const errMsg = (e.response && e.response.data && e.response.data.message) || e.message || e.toString();
+      this.setState(prevState => ({
+        modalmsg: prevState.modalmsg + "Error: " + errMsg + "\n",
+        button0text: "Close",
+        isLoading: false,
+      }));
+      //this.setState({ logs: [...this.state.logs, log1] });
+    });
+
   } // approveDtscf()
 
   async updateProject() {
@@ -1246,22 +1353,7 @@ class DTSCFProjectCreation extends Component {
   showModalDelete = () => {
     this.displayModal("Are you sure you want to Delete this Dtscf?", null, "Yes, delete", null, "Cancel");
   };
-/*
-  displayModal(msg, b1text, b2text, b3text, b0text) {
-    this.setState({
-      showm: true, 
-      modalmsg: msg, 
-      button1text: b1text,
-      button2text: b2text,
-      button3text: b3text,
-      button0text: b0text,
-    });
-  }
 
-  hideModal = () => {
-    this.setState({ showm: false });
-  };
-*/
   hideModal() {
     this.setState({
       showm: false,
@@ -1278,16 +1370,31 @@ class DTSCFProjectCreation extends Component {
     });
   }
 
-  displayModal(msg, options = {}) {
-    const { button0text = "OK", afterClose = null } = options;
+  displayModal(msg, ...rest) {
+    let options = {};
+    if (rest.length === 1 && rest[0] && typeof rest[0] === 'object') {
+      options = rest[0];
+    } else {
+      const [button1text, button2text, button3text, button0text] = rest;
+      options = { button1text, button2text, button3text, button0text };
+    }
+    const {
+      button1text = null,
+      button2text = null,
+      button3text = null,
+      button0text = "OK",
+      afterClose = null
+    } = options;
     this.setState({
       showm: true,
       modalmsg: msg,
+      button1text,
+      button2text,
+      button3text,
       button0text,
       afterModalClose: afterClose,
     });
   }
-
   // Modal functions similar to dtscf
 
   renderContractor(contractor, tier = 1) {
