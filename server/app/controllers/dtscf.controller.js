@@ -74,10 +74,57 @@ function buildNestedObject(body) {
   return result;
 }
 
+function createSVGWithBackground(text1, text2, text3, width, height) {
+  return `
+<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .line1 { 
+        font-size: 30px; 
+        font-weight: bold; 
+        font-family: 'bell mt', 'Arial Black', sans-serif; 
+        fill: #664840;
+      }
+      .line2 { 
+        font-size: 21px; 
+        font-weight: normal; 
+        font-family: 'bell mt', 'Arial', sans-serif; 
+        fill: #664840;
+      }
+      .line3 { 
+        font-size: 21px; 
+        font-weight: normal; 
+        font-family: 'bell mt', 'Arial', sans-serif; 
+        fill: #664840;
+      }
+    </style>
+  </defs>
+
+  <!-- Larger white semi-transparent rectangle -->
+  <rect 
+    x="4%" 
+    y="5%" 
+    width="58%" 
+    height="210px" 
+    rx="18" 
+    fill="#ffffff" 
+    fill-opacity="0.8" 
+  />
+
+  <!-- 3 Lines - Better vertical spacing -->
+  <text x="6%" y="12%"  text-anchor="start" class="line1">${text1}</text>
+  <text x="6%" y="28%"  text-anchor="start" class="line2">${text2}</text>
+  <text x="6%" y="38%" text-anchor="start" class="line3">${text3}</text>
+</svg>`;
+}
+
 async function generateImage(value, outputPath) {
   try {
-    const backgroundUrl = 'https://tokenising.herokuapp.com/tokenisedpayable_bg.jpg';
-    const text = `Tokenised Payable $${value}`;
+    const backgroundUrl = 'https://tokenising.herokuapp.com/tp.jpg';
+    const newvalue = value.toLocaleString('en-US', {
+                                                      minimumFractionDigits: 2,
+                                                      maximumFractionDigits: 2
+                                                    })
 
     // 1. Fetch the background image as a buffer
     const response = await axios.get(backgroundUrl, { responseType: 'arraybuffer' });
@@ -88,11 +135,7 @@ async function generateImage(value, outputPath) {
     const { width, height } = metadata;
 
     // 3. Generate SVG with text (scaled to background size)
-    const svgText = `
-      <svg width="${width}" height="${height}">
-        <style>.title { fill: #000; font-size: 32px; font-weight: bold; font-family: sans-serif; }</style>
-        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" class="title">${text}</text>
-      </svg>`;
+    const svgText = createSVGWithBackground("Tokenised Payable SGD" + newvalue, "Milestone 1a completion date 2026 Apr 10", "Payment terms 60 days from 2026 Mar 25", width, height);
 
     // 4. Composite the text over the background buffer
     await sharp(bgBuffer)
@@ -151,7 +194,8 @@ async function generateMetadataFile(contractAddress, id, value, milestoneId, mat
   // Generate image with try-catch
   const imageFileName = `${id}.jpg`;
   const imageOutputPath = path.join(tempDir, imageFileName);
-  let imageUrl = 'https://tokenising.herokuapp.com/tokenisedpayable0.jpg'; 
+  let imageUrl = "";
+  //'https://tokenising.herokuapp.com/tokenisedpayable0.jpg'; 
 
   try {
     await generateImage(value, imageOutputPath);
@@ -166,7 +210,7 @@ async function generateMetadataFile(contractAddress, id, value, milestoneId, mat
   // ERC-1155 Metadata structure
   const metadata = {
     name: `Tokenized Payable #${id}`,
-    description: `A tokenized payable asset with value $${value}, linked to milestone ${milestoneId}. Conditions: ${conditions}.`,
+    description: `Tokenised Payable SGD${value}, Milestone ${milestoneId} completion date: ${readableMaturity}. Payment terms 60 days from 2026 Mar 25 ${conditions}.`,
     image: imageUrl.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/'), // Use Gateway URL
     attributes: [
       { trait_type: "Value", value: value.toString() },
