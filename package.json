@@ -26,30 +26,30 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.2",
     "ethers": "^6.16.0",
-    "express": "^4.22.1",
+    "express": "^5.2.1",
     "files-from-path": "^1.1.4",
     "form-data": "^4.0.5",
     "FormData": "^0.10.1",
     "fs": "^0.0.1-security",
     "heroku": "^7.67.1",
-    "http-proxy-middleware": "^2.0.6",
-    "jsonwebtoken": "^8.5.1",
+    "http-proxy-middleware": "^3.0.5",
+    "jsonwebtoken": "^9.0.0",
     "jws": "^4.0.1",
     "level": "^10.0.0",
     "mime": "^4.1.0",
     "multer": "^2.0.2",
-    "mysql2": "^3.9.8",
+    "mysql2": "^3.19.1",
     "nft.storage": "^7.2.0",
     "os": "^0.1.2",
     "react-organizational-chart": "^2.2.1",
-    "sequelize": "^6.19.1",
+    "sequelize": "^6.29.0",
     "sharp": "^0.34.5",
     "solc": "^0.8.26",
-    "web3": "^1.8.1"
+    "web3": "^4.16.0"
   },
   "private": true,
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.24.3"
+    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
+    "hardhat": "^3.1.11"
   }
 }
