@@ -3,11 +3,16 @@ console.log('[SERVER CONTROLLER] Available db model keys:', Object.keys(db).filt
 
 const DTSCFProject = db.dtscfprojects;
 const AuditTrail = db.audittrail;
-const Dtscf_Draft = db.dtscf_draft;
-const Dtscf = db.dtscf;
-const Milestone = db.dtscf_milestones_draft;
-const Contractor = db.dtscf_contractors_draft;
-const Purchase = db.dtscf_purchases_draft;
+const Dtscf_Drafts = db.dtscf_drafts;
+const Dtscfs = db.dtscfs;
+const Milestone_draft = db.dtscf_milestones_draft;
+const Contractor_draft = db.dtscf_contractors_draft;
+const Purchase_draft = db.dtscf_purchases_draft;
+const Milestone = db.dtscf_milestones;
+const Contractor = db.dtscf_contractors;
+const Purchase = db.dtscf_purchases;
+const Recipients = db.recipients;
+const Campaigns = db.campaigns;
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
@@ -35,6 +40,7 @@ const TokenName = "TokenizedPayable";
 const tokenizedBank_abiFile = path.join(__dirname, '../abis/ERC20TokenDSGD.abi.json');
 const tokenizedBank_byteCodeFile = path.join(__dirname, '../abis/ERC20TokenDSGD.bytecode.json');
 const sharp = require('sharp');
+const { where } = require("sequelize");
 
 var newcontractaddress = null;
 const adjustdecimals = 18;
@@ -80,19 +86,19 @@ function createSVGWithBackground(text1, text2, text3, width, height) {
   <defs>
     <style>
       .line1 { 
-        font-size: 30px; 
+        font-size: 35px; 
         font-weight: bold; 
         font-family: 'bell mt', 'Arial Black', sans-serif; 
         fill: #664840;
       }
       .line2 { 
-        font-size: 21px; 
+        font-size: 25px; 
         font-weight: normal; 
         font-family: 'bell mt', 'Arial', sans-serif; 
         fill: #664840;
       }
       .line3 { 
-        font-size: 21px; 
+        font-size: 25px; 
         font-weight: normal; 
         font-family: 'bell mt', 'Arial', sans-serif; 
         fill: #664840;
@@ -104,7 +110,7 @@ function createSVGWithBackground(text1, text2, text3, width, height) {
   <rect 
     x="4%" 
     y="5%" 
-    width="58%" 
+    width="80%" 
     height="210px" 
     rx="18" 
     fill="#ffffff" 
@@ -113,18 +119,17 @@ function createSVGWithBackground(text1, text2, text3, width, height) {
 
   <!-- 3 Lines - Better vertical spacing -->
   <text x="6%" y="12%"  text-anchor="start" class="line1">${text1}</text>
-  <text x="6%" y="28%"  text-anchor="start" class="line2">${text2}</text>
-  <text x="6%" y="38%" text-anchor="start" class="line3">${text3}</text>
+  <text x="6%" y="20%"  text-anchor="start" class="line2">${text2}</text>
+  <text x="6%" y="23%" text-anchor="start" class="line3">${text3}</text>
 </svg>`;
 }
 
 async function generateImage(value, outputPath) {
   try {
-    const backgroundUrl = 'https://tokenising.herokuapp.com/tp.jpg';
-    const newvalue = value.toLocaleString('en-US', {
-                                                      minimumFractionDigits: 2,
-                                                      maximumFractionDigits: 2
-                                                    })
+    const backgroundUrl = 'https://tokenising.herokuapp.com/tp-square.jpg';
+    const newvalue = typeof value === 'number' 
+      ? value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : parseFloat(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     // 1. Fetch the background image as a buffer
     const response = await axios.get(backgroundUrl, { responseType: 'arraybuffer' });
@@ -205,7 +210,7 @@ async function generateMetadataFile(contractAddress, id, value, milestoneId, mat
     console.error('Image generation/upload failed (continuing with default):', imgErr.message);
   }
 
-  const readableMaturity = new Date(maturityDate * 1000).toISOString();
+  const readableMaturity = (new Date(maturityDate * 1000).toISOString()).slice(0, 10); // format as YYYY-MM-DD
 
   // ERC-1155 Metadata structure
   const metadata = {
@@ -277,7 +282,7 @@ async function updateOrCreateContractors(contractors, projectId, files, parentId
     let contractorId;
     if (con.id) {
       // Update existing
-      const num = await db.dtscf_contractors_draft.update({
+      const num = await Contractor_draft.update({
         name: con.name,
         budget: parseInt(con.budget) || 0,
         walletaddress: con.walletaddress || '',
@@ -291,7 +296,7 @@ async function updateOrCreateContractors(contractors, projectId, files, parentId
       contractorId = con.id;
     } else {
       // Create new
-      const draftContractor = await db.dtscf_contractors_draft.create({
+      const draftContractor = await Contractor_draft.create({
         name: con.name,
         budget: parseInt(con.budget) || 0,
         walletaddress: con.walletaddress || '',
@@ -311,9 +316,10 @@ async function updateOrCreateContractors(contractors, projectId, files, parentId
 
       if (pur.id) {
         // Update existing purchase
-        const num = await db.dtscf_purchases_draft.update({
+        const num = await Purchase_draft.update({
           description: pur.description,
           amount: parseFloat(pur.amount) || 0,
+          dtscf_milestone_id: pur.milestone_id || pur.milestone || null, 
           invoice_blob: invoiceFile ? invoiceFile.buffer : undefined  // Skip if no new file
         }, { where: { id: pur.id } });
         if (num[0] === 1) {
@@ -323,11 +329,12 @@ async function updateOrCreateContractors(contractors, projectId, files, parentId
         }
       } else {
         // Create new purchase
-        const newPurchase = await db.dtscf_purchases_draft.create({
+        const newPurchase = await Purchase_draft.create({
           description: pur.description,
           amount: parseFloat(pur.amount) || 0,
           dtscf_project_id: projectId,
           dtscf_contractor_id: contractorId,
+          dtscf_milestone_id: pur.milestone_id || pur.milestone || null, 
           invoice_blob: invoiceFile ? invoiceFile.buffer : null
         });
         console.log(`Created new purchase with id=${newPurchase.id}`);
@@ -343,13 +350,13 @@ async function updateOrCreateContractors(contractors, projectId, files, parentId
 // Recursive function to create contractors and subcontractors
 async function createContractors(contractors, projectId, files, parentId = null, path = []) {
   for (const [index, con] of contractors.entries()) {
-    const draftContractor = await db.dtscf_contractors_draft.create({
+    const draftContractor = await Contractor_draft.create({
       name: con.name,
       budget: parseInt(con.budget) || 0,
       walletaddress: con.walletaddress || '',
       dtscf_project_id: projectId,
       dtscf_parent_contractor_id: parentId,
-      dtscf_milestone_id: con.milestone_id || null  // New field for milestone association
+      dtscf_milestone_id: con.milestone_id || null
     });
     console.log(`Created new contractor with id=${draftContractor.id}`);
 
@@ -359,11 +366,12 @@ async function createContractors(contractors, projectId, files, parentId = null,
       const fieldBase = `contractor_${currentPath.join('_')}_purchase_${purIndex}_invoice`;
       const invoiceFile = files[fieldBase] ? files[fieldBase][0] : null;
 
-      const newPurchase = await db.dtscf_purchases_draft.create({
+      const newPurchase = await Purchase_draft.create({
         description: pur.description,
         amount: parseFloat(pur.amount) || 0,
         dtscf_project_id: projectId,
         dtscf_contractor_id: draftContractor.id,
+        dtscf_milestone_id: pur.milestone_id || pur.milestone || null,
         invoice_blob: invoiceFile ? invoiceFile.buffer : null
       });
       console.log(`Created new purchase with id=${newPurchase.id}`);    
@@ -375,10 +383,262 @@ async function createContractors(contractors, projectId, files, parentId = null,
   }
 }
 
+// Get Tokenised Payables (TP) by Organisation ID
+exports.getTPbyOrgId = async (req, res) => {
+  const orgId = req.query.id; // organisation_id passed as query parameter
+
+  console.log(`Received request to get TP by Organisation ID: ${orgId}`);
+  
+  const Web3 = require('web3');
+  require('dotenv').config();
+
+  try {
+    // 1. Query the Recipient database for the wallet address (w1)
+    const recipient = await Recipients.findOne({
+      where: { id: orgId }
+    });
+
+    if (!recipient || !recipient.walletaddress) {
+      return res.status(404).send({ message: "Organisation or wallet address not found." });
+    }
+
+    const w1 = recipient.walletaddress;
+    console.log(`Found wallet address for organisation ${orgId}: ${w1}`);
+
+    try {
+      console.log("====== dtscf.getTPbyOrgId() ");
+
+      const dtscfs = await Dtscfs.findAll({
+      include: 
+        [
+          {
+            model: Recipients,
+            as: 'anchor',
+            attributes: ['name']
+          },
+          {
+            model: Campaigns,
+            as: 'underlyingToken',
+            attributes: ['tokenname']
+          }
+        ],
+        where: {
+          anchor_id: orgId
+        },
+      });
+
+      const formattedData = await Promise.all(dtscfs.map(async dtscf => {
+        const json = dtscf.toJSON();
+        json.anchorName = dtscf.anchor ? dtscf.anchor.name : null;
+        json.tokenName = dtscf.underlyingToken ? dtscf.underlyingToken.tokenname : null;
+        delete json.anchor;
+        delete json.underlyingToken;
+
+        const providerUrl = (() => {
+          switch (json.blockchain) {
+//            case 80001: return `https://polygon-mumbai.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+//            case 80002: return `https://polygon-amoy.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+//            case 11155111: return `https://sepolia.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+//            case 137: return `https://polygon-mainnet.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+//            case 1: return `https://mainnet.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+            case 80001    : return `https://polygon-mumbai.infura.io/v3/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+            case 80002    : return `https://polygon-amoy.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+            case 11155111 : return `https://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+            case 137      : return `https://polygon-mainnet.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+            case 1        : return `https://eth-mainnet.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+            default: return null;
+          }
+        })();
+
+        try {
+          // query blockchain for balance of TP tokens index #1
+          const web3 = new Web3(new Web3.providers.HttpProvider(providerUrl));
+          const abi = JSON.parse(fs.readFileSync(abiFile, 'utf8')); 
+          const contract = new web3.eth.Contract(abi, json.smartcontractaddress);
+          const tokenId = 1; // Using token ID 1 for balance check, adjust as needed
+          const details = await contract.methods.payables(tokenId).call(); // checking TP token #1 details
+
+          console.log(`Fetched balance for ${json.name} on blockchain ${json.blockchain} wallet ${w1}: ${details.value}`);
+          json.value = web3.utils.fromWei(details.value, 'ether'); // removing 18 zeros from balance
+
+          console.log("--- Payable Details ---");
+          console.log(`Value: ${details.value}`); 
+          console.log(`Maturity Date: ${new Date(details.maturityDate * 1000).toLocaleString()}`); 
+          console.log(`Is Realized: ${details.realized}`); 
+          console.log(`Issuer / Anchor: ${details.issuer}`); 
+          console.log(`Conditions: ${details.conditions}`); 
+          console.log(`Escrowed Deposit: ${details.escrowedDeposit}`); 
+          console.log(`Milestone ID: ${details.milestoneId}`);
+
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+
+        return json;
+      }));
+
+      logDataValues("Dtscfs.findAll: ", formattedData);
+      console.log("Formatted Dtscfs data with anchorName and tokenName:", formattedData);
+      res.send(formattedData);
+    } catch (err) {
+      console.log("Error while retrieving dtscf4: "+err.message);
+      res.status(500).send({
+        message: err.message || "Some error occurred while retrieving dtscf project records."
+      });
+    }
+
+
+    return;
+
+    // 2. Query all rows from Dtscfs table for the specified fields
+    const dtscfRecords = await Dtscfs.findAll({
+      include: 
+      [
+        {
+          model: Campaigns,
+          as: 'underlyingToken',
+          attributes: ['tokenname']
+        }
+      ],
+      attributes: ['id', 'name', 'tokenname', 'blockchain', 'underlyingDSGDsmartcontractaddress', 'smartcontractaddress'],
+    });
+
+    // 3. Initialize data structure and iterate to check blockchain balances
+    let results = [];
+
+    for (const record of dtscfRecords) {
+      const { id, name, tokenname, blockchain, underlyingDSGDsmartcontractaddress, smartcontractaddress } = record;
+      //console.log("Querying Dtscfs record:", id, name, tokenname, blockchain, underlyingDSGDsmartcontractaddress, smartcontractaddress);
+      // Determine RPC URL based on blockchain ID (Reusing your existing logic pattern)
+      const providerUrl = (() => {
+        switch (blockchain) {
+//            case 80001: return `https://polygon-mumbai.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+//            case 80002: return `https://polygon-amoy.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+//            case 11155111: return `https://sepolia.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+//            case 137: return `https://polygon-mainnet.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+//            case 1: return `https://mainnet.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+            case 80001    : return `https://polygon-mumbai.infura.io/v3/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+            case 80002    : return `https://polygon-amoy.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+            case 11155111 : return `https://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+            case 137      : return `https://polygon-mainnet.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+            case 1        : return `https://eth-mainnet.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+          default: return null;
+        }
+      })();
+
+      if (!providerUrl || !smartcontractaddress) {
+        results.push({ id, name, tokenname, blockchain, balance: "N/A (Invalid Network/Address)" });
+        continue;
+      }
+
+      try {
+        /* query blockchain for balance of TP tokens in wallet w1
+        const web3 = new Web3(new Web3.providers.HttpProvider(providerUrl));
+        
+        const abi = JSON.parse(fs.readFileSync(abiFile, 'utf8')); 
+        const contract = new web3.eth.Contract(abi, smartcontractaddress);
+
+        const balance = await contract.methods.balanceOf(w1, 1).call(); 
+
+        console.log(`Fetched balance for ${name} on blockchain ${blockchain} wallet ${w1}: ${balance}`);
+        */
+       
+        results.push({
+          id,
+          name,
+          tokenname,
+          blockchain,
+          underlyingDSGDsmartcontractaddress,
+          smartcontractaddress,
+          walletAddress: w1,
+          //balance: web3.utils.fromWei(balance, 'ether') // Adjusting for decimals if necessary
+        });
+      } catch (blockchainErr) {
+        console.error(`Error querying blockchain ${blockchain} for ${name}:`, blockchainErr.message);
+        results.push({ name, blockchain, balance: "Error fetching balance" });
+      }
+    }
+
+    res.status(200).send(results);
+
+  } catch (err) {
+    res.status(500).send({
+      message: err.message || "Some error occurred while retrieving TP tokens."
+    });
+  }
+};
+
+exports.getTPNFT = async (req, res) => {
+  var errorSent = false;
+
+  console.log("Received :");
+  console.log(req.body);
+
+  const contractAddress = req.body.smartcontractaddress; 
+  const blockchain = req.body.blockchain; 
+  const index = req.body.id;
+
+  if (!contractAddress) {
+    if (!errorSent) {
+      res.status(400).send({
+        message: "Content can not be empty!"
+      });
+      errorSent = true;
+    }
+    return;
+  }
+
+  require('dotenv').config();
+  // --- RPC SETUP ---
+//  const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+//  const ETHEREUM_NETWORK = process.env.ETHEREUM_NETWORK || 'sepolia';
+  const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
+  const ETHEREUM_NETWORK = process.env.ETHEREUM_NETWORK || 'eth-sepolia';
+  //const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;
+  const providerUrl = `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+
+
+  // --- WEB3 SETUP ---
+  const Web3 = require('web3');
+  const web3 = new Web3(new Web3.providers.HttpProvider(providerUrl));
+  const ABI = JSON.parse(fs.readFileSync(abiFile, 'utf8'));
+
+    try {
+        const contract = new web3.eth.Contract(ABI, contractAddress);
+        const metadataUri = await contract.methods.uri(index).call();
+        
+        if (!metadataUri) return res.status(404).json({ error: "No metadata found" });
+
+        console.log(`📡 Contract returned URI: ${metadataUri}`);
+
+        let finalUrl;
+
+        // LOGIC FIX: Check if the URI is already a full http link
+        if (metadataUri.startsWith('http')) {
+            finalUrl = metadataUri; // Use it directly, don't append to gateway
+        } else {
+            // It's a CID or ipfs:// link
+            const cid = metadataUri.replace('ipfs://', '');
+            finalUrl = `https://gateway.pinata.cloud/ipfs/${cid}`;
+        }
+
+        console.log(`📡 Attempting fetch from: ${finalUrl}`);
+        
+        const response = await axios.get(finalUrl, { timeout: 10000 });
+        console.log('📡 Fetched metadata successfully: ', response.data);
+        res.json(response.data);
+
+    } catch (e) {
+        console.error("❌ View Error:", e.message);
+        res.status(500).json({ error: "Could not resolve metadata. Ensure the ID is minted." });
+    }
+};
+
 exports.draftCreate = async (req, res) => {
   let errorSent = false;
   console.log("Received for Dtscf draft Create:");
-  console.log(req.body); // Your existing log
+  //console.log(req.body); // Your existing log
+  console.log(JSON.stringify(req.body, null, 2));
 
   // Set up streaming response
   res.setHeader('Content-Type', 'text/plain');
@@ -405,7 +665,7 @@ exports.draftCreate = async (req, res) => {
 
     //res.write('LOG: Skipping file uploads (no files provided).\n');
 
-    const newDtscfDraft = await Dtscf_Draft.create({
+    const newDtscfDraft = await Dtscf_Drafts.create({
       name,
       description,
       anchor_id: parseInt(anchor_id) || null,
@@ -433,8 +693,12 @@ exports.draftCreate = async (req, res) => {
     const draft_id = newDtscfDraft.id;
     console.log(`LOG: Created DTSCF draft in database with ID ${draft_id}.\n`);
 
+    // 1. Create a dictionary to hold the mapping of Milestone Name -> Newly created Milestone ID
+    const milestoneMap = {};
+
+    // 2. Loop through and create your milestones
     for (const [index, ms] of milestones.entries()) {
-      await Milestone.create({
+      const newMilestone = await Milestone_draft.create({
         dtscf_project_id: draft_id,
         name: ms.name,
         budget: parseInt(ms.budget) || 0,
@@ -446,11 +710,14 @@ exports.draftCreate = async (req, res) => {
         startdate_changed: false,
         enddate_changed: false
       });
+      // Save the new ID mapped to the milestone's name
+      milestoneMap[ms.name] = newMilestone.id;  // xxxx
+
       console.log(`LOG: Added milestone ${index + 1}/${milestones.length}.\n`);
     }
 
     for (const [index, con] of contractors.entries()) {
-      const newContractor = await Contractor.create({
+      const newContractor = await Contractor_draft.create({
         dtscf_project_id: draft_id,
         name: con.name,
         budget: parseInt(con.budget) || 0,
@@ -463,12 +730,18 @@ exports.draftCreate = async (req, res) => {
       });
       console.log(`LOG: Added contractor ${index + 1}/${contractors.length}.\n`);
 
+// 3. Map the correct ID when creating purchases
       for (const [purIndex, pur] of (con.purchases || []).entries()) {
-        await Purchase.create({
+        
+        // Try to get the ID from our map, fallback to null if not found
+        const mappedMilestoneId = milestoneMap[pur.milestone] || null;    // xxxx
+
+        await Purchase_draft.create({
           dtscf_project_id: draft_id,
           dtscf_contractor_id: newContractor.id,
           description: pur.description,
           amount: parseInt(pur.amount) || 0,
+          dtscf_milestone_id: mappedMilestoneId, 
           description_changed: false,
           amount_changed: false,
           dtscf_project_id_changed: false,
@@ -523,7 +796,7 @@ exports.create_review = async (req, res) => {
 //  const checkercomments = req.body.checkerComments || '';
   const approvercomments = req.body.approverComments || '';
 
-  await Dtscf_Draft.update(
+  await Dtscf_Drafts.update(
       { 
 //        checkerComments :   checkercomments,
         approverComments : req.body.approverComments || '',
@@ -545,7 +818,7 @@ exports.create_review = async (req, res) => {
       .catch(err => {
         console.log(err);
         res.status(500).send({
-          message: `Error updating Dtscf. ${err}`
+          message: `Error updating Dtscfs. ${err}`
         });
       }); 
 }; // create_review
@@ -696,10 +969,12 @@ exports.approveDraftById = async (req, res) => {  //
   }
 
   const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
 
-  const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;   // Use HTTP only
+//  const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;   
+  const providerUrl = `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;   
 
-  console.log(`Using HTTP provider: ${providerUrl.replace(INFURA_API_KEY, '****')}`);
+  console.log(`Using HTTP provider: ${providerUrl.replace(ALCHEMY_API_KEY, '****')}`);
 
   Web3 = require("web3");
   // Create Web3 with HTTP provider (most stable for deployment)
@@ -877,15 +1152,6 @@ exports.approveDraftById = async (req, res) => {  //
           //}
           return false;
         }
-/*
-        Web3 = require("web3");
-        //web3 = new Web3( 
-        //  Web3.providers.HttpProvider(
-        //    `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
-        //  ) 
-        //);
-        web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://${ETHEREUM_NETWORK}.infura.io/ws/v3/${INFURA_API_KEY}`));
-*/
         console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
         const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY);
         const anchor = web3.eth.accounts.privateKeyToAccount(ANCHOR_PRIVATE_KEY);
@@ -1049,7 +1315,7 @@ exports.approveDraftById = async (req, res) => {  //
             const requiredAmount = web3.utils.toWei(req.body.totalBudget.toString(), 'ether');
             const anchorBalance = await depositContract.methods.balanceOf(anchor.address).call();
             if (web3.utils.toBN(anchorBalance).lt(web3.utils.toBN(requiredAmount))) {
-              sendError(`Insufficient Tokenised Deposit balance in anchor wallet: ${web3.utils.fromWei(anchorBalance, 'ether')} < ${req.body.totalBudget}`);
+              sendError(`Insufficient Tokenised Deposit balance in anchor wallet: ${parseFloat(web3.utils.fromWei(anchorBalance, 'ether')).toLocaleString('en-US')} < ${parseFloat(req.body.totalBudget).toLocaleString('en-US')}`);
               return false;
             }
             console.log(`Anchor Tokenised Deposit balance sufficient: ${web3.utils.fromWei(anchorBalance, 'ether')}`);
@@ -1092,7 +1358,7 @@ exports.approveDraftById = async (req, res) => {  //
 
             // Step 3: Deployment with retry and gas increase
             console.log("=== Step 3: Deployment with retry and gas increase ===");
-            sendLog("Deploying Tokenise Payable smart contract to blockchain. This may take a while...");
+            sendLog("Deploying smart contract to the blockchain. This may take a while...");
             const deployWithRetry = async () => {
               const block = await web3.eth.getBlock('pending');
 
@@ -1103,7 +1369,7 @@ exports.approveDraftById = async (req, res) => {  //
                   let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
                   let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
                   let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
-                                    (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
+                                     (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
                   maxFeePerGas = maxFeePerGas.toString();
                   let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
 
@@ -1140,7 +1406,7 @@ exports.approveDraftById = async (req, res) => {  //
                   const maxPollAttempts = 18; // e.g., 3 minute timeout
 
                   while (!receipt && pollAttempts < maxPollAttempts) {
-                    console.log("Checking receipt for  transaction... #", pollAttempts);
+                    console.log("Checking receipt for Deploy Contract transaction... #", pollAttempts);
                     await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
                     receipt = await web3.eth.getTransactionReceipt(hash);
                     pollAttempts++;
@@ -1176,8 +1442,8 @@ exports.approveDraftById = async (req, res) => {  //
               return false;
             }
             
-            console.log(`Deployment successful. Tokenised Payable smart contract has been deployed at: ${newcontractaddress}`);
-            sendLog(`Deployment successful. Tokenised Payable smart contract has been deployed at: ${newcontractaddress}`);
+            console.log(`Deployment successful, address: ${newcontractaddress}`);
+            sendLog(`Deployment successful, address: ${newcontractaddress}`);
 
             return true;  // Deployment successful
           } // deployContract = async ()
@@ -1187,7 +1453,6 @@ exports.approveDraftById = async (req, res) => {  //
             sendError("Tokenised Payable smart contract deployment failed. Please contact tech support.");
             return false;  // Deployment failed, exit
           }
-
           
           const wrapDepositToPayable = async () => {
                 console.log('Calling wrapDepositToPayable to fund the contract from anchor account');
@@ -1195,7 +1460,6 @@ exports.approveDraftById = async (req, res) => {  //
                   sendError('Contract address not set after deployment');
                   return false;
                 }
-
 
                 const tokenizedBankDeposit_ABI = JSON.parse(fs.readFileSync(tokenizedBank_abiFile, 'utf8').toString());
                 const depositContract = new web3.eth.Contract(tokenizedBankDeposit_ABI, req.body.underlyingDSGDsmartcontractaddress);
@@ -1213,37 +1477,15 @@ exports.approveDraftById = async (req, res) => {  //
                 // const gasPrice = await web3.eth.getGasPrice();  
                 // Get gas prices (EIP-1559 support)
                 const block = await web3.eth.getBlock('pending');
-                let gasMultiplier = 1.1; // Initial 10% buffer
-                let priorityMultiplier = 1.0;  // For maxPriorityFeePerGas
-                let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
-                let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust
-                //let gasPrice = (baseFee * BigInt(Math.floor(gasMultiplier * 100)) / BigInt(100)) + (maxPriorityFee * BigInt(Math.floor(priorityMultiplier * 100)) / BigInt(100));
-                //gasPrice = gasPrice.toString();
-                //console.log('Current gas price:', gasPrice);
-                
-                // Step 4: Approve (sign and send signed tx)
-                console.log("=== Step 4: Approve (sign and send signed tx) ===");
-                //res.write("Step 4: Approve (sign and send signed tx) ");
+
+                // Step 4: Anchor to approve Tokenised Payable contract (sign and send signed tx)
+                console.log("=== Step 4: Anchor to approve Tokenised Payable contract (sign and send signed tx) ===");
+                //res.write("Step 4: Anchor to approve Tokenised Payable contract (sign and send signed tx) ");
                 await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
                   console.log("Approving Tokenised Payable contract to pull funds..."); 
                   
                   let estGas = await depositContract.methods.approve(newcontractaddress, requiredAmount).estimateGas({ from: anchor.address });
                   estGas = Math.floor(estGas * innerGasLimitMultiplier);
-                  //await depositContract.methods.approve(newcontractaddress, requiredAmount).send({
-                  //  from: anchor.address,
-                  //  gas: estGas,
-                  //  gasPrice: (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)).toString(),
-                  //  maxPriorityFeePerGas: (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString(),
-                  //  maxFeePerGas: gasPrice
-                  //});
-
-                    //let gasPrice = await web3.eth.getGasPrice();
-                    //gasPrice = (BigInt(gasPrice) * BigInt(Math.floor(gasMultiplier * 100))) / BigInt(100);  // Apply multiplier
-                    //gasPrice = gasPrice.toString();
-                    //const estGas = await depositContract.methods.approve(newcontractaddress, requiredAmount)
-                    //  .estimateGas({ from: anchor.address })
-                    //  .catch(err => { throw new Error(`Estimate gas for approve failed: ${err.message}`); });
-                  
                   let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
                   let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust
                   let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
@@ -1257,9 +1499,6 @@ exports.approveDraftById = async (req, res) => {  //
                     to: req.body.underlyingDSGDsmartcontractaddress,
                     data: approveData,
                     gas: estGas,  
-                    // gasPrice: (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)).toString(), // obsolete
-                    // maxPriorityFeePerGas: (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString(),
-                    // maxFeePerGas: gasPrice
                     maxPriorityFeePerGas: maxPriorityFeePerGas,
                     maxFeePerGas: maxFeePerGas
                   };
@@ -1308,6 +1547,7 @@ exports.approveDraftById = async (req, res) => {  //
                 const milestoneId = milestones.length > 0 ? milestones[0].id : 1;  
 
                             // Call generateMetadataFile BEFORE wrapDepositToPayable
+                            // This is to create the TP for the Anchor to wrap the TBD into, and to get the metadata URI ready for the wrapDepositToPayable call
                             let metadataPath = await generateMetadataFile(
                               newcontractaddress,  // Contract address
                               1, 
@@ -1317,26 +1557,15 @@ exports.approveDraftById = async (req, res) => {  //
                               `Completion of milestone #${milestoneId}`
                             );
                             console.log("Image and metadata file for TP is created:", metadataPath);
-                            const newUri = `${metadataUrl}?id=${Date.now()}.json`; 
-                            metadataUrl = newUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                            const newUri = `${metadataPath}?id=${Date.now()}.json`; 
+                            metadataPath = newUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                             console.log("Changing metadataPath to https pinata gateway:", metadataPath);
 
                 // Step 5: Wrap (sign and send signed tx), new TP is created by Anchor
                 console.log("=== Step 5: Wrap (sign and send signed tx), new TP is created by Anchor ===");
-                //res.write("Step 5: Wrap (sign and send signed tx), new TP is created by Anchor ");
+                sendLog("Wrapping Tokenised Deposits into Tokenised Payable tokens");
                 const wrapReceipt =  retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
-                    //let gasPrice = await web3.eth.getGasPrice();
-                    //gasPrice = (BigInt(gasPrice) * BigInt(Math.floor(gasMultiplier * 100))) / BigInt(100);  // Apply multiplier
-                    //gasPrice = gasPrice.toString();
                     const endDateUnix = Math.floor(new Date(req.body.enddate).getTime() / 1000);
-                    //const wrapGas = await tokenisedPayableContract.methods.wrapDepositToPayable(
-                    //  requiredAmount,
-                    //  endDateUnix,
-                    //  '{"milestone": "structure complete"}',  
-                    //  milestoneId,
-                    //  metadataPath
-                    //).estimateGas({ from: anchor.address })
-                    //  .catch(err => { throw new Error(`Estimate gas for wrap failed: ${err.message}`); });
                     let wrapGas = await tokenisedPayableContract.methods.wrapDepositToPayable(
                       requiredAmount,
                       endDateUnix,
@@ -1443,7 +1672,7 @@ exports.approveDraftById = async (req, res) => {  //
               let balance = await tokenisedPayableContract.methods.balanceOf(anchor.address, newId0).call();  // Use anchor.address and newId0
               let attempts = 0;
               while (balance === '0' && attempts < 10) {
-                console.log("Checking receipt for checking balanceOf... #", attempts);
+                console.log("Checking receipt for balanceOf... #", attempts);
                 await new Promise(resolve => setTimeout(resolve, 10000));  // Increase to 10s
                 balance = await tokenisedPayableContract.methods.balanceOf(anchor.address, newId0).call();
                 attempts++;
@@ -1464,11 +1693,24 @@ exports.approveDraftById = async (req, res) => {  //
               let originalId = allIds[allIds.length - 1];
               console.log(`Original payable ID: ${originalId}`);
 
-              // Parse contractors to calculate and split/transfer portions
+              //
+              //
+              //
+              // splitPayable() requires originalId, amount to split, and metadata URI for the split portion. 
+              // We loop through contractors, calculate their amounts based on linked purchases, 
+              // then call splitPayable for each contractor to create new payable tokens in their wallets. 
+              // The metadata URI can include details like milestone completion, contractor name, etc.
+              //
+              //
+              //
               let contractors = req.body.contractors || [];
               if (typeof contractors === 'string') { contractors = JSON.parse(contractors); }
 
-              for (const con of contractors) {
+              // 
+              // Looping through contractors; for each, calculate total amount from their linked purchases, 
+              // then split the payable and transfer to their wallet
+              //
+              for (const con of contractors) {  
                 let contractorAmount = 0;
                 for (const pur of con.purchases || []) { contractorAmount += parseFloat(pur.amount) || 0;}
                 const amountWei = web3.utils.toWei(contractorAmount.toString(), 'ether');
@@ -1480,36 +1722,24 @@ exports.approveDraftById = async (req, res) => {  //
                   }
 
                   const block = await web3.eth.getBlock('pending');
-                  //let innerPriorityMultiplier = 1.0;  // For maxPriorityFeePerGas
-                  //let innerGasMultiplier = 1.1; // Initial 10% buffer
-                  //let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
-                  //let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei
-                  //let gasPrice = (baseFee * BigInt(Math.floor(gasMultiplier * 100)) / BigInt(100)) + (maxPriorityFee * BigInt(Math.floor(priorityMultiplier * 100)) / BigInt(100));
-                  //gasPrice = gasPrice.toString();
-
-                  //let baseFee = BigInt(block.baseFeePerGas || await web3.eth.getGasPrice());
-                  //let maxPriorityFee = BigInt(2000000000);  // Default 2 gwei; adjust as needed
-                  //let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) + 
-                  //                (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
-                  //maxFeePerGas = maxFeePerGas.toString();
-                  //let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
-
                   // Step 7: split TP 
                   console.log("=== Step 7: split TP ===");
-                  sendLog("Splitting Tokenised Payable");
+//                  sendLog(`Splitting Tokenised Payable for contractor ${con.name} with SGD${contractorAmount} for milestone ${milestoneId}`);
+                  sendLog(`Splitting Tokenised Payable for contractor ${con.name} with SGD${contractorAmount}`);
 
                   // Call generateMetadataFile BEFORE splitPayable
+                  // This is to create the metadata for the new split token that will go to the contractor, which is needed as a parameter for splitPayable.
                   let metadataPath = await generateMetadataFile(
-                    newcontractaddress,  // Contract address
-                    parseInt(originalId)+1, // make assumption, make be risky leading to bug
+                    newcontractaddress,           // Contract address
+                    parseInt(originalId)+1,       // make assumption, make be risky leading to bug
                     contractorAmount.toString(), 
                     milestoneId, 
                     Math.floor(new Date(req.body.enddate).getTime() / 1000),
                     `Completion of milestone #${milestoneId}`
                   );
                   console.log("Image and metadata file for TP is created:", metadataPath);
-                  const newUri = `${metadataUrl}?id=${Date.now()}.json`; 
-                  metadataUrl = newUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                  const newUri = `${metadataPath}?id=${Date.now()}.json`; 
+                  metadataPath = newUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                   console.log("Changing metadataPath to https pinata gateway:", metadataPath);
 
                   const splitReceipt = await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
@@ -1591,6 +1821,7 @@ exports.approveDraftById = async (req, res) => {  //
                   const updatedOriginalValue = web3.utils.fromWei(updatedOriginalValueWei, 'ether');
 
                   // 2. Generate NEW metadata + image for the ORIGINAL token (with reduced value)
+                  // This is to reflect the reduced value in the original token that remains with the Anchor after the split
                   let originalMetadataPath = await generateMetadataFile(
                     newcontractaddress,                     // Contract address
                     parseInt(originalId),                   // Original ID (e.g. 1)
@@ -1600,8 +1831,8 @@ exports.approveDraftById = async (req, res) => {  //
                     `Completion of milestone #${milestoneId}` // or any updated description
                   );
                   console.log("Image and metadata file for TP is created:", originalMetadataPath);
-                  const newUri0 = `${metadataUrl}?id=${Date.now()}.json`; 
-                  metadataUrl = newUri0.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                  const newUri0 = `${originalMetadataPath}?id=${Date.now()}.json`; 
+                  originalMetadataPath = newUri0.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                   console.log("Changing metadataPath to https pinata gateway:", originalMetadataPath);
                   console.log(`Updated metadata for ORIGINAL payable #${originalId}:`, originalMetadataPath);
 
@@ -1610,9 +1841,6 @@ exports.approveDraftById = async (req, res) => {  //
 
                     const currentOwner = await tokenisedPayableContract.methods.owner().call();
                     console.log(`tokenisedPayableContract contract owner: ${currentOwner}, Anchor address: ${anchor.address}`); 
-                    //if (currentOwner.toLowerCase() !== anchor.address.toLowerCase()) {
-                    //  throw new Error(`Anchor address ${anchor.address} is not the contract owner (${currentOwner}). Use the correct private key.`);
-                    //}
 
                     console.log("Estimating gas for setTokenURI on original payable...");
                     let setUriGas = await tokenisedPayableContract.methods
@@ -1670,7 +1898,7 @@ exports.approveDraftById = async (req, res) => {  //
 
                   // Step 8: Transfer the split TP to contractor
                   console.log("=== Step 8: Transfer the split TP to contractor ===");
-                  sendLog("Transferring the split Tokenised Payable to contractor ");
+                  sendLog(`Transferring the split Tokenised Payable from Anchor to contractor ${con.name} `);
                   await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
                     let transferGas = await tokenisedPayableContract.methods.safeTransferFrom(anchor.address, con.walletaddress, newId, 1, '0x').estimateGas({ from: anchor.address, to: newcontractaddress });
                     transferGas = Math.floor(transferGas * innerGasLimitMultiplier);
@@ -1748,20 +1976,7 @@ exports.approveDraftById = async (req, res) => {  //
         // Readng ABI from JSON file
         fs = require("fs");
         ABI = JSON.parse(fs.readFileSync(abiFile).toString());
-/*    
-        // Creation of Web3 class
-        Web3 = require("web3");
-    
-        // Setting up a HttpProvider
-        //web3 = new Web3( 
-        //  Web3.providers.HttpProvider(
-        //    `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
-        //  ) 
-        //);
-        web3 = new Web3(new Web3.providers.WebsocketProvider(`wss://${ETHEREUM_NETWORK}.infura.io/ws/v3/${INFURA_API_KEY}`));
 
-        //console.log("web3: =========>", web3);
-*/    
         console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
         // Creating a signing account from a private key
         const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
@@ -1772,10 +1987,7 @@ exports.approveDraftById = async (req, res) => {  //
           try {
             console.log('Creating Dtscf contract with ABI');
             const tokenisedPayableContract = new web3.eth.Contract(ABI);
-    
-            // https://github.com/web3/web3.js/issues/1001
-//            web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
-            
+                
             let setToTalSupply = (isNaN(+req.body.totalsupply)? req.body.totalsupply: req.body.totalsupply.toString())   
             + createStringWithZeros(adjustdecimals);  // pad zeros behind
             console.log("Dtscf setToTalSupply = ", setToTalSupply);
@@ -1921,7 +2133,7 @@ exports.approveDraftById = async (req, res) => {  //
   if (updatestatus) { // updatestatus
   // update draft table
     console.log("Updating row in dtscf draft table with status=3 and newcontractaddress("+newcontractaddress+").");
-    await Dtscf_Draft.update(  // update draft table status to "3"
+    await Dtscf_Drafts.update(  // update draft table status to "3"
     { 
       status                : 3,
       smartcontractaddress  : newcontractaddress,
@@ -1960,7 +2172,7 @@ exports.approveDraftById = async (req, res) => {  //
       if (isNewDtscf) {
         console.log("Creating row in dtscf prod table.");
         var approved_id;
-        const newDtscf = await Dtscf.create( // create Dtscf in the database !!!!!
+        const newDtscf = await Dtscfs.create( // create Dtscf in the database !!!!!
           { 
             name                  : req.body.name,
             description           : req.body.description,
@@ -1989,7 +2201,7 @@ exports.approveDraftById = async (req, res) => {  //
         });
 
         console.log("Updating draft table to prod ID:", approved_id);
-        await Dtscf_Draft.update(  // update draft table with dtscf project id
+        await Dtscf_Drafts.update(  // update draft table with dtscf project id
         { 
           approveddtscfid       : approved_id,
         }, 
@@ -2008,22 +2220,27 @@ exports.approveDraftById = async (req, res) => {  //
         });
 
         // copy draft milestones to prod table
-        const draftMilestones = await db.dtscf_milestones_draft.findAll({ where: { dtscf_project_id: draft_id } });
+        const milestoneMap9 = {}; // to keep track of new prod milestone ID mapping
+        const draftMilestones = await Milestone_draft.findAll({ where: { dtscf_project_id: draft_id } });
         for (const dm of draftMilestones) {
           console.log("Creating milestone:", dm);
-          await db.dtscf_milestones.create({
+          const newMilestone9 = await Milestone.create({
             name: dm.name,
             budget: dm.budget,
             startdate: dm.startdate,
             enddate: dm.enddate,
             dtscf_project_id: approved_id,
           });
+          milestoneMap9[dm.id] = newMilestone9.id;  // draft_id --> prod_id  xxx
+          console.log("Draft milestone ID:"+ dm.id + " mapped to new prod milestone ID:" + newMilestone9.id);
+          console.log("<<<<<<<<<<<<<< milestoneMap9[" + dm.id + "] = newMilestone9.id: "+ newMilestone9.id);
         }
         console.log("Finished creating milestones.");
+        console.log("milestoneMap9:", milestoneMap9);
 
         // copy draft contractors and purchases to prod tables
         async function copyContractorsAndPurchases(draftParentId = null, newParentId = null) {
-          const draftContractors = await db.dtscf_contractors_draft.findAll({
+          const draftContractors = await Contractor_draft.findAll({
             where: {
               dtscf_project_id: draft_id,
               dtscf_parent_contractor_id: draftParentId
@@ -2031,7 +2248,7 @@ exports.approveDraftById = async (req, res) => {  //
           });
           for (const dc of draftContractors) {
             console.log("Creating contractor:", dc);
-            const newContractor = await db.dtscf_contractors.create({
+            const newContractor = await Contractor.create({
               name: dc.name,
               budget: dc.budget,
               walletaddress: dc.walletaddress,
@@ -2044,16 +2261,21 @@ exports.approveDraftById = async (req, res) => {  //
             console.log("Finished creating contractor.");
 
             // Copy purchases
-            const draftPurchases = await db.dtscf_purchases_draft.findAll({
+            const draftPurchases = await Purchase_draft.findAll({
               where: { dtscf_contractor_id: dc.id }
             });
             for (const dp of draftPurchases) {
               console.log("Creating purchase:", dp);
-              await db.dtscf_purchases.create({
+              const mappedMilestoneId = milestoneMap9[dp.dtscf_milestone_id] || null;    // draft_id --> prod_id; if not found, set to null xxx
+              console.log("Draft purchase dtscf_milestone_id:", dp.dtscf_milestone_id, "mapped to prod dtscf_milestone_id:", mappedMilestoneId);
+              console.log("<<<<<<<<<<<<<<  mappedMilestoneId:", mappedMilestoneId);
+
+              await Purchase.create({
                 description: dp.description,
                 amount: dp.amount,
                 dtscf_project_id: approved_id,
                 dtscf_contractor_id: newConId,
+                dtscf_milestone_id: mappedMilestoneId,  // draft_id --> prod_id
                 invoice_blob: dp.invoice_blob
               });
             }
@@ -2065,14 +2287,14 @@ exports.approveDraftById = async (req, res) => {  //
         await copyContractorsAndPurchases();
         console.log("Finished creating milestones, contractor and purchase.");
 
-        sendSuccess("Tokenised Payable created successfully, and transferred to Anchor and Contractors.");
+        sendSuccess("Tokenised Payable created successfully and transferred to Anchor and contractors.");
         //if (!errorSent) {
         //  res.send({ id: approved_id, smartcontractaddress: newcontractaddress, message: "Tokenised Payable created successfully."});
         //  errorSent = true;
         //}
         return true;
       } else { // not isNewDtscf
-        await Dtscf.update( // update Dtscf in the database !!!!! 
+        await Dtscfs.update( // update Dtscf in the database !!!!! 
         { 
           name                  : req.body.name,
           totalBudget           : parseInt(req.body.totalBudget) || 0,
@@ -2153,11 +2375,11 @@ exports.triggerDtscfCouponPaymentById = async (req, res) => {
   // Fetch dtscf details
   let dtscf;
   try {
-    dtscf = await Dtscf.findByPk(dtscf_id);
+    dtscf = await Dtscfs.findByPk(dtscf_id);
     if (!dtscf) {
       if (!errorSent) {
         res.status(404).send({
-          message: `Dtscf with id=${dtscf_id} not found.`
+          message: `Dtscfs with id=${dtscf_id} not found.`
         });
         errorSent = true;
       }
@@ -2200,6 +2422,7 @@ exports.triggerDtscfCouponPaymentById = async (req, res) => {
   }
 
   const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
@@ -2225,10 +2448,10 @@ exports.triggerDtscfCouponPaymentById = async (req, res) => {
 
     // Initialize Web3
     const Web3 = require("web3");
-    //const web3 = new Web3(new Web3.providers.HttpProvider(
-    //  `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
-    //));
-    const web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
+//    const web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
+    const web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`));
+
+
 
     console.log("Signer:", SIGNER_PRIVATE_KEY.substring(0,4) + "..." + SIGNER_PRIVATE_KEY.slice(-3));
     const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY);
@@ -2413,11 +2636,11 @@ exports.findDraftByNameExact = (req, res) => {
     status : [-1, 0, 1, 2]  // -1 = redo, 0 = draft; 1 = pending checker; 2 = pending approver; 3 = approved
   } : null;
 
-  Dtscf_Draft.findAll(
+  Dtscf_Drafts.findAll(
     { where: condition },
     )
     .then(data => {
-      logDataValues("Dtscf_Draft.findAll: ", data);
+      logDataValues("Dtscf_Drafts.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -2437,11 +2660,11 @@ exports.findDraftByApprovedId = (req, res) => {
     status : [-1, 0, 1, 2]  // status -1=redo, 0, drafted not submitted, 1=pending checker, 2=pending approver, 3=approved
   } : null;
 
-  Dtscf_Draft.findAll(
+  Dtscf_Drafts.findAll(
     { where: condition },
     )
     .then(data => {
-      logDataValues("Dtscf_Draft.findAll: ", data);
+      logDataValues("Dtscf_Drafts.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -2458,11 +2681,11 @@ exports.findExact = (req, res) => {
   const name = req.query.name;
   var condition = name ? { name: name } : null;
 
-  Dtscf.findAll(
+  Dtscfs.findAll(
     { where: condition },
     )
     .then(data => {
-      logDataValues("Dtscf.findAll: ", data);
+      logDataValues("Dtscfs.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -2483,7 +2706,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
 
   //console.log("++++++++++++++Received data:", req)
   
-  Dtscf.findAll(
+  Dtscfs.findAll(
   { 
     where: { id : Id },
   })
@@ -2491,7 +2714,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
 
     if (!data || data.length === 0) {
       return res.status(404).send({
-        message: `Dtscf with id=${Id} not found`
+        message: `Dtscfs with id=${Id} not found`
       });
     }
 
@@ -2505,7 +2728,7 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     // Creation of Web3 class
     Web3 = require("web3");
 
-    logDataValues("In Dtscf.findAll: ", data);
+    logDataValues("In Dtscfs.findAll: ", data);
 
     require('dotenv').config();
     const ETHEREUM_NETWORK = (() => {switch (data[0].blockchain) {
@@ -2539,18 +2762,17 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
       return;
     }
 
-    const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
-    const provider = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+    //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+    //const provider = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;
+    const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
+    const provider = `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+
     const Web3Client = new Web3(new Web3.providers.HttpProvider(provider));
     const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
-    // Setting up a HttpProvider
-    //web3 = new Web3( 
-    //  Web3.providers.HttpProvider(
-    //    `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
-    //  ) 
-    //);
-    web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
+    // web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
+    web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`));
+
 
     const _tokenAddress = data[0].smartcontractaddress;
 
@@ -2611,17 +2833,17 @@ exports.findByName = async (req, res) => {
   try {
     console.log("====== dtscf.findByName() ");
 
-    const dtscfs = await Dtscf.findAll({
+    const dtscfs = await Dtscfs.findAll({
         where: condition,
         include: 
           [
             {
-              model: db.recipients,
+              model: Recipients,
               as: 'anchor',
               attributes: ['name']
             },
             {
-              model: db.campaigns,
+              model: Campaigns,
               as: 'underlyingToken',
               attributes: ['tokenname']
             }
@@ -2637,7 +2859,7 @@ exports.findByName = async (req, res) => {
       return json;
     });
 
-    logDataValues("Dtscf.findAll: ", formattedData);
+    logDataValues("Dtscfs.findAll: ", formattedData);
     res.send(formattedData);
   } catch (err) {
     console.log("Error while retrieving findByName: "+err.message);
@@ -2655,9 +2877,9 @@ exports.getAllByDtscfId = async (req, res) => {
     console.log("ID is required for fetching record.");
     return res.status(400).send({ message: "ID is required" });
   }
-  const rec = await Dtscf.findByPk(id, {
+  const rec = await Dtscfs.findByPk(id, {
     include: [
-      { model: db.dtscf_milestones, as: 'dtscf_milestones' }
+      { model: Milestone, as: 'dtscf_milestones' }
     ]
   });
 
@@ -2665,9 +2887,9 @@ exports.getAllByDtscfId = async (req, res) => {
     return res.status(404).send({ message: "Record not found" });
   }
 
-  const allContractors = await db.dtscf_contractors.findAll({
+  const allContractors = await Contractor.findAll({
     where: { dtscf_project_id: id },
-    include: { model: db.dtscf_purchases, as: 'dtscf_purchases' }
+    include: { model: Purchase, as: 'dtscf_purchases' }
   });
 
   const contractorMap = {};
@@ -2698,16 +2920,16 @@ exports.getAll = async (req, res) => {
   try {
     console.log("====== dtscf.getAll() ");
 
-    const dtscfs = await Dtscf.findAll({
+    const dtscfs = await Dtscfs.findAll({
     include: 
       [
         {
-          model: db.recipients,
+          model: Recipients,
           as: 'anchor',
           attributes: ['name']
         },
         {
-          model: db.campaigns,
+          model: Campaigns,
           as: 'underlyingToken',
           attributes: ['tokenname']
         }
@@ -2723,7 +2945,7 @@ exports.getAll = async (req, res) => {
       return json;
     });
 
-    logDataValues("Dtscf.findAll: ", formattedData);
+    logDataValues("Dtscfs.findAll: ", formattedData);
     res.send(formattedData);
   } catch (err) {
     console.log("Error while retrieving dtscf4: "+err.message);
@@ -2766,14 +2988,14 @@ exports.getAllDraftsByUserId = (req, res) => {
         ],      
       } : null;
 
-  Dtscf_Draft.findAll( 
+  Dtscf_Drafts.findAll( 
     { 
       where: condition,
-      //include: db.recipients
+      //include: Recipients
     },
     )
     .then(data => {
-      logDataValues("Dtscf_Draft.findAll: ", data);
+      logDataValues("Dtscf_Drafts.findAll: ", data);
       res.send(data);
     })
     .catch(err => {
@@ -2793,9 +3015,9 @@ exports.getAllDraftsByDtscfId = async (req, res) => {
     console.log("ID is required for fetching drafts.");
     return res.status(400).send({ message: "ID is required" });
   }
-  const draft = await Dtscf_Draft.findByPk(id, {
+  const draft = await Dtscf_Drafts.findByPk(id, {
     include: [
-      { model: db.dtscf_milestones_draft, as: 'dtscf_milestones_drafts' }
+      { model: Milestone_draft, as: 'dtscf_milestones_drafts' }
     ]
   });
 
@@ -2803,10 +3025,10 @@ exports.getAllDraftsByDtscfId = async (req, res) => {
     return res.status(404).send({ message: "Draft not found" });
   }
 
-  const allContractors = await db.dtscf_contractors_draft.findAll({
+  const allContractors = await Contractor_draft.findAll({
     where: { dtscf_project_id: id },
     include: {  
-                model: db.dtscf_purchases_draft, 
+                model: Purchase_draft, 
                 as: 'dtscf_purchases_drafts'
              }
   });
@@ -2840,13 +3062,13 @@ exports.getAllDraftsByDtscfId = async (req, res) => {
 exports.findOne = (req, res) => {
   const id = req.params.id;
 
-  Dtscf.findByPk(id, {
-    include: db.recipients,
-    include: db.campaigns,
+  Dtscfs.findByPk(id, {
+    include: Recipients,
+    include: Campaigns,
   })
     .then(data => {
       if (data) {
-        logDataValues("Dtscf.findByPk: ", data);
+        logDataValues("Dtscfs.findByPk: ", data);
         res.send(data);
       } else {
         res.status(404).send({ 
@@ -2863,11 +3085,11 @@ exports.findOne = (req, res) => {
 
 exports.getAllInvestorsById = (req, res) => {
   const id = req.query.id;
-  console.log("In Dtscf.getAllInvestorsById: id=", id);
+  console.log("In Dtscfs.getAllInvestorsById: id=", id);
   let errorSent = false;
 
-  Dtscf.findByPk(id, {
-    include: [db.recipients, db.campaigns],
+  Dtscfs.findByPk(id, {
+    include: [Recipients, Campaigns],
   })
   .then(async data => {
     if (!data) {
@@ -2875,7 +3097,7 @@ exports.getAllInvestorsById = (req, res) => {
       return;
     }
 
-    logDataValues("Dtscf.findByPk: ", data);
+    logDataValues("Dtscfs.findByPk: ", data);
 
     // Load ABI
     const fs = require("fs");
@@ -2917,10 +3139,12 @@ exports.getAllInvestorsById = (req, res) => {
       return;
     }
 
-    const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
     const ETHERSCAN_API_KEY = process.env.REACT_APP_ETHERSCAN_API_KEY;
-    const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;
-    console.log("Provider URL:", providerUrl.replace(INFURA_API_KEY, "****"));
+//    const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+//    const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;
+    const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
+    const providerUrl = `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+    console.log("Provider URL:", providerUrl.replace(ALCHEMY_API_KEY, "****"));
 
     let web3;
     try {
@@ -3109,131 +3333,7 @@ exports.getAllInvestorsById = (req, res) => {
     }
   });
 }; // getAllInvestorsById
-/*
-exports.submitDraftById = async (req, res) => {
-  upload.any()(req, res, async (err) => {
-    if (err) {
-      return res.status(500).send({ message: "Error parsing form data" });
-    }
 
-    var errorSent = false;
-
-    const draft_id = req.params.id;
-
-    if (!req.body.name) {
-      if (!errorSent) {
-        res.status(400).send({
-          message: "Content can not be empty!"
-        });
-        errorSent = true;
-      }
-      return;
-    }
-
-    console.log("Received1 submitDraftById:");
-    console.log("id=",req.params.id);
-    console.log("Received for Dtscf draft Update:");
-    console.log(req.body);
-
-    try {
-      // Update the draft project
-      await Dtscf_Draft.update(
-        {
-          name              : req.body.name,
-          description       : req.body.description,
-          totalBudget       : parseInt(req.body.totalBudget) || 0,
-          blockchain        : req.body.blockchain || 0, // Default or from form
-          underlyingTokenID : req.body.underlyingTokenID || null,
-          underlyingDSGDsmartcontractaddress : req.body.underlyingDSGDsmartcontractaddress || '',
-          campaign_id        : req.body.campaign_id || null,
-          anchor_id          : req.body.anchor_id || null,
-
-          startdate         : req.body.startdate,
-          enddate           : req.body.enddate,
-          txntype           : req.body.txntype, // Create
-          status            : 2,   // -1 = redo, 0 = draft; 2 = pending approver; 3 = approved   -- skip checker only approver
-          actionby          : req.body.actionby, // Assuming auth service
-          actiontimedate    : new Date(),
-          maker             : req.body.maker,
-          checker           : req.body.checker,
-          approver          : req.body.approver,
-//          checkerComments   : req.body.checkerComments || '',
-          approverComments  : req.body.approverComments || ''
-        },
-        { where: { id: draft_id } }
-      );
-
-      console.log("Dtscf draft project updated successfully.");
-
-      // Parse and update/create milestones
-      const milestones = JSON.parse(req.body.milestones || '[]');
-      for (const ms of milestones) {
-        if (ms.id) {
-          await db.dtscf_milestones_draft.update({
-            name: ms.name,
-            budget: parseInt(ms.budget) || 0,
-            startdate: ms.startdate,
-            enddate: ms.enddate,
-          }, { where: { id: ms.id } });
-        } else {
-          await db.dtscf_milestones_draft.create({
-            name: ms.name,
-            budget: parseInt(ms.budget) || 0,
-            startdate: ms.startdate,
-            enddate: ms.enddate,
-            dtscf_project_id: draft_id
-          });
-        }
-      }
-
-// Parse and update/create contractors with purchases recursively
-      const contractors = JSON.parse(req.body.contractors || '[]');
-      await updateOrCreateContractors(contractors, draft_id, req.files);
-
-      // Log to audittrail
-      await AuditTrail.create({
-        action: req.body.txntype===0?"create - resubmitted":req.body.txntype===1?"update - resubmitted":req.body.txntype===2?"delete - resubmitted":"",
-        name: req.body.name,
-        totalBudget: req.body.totalBudget,
-        blockchain: req.body.blockchain || 0,
-        underlyingTokenID: req.body.underlyingTokenID || null,
-        underlyingDSGDsmartcontractaddress: req.body.underlyingDSGDsmartcontractaddress || '',
-        campaign_id: req.body.campaign_id || null,
-
-        startdate: req.body.startdate,
-        enddate: req.body.enddate,
-        txntype: req.body.txntype,
-        draftdtscfId: draft_id,
-        maker: req.body.maker,
-        checker: req.body.checker,
-        approver: req.body.approver,
-        actionby: req.body.actionby,
-//        checkerComments: req.body.checkerComments,
-        approverComments: req.body.approverComments,
-        status: 1,   // pending checker
-      })
-      .then(auditres => {
-        console.log("Data written to audittrail for resubmitting dtscf request:", auditres);
-      })
-      .catch(err => {
-        console.log("Error while logging to audittrail for resubmitting dtscf request: "+err.message);
-      });
-
-      res.send({
-        message: "Dtscf draft updated successfully."
-      });
-    } catch (err) {
-      console.error(err);
-      if (!errorSent) {
-        res.status(500).send({
-          message: err.message || "Some error occurred while updating the draft."
-        });
-        errorSent = true;
-      }
-    }
-  });
-}; // submitDraftById
-*/
 exports.submitDraftById = async (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/plain',
@@ -3266,7 +3366,8 @@ exports.submitDraftById = async (req, res) => {
     console.log(`Raw body (before parsing): ${req.rawBody || 'No raw body'}`);  // Debug: If you add req.rawBody via middleware (optional)
     console.log(`Parsed req.body: ${JSON.stringify(req.body)}`);  // Debug: What was parsed
     console.log("id=", draft_id);
-    console.log(req.body);
+    // console.log(req.body);
+    console.log(JSON.stringify(req.body, null, 2));
 
     sendLog("Updating draft...");
 
@@ -3284,7 +3385,7 @@ exports.submitDraftById = async (req, res) => {
       throw new Error('Missing required fields');
     }
 
-    const [num] = await Dtscf_Draft.update(
+    const [num] = await Dtscf_Drafts.update(
       {
         status: 2, // pending approver
 
@@ -3308,7 +3409,7 @@ exports.submitDraftById = async (req, res) => {
     );
 
     for (const [index, ms] of milestones.entries()) {
-      await Milestone.update({
+      await Milestone_draft.update({
         dtscf_project_id: draft_id,
         name: ms.name,
         budget: parseInt(ms.budget) || 0,
@@ -3323,8 +3424,47 @@ exports.submitDraftById = async (req, res) => {
       console.log(`LOG: Updated milestone ${index + 1}/${milestones.length}.\n`);
     }
 
+    // If updating existing milestones, capture their IDs
+    const milestoneMap = {};
+
+    for (const ms of milestones) {
+      if (ms.id) {
+        // If it's an existing milestone, just update it and map it
+        await Milestone_draft.update({ 
+            dtscf_project_id: draft_id,
+            name: ms.name,
+            budget: parseInt(ms.budget) || 0,
+            startdate: ms.startdate,
+            enddate: ms.enddate,
+            description: ms.description || '',
+            name_changed: false,
+            budget_changed: false,
+            startdate_changed: false,
+            enddate_changed: false
+        }, { where: { id: ms.id } });
+        milestoneMap[ms.name] = ms.id;
+      } else {
+        // If it's a new milestone added during draft editing
+        const newMs = await Milestone_draft.create({
+            dtscf_project_id: draft_id,
+            name: ms.name,
+            budget: parseInt(ms.budget) || 0,
+            startdate: ms.startdate,
+            enddate: ms.enddate,
+            description: ms.description || '',
+            name_changed: true,
+            budget_changed: true,
+            startdate_changed: true,
+            enddate_changed: true    
+        });
+        milestoneMap[ms.name] = newMs.id;
+      }
+    }
+
+
     for (const [index, con] of contractors.entries()) {
-      const newContractor = await Contractor.update({
+      var newContractorId = null;
+      const newContractor = await Contractor_draft.update({
         dtscf_project_id: draft_id,
         name: con.name,
         budget: parseInt(con.budget) || 0,
@@ -3336,19 +3476,36 @@ exports.submitDraftById = async (req, res) => {
         dtscf_parent_contractor_id_changed: false
       }, { where: { id: con.id } });
       console.log(`LOG: Updated contractor ${index + 1}/${contractors.length}.\n`);
+      console.log(">>>>>>>>>>>>  newContractor result: ", newContractor);
+
+      newContractorId = con.id;
+      console.log("z con.id: ", con.id);
+      console.log("z newContractorId: ", newContractorId);
 
       for (const [purIndex, pur] of (con.purchases || []).entries()) {
-        await Purchase.update({
-          dtscf_project_id: draft_id,
-          dtscf_contractor_id: newContractor.id,
-          description: pur.description,
-          amount: parseInt(pur.amount) || 0,
-          description_changed: false,
-          amount_changed: false,
-          dtscf_project_id_changed: false,
-          dtscf_contractor_id_changed: false
-        }, { where: { id: pur.id } });
-        console.log(`LOG: Updated purchase ${purIndex + 1} for contractor ${index + 1}.\n`);
+        
+        const mappedMilestoneId = milestoneMap[pur.milestone] || pur.milestone_id || null;
+        console.log("Before Purchase_draft update (pur): ", pur);  
+        console.log("pur.id: ", pur.id);  
+        if (pur.id) {
+          await Purchase_draft.update({
+            dtscf_project_id: draft_id,
+            dtscf_contractor_id: newContractorId,
+            dtscf_milestone_id: mappedMilestoneId,
+            description: pur.description,
+            amount: parseInt(pur.amount) || 0
+          }, { where: { id: pur.id } });
+          console.log(`LOG: Updated purchase #${purIndex + 1}(${pur.id}) for contractor ${index + 1}.\n`);
+        } else {
+          const newPur = await Purchase_draft.create({
+            dtscf_project_id: draft_id,
+            dtscf_contractor_id: newContractorId,
+            dtscf_milestone_id: mappedMilestoneId,
+            description: pur.description,
+            amount: parseInt(pur.amount) || 0
+          });
+          console.log(`LOG: Created purchase #${purIndex + 1}(${newPur.id}) for contractor ${index + 1}.\n`);
+        }
       }
     }
 
@@ -3403,7 +3560,7 @@ exports.acceptDraftById = async (req, res) => {
   console.log("id=", draft_id);
   console.log(req.body);
 
-  await Dtscf_Draft.update(
+  await Dtscf_Drafts.update(
   { 
     status :          2,
 //    checkerComments: req.body.checkerComments,
@@ -3458,7 +3615,7 @@ exports.acceptDraftById = async (req, res) => {
   .catch(err => {
     console.log(err);
     res.status(500).send({
-      message: `Error updating Dtscf. ${err}`
+      message: `Error updating Dtscfs. ${err}`
     });
   });
 }; // acceptDraftById
@@ -3472,7 +3629,7 @@ exports.rejectDraftById = async (req, res) => {
   console.log("id=", draft_id);
   console.log(req.body);
 
-  await Dtscf_Draft.update(
+  await Dtscf_Drafts.update(
   { 
     status :          -1,
 //    checkerComments: req.body.checkerComments,
@@ -3531,7 +3688,7 @@ exports.rejectDraftById = async (req, res) => {
     console.log(err);
     if (!errorSent) {
       res.status(500).send({
-        message: `Error rejecting Dtscf. ${err}`
+        message: `Error rejecting Dtscfs. ${err}`
       });
       errorSent = true;
     }
@@ -3584,6 +3741,7 @@ exports.update = async (req, res) => {
   }
 
   const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
@@ -3599,14 +3757,8 @@ exports.update = async (req, res) => {
 
     // Creation of Web3 class
     Web3 = require("web3");
-
-    // Setting up a HttpProvider
-    //web3 = new Web3( 
-    //  Web3.providers.HttpProvider(
-    //    `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
-    //  ) 
-    //);
-    web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
+//    web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
+    web3 = new Web3(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`));
 
     //console.log("web3: =========>", web3);
 
@@ -3622,8 +3774,9 @@ exports.update = async (req, res) => {
         const tokenisedPayableContract = new web3.eth.Contract(ABI);
 
         // https://github.com/web3/web3.js/issues/1001
-        web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
-        
+        //web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+        web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`) );
+
         let setToTalSupply = (isNaN(+req.body.totalsupply)? req.body.totalsupply: req.body.totalsupply.toString())   
         + createStringWithZeros(adjustdecimals);  // pad zeros behind
         console.log("setToTalSupply = ", setToTalSupply);
@@ -3725,7 +3878,7 @@ exports.update = async (req, res) => {
   ////////////////////////////// Blockchain ////////////////////////
 
   if (updatestatus) {
-    await Dtscf.update(
+    await Dtscfs.update(
       {
         name                  : req.body.name,
         blockchain            : req.body.blockchain || 0, // Default or from form
@@ -3797,7 +3950,7 @@ exports.update = async (req, res) => {
         console.log(err);
         if (!errorSent) {
           res.status(500).send({
-            message: `Error updating Dtscf. ${err}`
+            message: `Error updating Dtscfs. ${err}`
           });
           errorSent = true;
         }
@@ -3805,7 +3958,7 @@ exports.update = async (req, res) => {
   } else {
     if (!errorSent) {
       res.status(500).send({
-        message: "Error updating Dtscf. "
+        message: "Error updating Dtscfs. "
       });
       errorSent = true;
     }
@@ -3822,7 +3975,7 @@ exports.approveDeleteDraftById = async (req, res) => {
   console.log(req.body);
 
   // update draft table
-  var Done = await Dtscf_Draft.update(  // update draft table status to "3"
+  var Done = await Dtscf_Drafts.update(  // update draft table status to "3"
   { 
     status            : 3,
     approverComments  : req.body.approvercomments,
@@ -3880,7 +4033,7 @@ exports.approveDeleteDraftById = async (req, res) => {
     return false;
   });
 
-  if (Done) await Dtscf.destroy({ // delete entry in approved Dtscf table
+  if (Done) await Dtscfs.destroy({ // delete entry in approved Dtscf table
     where: { id: req.body.approveddtscfid }
   })
   .then(num => {
@@ -3924,7 +4077,7 @@ exports.dropRequestById = async (req, res) => {
   console.log(req.body);
 
   // update draft table
-  await Dtscf_Draft.update(  // update draft table status to "9" - aborted / dropped requests
+  await Dtscf_Drafts.update(  // update draft table status to "9" - aborted / dropped requests
   { 
     status            : 9,
     approverComments  : req.body.approvercomments,
@@ -3999,7 +4152,7 @@ exports.delete = (req, res) => {
 
   console.log(req.body.actionby);
 
-  Dtscf.destroy({
+  Dtscfs.destroy({
     where: { id: id }
   })
     .then(num => {
@@ -4033,7 +4186,7 @@ exports.delete = (req, res) => {
 exports.deleteAll = (req, res) => {
   var errorSent = false;
 
-  Dtscf.destroy({
+  Dtscfs.destroy({
     where: {},
     truncate: false
   })

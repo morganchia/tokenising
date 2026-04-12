@@ -33,7 +33,7 @@ module.exports = (sequelize, Sequelize) => {
       defaultValue: false,
     },
     budget_changed: {  
-      type: Sequelize.INTEGER,  
+      type: Sequelize.BOOLEAN,  
       defaultValue: false,
     },
     startdate_changed: {

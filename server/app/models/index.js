@@ -56,8 +56,8 @@ db.bonds               = require("./bond.model.js")(sequelize, Sequelize);
 db.bonds_draft         = require("./bond_draft.model.js")(sequelize, Sequelize);
 db.repos               = require("./repo.model.js")(sequelize, Sequelize);
 db.repos_draft         = require("./repo_draft.model.js")(sequelize, Sequelize);
-db.dtscf                   = require("./dtscf.model.js")(sequelize, Sequelize);
-db.dtscf_draft             = require("./dtscf_draft.model.js")(sequelize, Sequelize);
+db.dtscfs              = require("./dtscfs.model.js")(sequelize, Sequelize);
+db.dtscf_drafts             = require("./dtscf_drafts.model.js")(sequelize, Sequelize);
 db.dtscf_contractors       = require("./dtscf_contractors.model.js")(sequelize, Sequelize);
 db.dtscf_contractors_draft = require("./dtscf_contractors_draft.model.js")(sequelize, Sequelize);
 db.dtscf_purchases         = require("./dtscf_purchases.model.js")(sequelize, Sequelize);
@@ -78,7 +78,9 @@ db.user.belongsToMany(db.role, {
   otherKey: "roleId"
 });
 
-db.ROLES = ["user", "admin", "moderator"];
+
+//db.ROLES = ["user", "admin", "moderator"]; 
+db.ROLES = ["user", "admin", "moderator", "anchor", "contractor"]; // user is actually "bank" in the current implementation, but we will use "user" to avoid confusion with the "bank" role in the future when we implement the bank role.
 
 //db.useropsrole = require("./useropsrole.model.js")(sequelize, Sequelize);
 db.useropsrole =  UserOpsRole = sequelize.define("user_opsroles", {
@@ -123,6 +125,7 @@ db.useropsrole.hasOne(db.opsrole, {
   foreignKey: "id",
   sourceKey: "opsroleId",
 });
+
 db.useropsrole.hasOne(db.user, {
   foreignKey: "id",
   sourceKey: "userId",
@@ -466,31 +469,31 @@ db.wrapmints_draft.hasOne(db.user, {
 // ... (other associations unchanged)
 
 // DTSCF Relationships
-db.dtscf.hasMany(db.dtscf_milestones, {
+db.dtscfs.hasMany(db.dtscf_milestones, {
   foreignKey: "dtscf_project_id"
 });
-db.dtscf_milestones.belongsTo(db.dtscf, {
-  foreignKey: "dtscf_project_id"
-});
-
-db.dtscf_draft.hasMany(db.dtscf_milestones_draft, {
-  foreignKey: "dtscf_project_id"
-});
-db.dtscf_milestones_draft.belongsTo(db.dtscf_draft, {
+db.dtscf_milestones.belongsTo(db.dtscfs, {
   foreignKey: "dtscf_project_id"
 });
 
-db.dtscf.hasMany(db.dtscf_contractors, {
+db.dtscf_drafts.hasMany(db.dtscf_milestones_draft, {
   foreignKey: "dtscf_project_id"
 });
-db.dtscf_contractors.belongsTo(db.dtscf, {
+db.dtscf_milestones_draft.belongsTo(db.dtscf_drafts, {
   foreignKey: "dtscf_project_id"
 });
 
-db.dtscf_draft.hasMany(db.dtscf_contractors_draft, {
+db.dtscfs.hasMany(db.dtscf_contractors, {
   foreignKey: "dtscf_project_id"
 });
-db.dtscf_contractors_draft.belongsTo(db.dtscf_draft, {
+db.dtscf_contractors.belongsTo(db.dtscfs, {
+  foreignKey: "dtscf_project_id"
+});
+
+db.dtscf_drafts.hasMany(db.dtscf_contractors_draft, {
+  foreignKey: "dtscf_project_id"
+});
+db.dtscf_contractors_draft.belongsTo(db.dtscf_drafts, {
   foreignKey: "dtscf_project_id"
 });
 
@@ -512,17 +515,17 @@ db.dtscf_contractors_draft.hasMany(db.dtscf_contractors_draft, {
   foreignKey: 'dtscf_parent_contractor_id'
 });
 
-db.dtscf.hasMany(db.dtscf_purchases, {
+db.dtscfs.hasMany(db.dtscf_purchases, {
   foreignKey: "dtscf_project_id"
 });
-db.dtscf_purchases.belongsTo(db.dtscf, {
+db.dtscf_purchases.belongsTo(db.dtscfs, {
   foreignKey: "dtscf_project_id"
 });
 
-db.dtscf_draft.hasMany(db.dtscf_purchases_draft, {
+db.dtscf_drafts.hasMany(db.dtscf_purchases_draft, {
   foreignKey: "dtscf_project_id"
 });
-db.dtscf_purchases_draft.belongsTo(db.dtscf_draft, {
+db.dtscf_purchases_draft.belongsTo(db.dtscf_drafts, {
   foreignKey: "dtscf_project_id"
 });
 
@@ -540,25 +543,39 @@ db.dtscf_purchases_draft.belongsTo(db.dtscf_contractors_draft, {
   foreignKey: "dtscf_contractor_id"
 });
 
-db.dtscf.belongsTo(db.campaigns, {
+db.dtscf_milestones.hasMany(db.dtscf_purchases, {
+  foreignKey: "dtscf_milestone_id"
+});
+db.dtscf_purchases.belongsTo(db.dtscf_milestones, {
+  foreignKey: "dtscf_milestone_id"
+});
+
+db.dtscf_milestones_draft.hasMany(db.dtscf_purchases_draft, {
+  foreignKey: "dtscf_milestone_id"
+});
+db.dtscf_purchases_draft.belongsTo(db.dtscf_milestones_draft, {
+  foreignKey: "dtscf_milestone_id"
+});
+
+db.dtscfs.belongsTo(db.campaigns, {
   foreignKey: "underlyingTokenID",
   targetKey: "id",
   as: "underlyingToken"
 });
 
-db.dtscf_draft.belongsTo(db.campaigns, {
+db.dtscf_drafts.belongsTo(db.campaigns, {
   foreignKey: "underlyingTokenID",
   targetKey: "id",
   as: "underlyingToken"
 });
 
-db.dtscf.belongsTo(db.recipients, {
+db.dtscfs.belongsTo(db.recipients, {
   foreignKey: "anchor_id",
   targetKey: "id",
   as: "anchor"
 });
 
-db.dtscf_draft.belongsTo(db.recipients, {
+db.dtscf_drafts.belongsTo(db.recipients, {
   foreignKey: "anchor_id",
   targetKey: "id",
   as: "anchor"

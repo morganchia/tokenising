@@ -78,6 +78,9 @@ import DTSCFContractorList from "./components/dtscf-dashboard-contractor.compone
 import DTSCFBankList from "./components/dtscf-dashboard-bank.component";
 import DTSCFCheckApprove from "./components/dtscf-checkapprove.component";
 import DTSCFCheckApprove2 from "./components/dtscf-checkapprove2.component";
+import DTSCFView from "./components/dtscf-view.component";
+import DTSCFRealiseMilestone from "./components/dtscf-realisemilestone.component";
+import DTSCFUNWRAP from "./components/dtscf-unwrap.component";
 
 //import PayableList from "./components/payable-list.component";
 //import PayableCheckApprove from "./components/payable-checkapprove.component";
@@ -479,6 +482,10 @@ class App extends Component {
             <Route path="/dtscf" element={<DTSCFProjectList/>} />
             <Route path="/dtscfcheckapprove/:id" element={<DTSCFCheckApprove/>} />
             <Route path="/dtscfcheckapprove2/:id" element={<DTSCFCheckApprove2/>} />
+            <Route path="/dtscfview/:id/:smartcontractaddress" element={<DTSCFView/>} />
+            <Route path="/dtscfrealisemilestone/:id" element={<DTSCFRealiseMilestone/>} />
+            <Route path="/dtscfunwrap/:id" element={<DTSCFUNWRAP/>} />
+
 {
 /*
             <Route path="/payable" element={<PayableList/>} />

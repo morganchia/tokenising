@@ -2,8 +2,14 @@ const db = require("../models");
 const AuditTrail = db.audittrail;
 const Campaigns = db.campaigns;
 const Campaigns_Draft = db.campaigns_draft;
+const Recipients = db.recipients;
 const Op = db.Sequelize.Op;
 const { logDataValues } = require('../utils/logDataValues');
+
+const fs = require('fs');
+const path = require('path');
+const abiFile = path.join(__dirname, '../abis/ERC20TokenDSGD.abi.json');
+
 
 var newcontractaddress = null;
 const adjustdecimals = 18;
@@ -852,7 +858,6 @@ exports.findDraftByApprovedId = (req, res) => {
     });
 };
 
-
 exports.findExact = (req, res) => {
   const name = req.query.name;
   var condition = name ? { name: name } : null;
@@ -1021,6 +1026,99 @@ exports.getAll = (req, res) => {
           err.message || "Some error occurred while retrieving campaigns."
       });
     });
+};
+
+exports.getAllbyOrgId = async (req, res) => {
+  const orgId = req.query.id; // organisation_id passed as query parameter
+  var condition = orgId ? { sponsor: orgId } : null;
+
+  console.log("Received query for getAllbyOrgId with orgId: ", orgId);
+
+  try {
+    // 1. Query the Recipient database
+    const recipient = await Recipients.findOne({
+      where: { id: orgId }
+    });
+
+    if (!recipient) {
+      return res.status(404).send({ message: "Organisation not found." });
+    }
+  
+    const w1 = recipient.walletaddress;
+    console.log(`xxFound wallet address for organisation ${orgId}: ${w1}`);
+
+    const campaigns = await Campaigns.findAll(
+      {
+        include: db.recipients
+      },
+      { where: condition },
+    )
+    .then(data => {
+      logDataValues("Campaign.findAll: ", data);
+      // res.send(data);
+      return data;
+    })
+    .catch(err => {
+      console.log("Error while retreiving campaigns4: "+err.message);
+
+      res.status(500).send({
+        message:
+          err.message || "Some error occurred while retrieving campaigns."
+      });
+    });
+
+    const Web3 = require('web3');
+    require('dotenv').config();
+
+
+    const formattedData = await Promise.all(campaigns.map(async c1 => {
+      const json = c1.toJSON();
+
+              const providerUrl = (() => {
+                switch (json.blockchain) {
+      //            case 80001: return `https://polygon-mumbai.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+      //            case 80002: return `https://polygon-amoy.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+      //            case 11155111: return `https://sepolia.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+      //            case 137: return `https://polygon-mainnet.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+      //            case 1: return `https://mainnet.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+                  case 80001    : return `https://polygon-mumbai.infura.io/v3/${process.env.REACT_APP_PROVIDER_API_KEY}`;
+                  case 80002    : return `https://polygon-amoy.g.alchemy.com/v2/${process.env.REACT_APP_PROVIDER_API_KEY}`;
+                  case 11155111 : return `https://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_PROVIDER_API_KEY}`;
+                  case 137      : return `https://polygon-mainnet.g.alchemy.com/v2/${process.env.REACT_APP_PROVIDER_API_KEY}`;
+                  case 1        : return `https://eth-mainnet.g.alchemy.com/v2/${process.env.REACT_APP_PROVIDER_API_KEY}`;
+                  default: return null;
+                }
+              })();
+      
+              try {
+                // query blockchain for balance of DSGD/TD in the wallet
+                const web3 = new Web3(new Web3.providers.HttpProvider(providerUrl));
+                const abi = JSON.parse(fs.readFileSync(abiFile, 'utf8')); 
+                const contract = new web3.eth.Contract(abi, json.smartcontractaddress);
+                const balance = await contract.methods.balanceOf(w1).call(); 
+
+                json.balance = web3.utils.fromWei(balance, 'ether'); // removing 18 zeros from balance
+
+                console.log(`Fetched balance for ${json.tokenname} on blockchain ${json.blockchain} wallet ${w1}: ${balance}`);
+            
+              } catch (error) {
+                  console.error("Error fetching data:", error);
+              }
+      
+      return json;
+    }));
+
+    logDataValues("Dtscfs.findAll: ", formattedData);
+    console.log("Formatted Dtscfs data with anchorName and tokenName:", formattedData);
+    res.send(formattedData);
+
+  } catch (err) {
+    console.log("Error while retrieving campaigns: "+err.message);
+    res.status(500).send({
+      message: err.message || "Some error occurred while retrieving campaigns records."
+    });
+  }
+  return;
 };
 
 exports.getAllDraftsByUserId = (req, res) => {
@@ -1222,7 +1320,6 @@ exports.submitDraftById = async (req, res) => {
     });
   });
 };
-
 
 exports.acceptDraftById = async (req, res) => {
   

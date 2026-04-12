@@ -1,5 +1,5 @@
 module.exports = (sequelize, Sequelize) => {
-  const Dtscf_Draft = sequelize.define("dtscf_draft", {
+  const Dtscf_Drafts = sequelize.define("dtscf_drafts", {
     id: {
       type: Sequelize.INTEGER,
       primaryKey: true,
@@ -69,7 +69,7 @@ module.exports = (sequelize, Sequelize) => {
       defaultValue: false,
     },
     totalBudget_changed: {  
-      type: Sequelize.INTEGER,  
+      type: Sequelize.BOOLEAN,  
       defaultValue: false,
     },
     startdate_changed: {
@@ -127,5 +127,5 @@ module.exports = (sequelize, Sequelize) => {
     }
   });
 
-  return Dtscf_Draft;
+  return Dtscf_Drafts;
 };

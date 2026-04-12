@@ -20,6 +20,8 @@ module.exports = app => {
   // Retrieve all Campaigns with LIKE condition
   router.get("/findByName", campaigns.findByName);
 
+  router.get("/getallbyorgid", campaigns.getAllbyOrgId);
+
   router.get("/getalldraftsbyuserid", campaigns.getAllDraftsByUserId);
 
   router.get("/getalldraftsbycampaignid", campaigns.getAllDraftsByCampaignId);

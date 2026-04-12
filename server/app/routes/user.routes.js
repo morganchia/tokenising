@@ -11,13 +11,31 @@ module.exports = function(app) {
   });
 
   app.get("/api/test/all", controller.allAccess);
-
+/*
   app.get(
-    "/api/test/user",
-    [authJwt.verifyToken],
-    controller.userBoard
+    "/api/test/bank",
+    [authJwt.verifyToken, authJwt.isBank],
+    controller.bankBoard
+  );
+*/
+  app.get(
+    "/api/test/anchor",
+    [authJwt.verifyToken, authJwt.isAnchor],
+    controller.anchorBoard
   );
 
+  app.get(
+    "/api/test/contractor",
+    [authJwt.verifyToken, authJwt.isContractor],
+    controller.contractorBoard
+  );
+/*
+  app.get(
+    "/api/test/user",
+    [authJwt.verifyToken, authJwt.isUser],
+    controller.userBoard
+  );
+*/
   app.get(
     "/api/test/mod",
     [authJwt.verifyToken, authJwt.isModerator],

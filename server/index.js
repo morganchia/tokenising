@@ -27,6 +27,7 @@ app.use(express.json({ limit: '50mb' }));
 // database
 const db = require("./app/models");
 const Role = db.role;
+//const UserOpsRole  = db.useropsrole;
 
 db.sequelize.sync();
 // force: true will drop the table if it already exists
@@ -86,18 +87,33 @@ app.listen(PORT, () => {
 
 function initial() {
   Role.create({
+//  UserOpsRole.create({
     id: 1,
-    name: "user"
+    name: "user"  // or banker
   });
  
   Role.create({
+//  UserOpsRole.create({
     id: 2,
     name: "moderator"
   });
  
   Role.create({
+//  UserOpsRole.create({
     id: 3,
     name: "admin"
+  });
+
+  Role.create({
+//  UserOpsRole.create({
+    id: 4,
+    name: "anchor"
+  });
+  
+  Role.create({
+//  UserOpsRole.create({
+    id: 5,
+    name: "conctractor"
   });
 }
 

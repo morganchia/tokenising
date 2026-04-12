@@ -23,6 +23,10 @@ class CampaignDataService {
     return http.put(`/campaigns/${id}`, data);
   }
 
+  getAllbyOrgId(id) {
+    return http.get(`/campaigns/getallbyorgid?id=${id}`);
+  }
+  
   submitDraftById(id, data) {
     console.log("Calling /campaigns/submitdraftbyid?id");
     return http.put(`/campaigns/submitdraftbyid/${id}`, data);

@@ -669,7 +669,7 @@ class Campaign extends Component {
                         id="name"
                         value={currentCampaign.name}
                         onChange={this.onChangeName}
-                        disabled={!this.state.isMaker}
+                        disabled={currentCampaign.smartcontractaddress || !this.state.isMaker}
                         />
                     </div>
                 <div className="form-group">
@@ -683,7 +683,7 @@ class Campaign extends Component {
                     onChange={this.onChangeDescription}
                     name="description"
                     autoComplete="off"
-                    disabled={!this.state.isMaker}
+                    disabled={currentCampaign.smartcontractaddress || !this.state.isMaker}
                     />
                 </div>
 
@@ -742,7 +742,7 @@ class Campaign extends Component {
                         id="startdate"
                         value={currentCampaign.startdate}
                         onChange={this.onChangeStartDate}
-                        disabled={!this.state.isMaker}
+                        disabled={currentCampaign.smartcontractaddress || !this.state.isMaker}
                       />
                     </div>
                     <div className="form-group">
@@ -753,7 +753,7 @@ class Campaign extends Component {
                         id="enddate"
                         value={currentCampaign.enddate}
                         onChange={this.onChangeEndDate}
-                        disabled={!this.state.isMaker}
+                        disabled={currentCampaign.smartcontractaddress || !this.state.isMaker}
                       />
                     </div>
                     <div className="form-group">
@@ -763,7 +763,7 @@ class Campaign extends Component {
                         onChange={this.onChangeSponsor}                         
                         className="form-control"
                         id="sponsor"
-                        disabled={!this.state.isMaker}
+                        disabled={currentCampaign.smartcontractaddress || !this.state.isMaker}
                         >
                       {
                         Array.isArray(recipient) ?
@@ -784,7 +784,7 @@ class Campaign extends Component {
                         step="1"
                         value={currentCampaign.amount}
                         onChange={this.onChangeAmount}
-                        disabled={!this.state.isMaker}
+                        disabled={currentCampaign.smartcontractaddress || !this.state.isMaker}
                         />
                     </div>                
                     {    this.state.isMaker? 
@@ -795,7 +795,7 @@ class Campaign extends Component {
                             onChange={this.onChangeChecker}                         
                             className="form-control"
                             id="checker"
-                            disabled={!this.state.isMaker}
+                            disabled={currentCampaign.smartcontractaddress || !this.state.isMaker}
                           >
                             {
                               Array.isArray(checkerList) ?
@@ -816,7 +816,7 @@ class Campaign extends Component {
                           onChange={this.onChangeApprover}                         
                           className="form-control"
                           id="approver"
-                          disabled={!this.state.isMaker}
+                          disabled={currentCampaign.smartcontractaddress || !this.state.isMaker}
                         >
                         {
                           Array.isArray(approverList) ?
@@ -829,7 +829,7 @@ class Campaign extends Component {
                     </div>
                     : null}
                   </form>
-                  { this.state.isMaker?
+                  { !currentCampaign.smartcontractaddress && this.state.isMaker?
                     ((this.state.datachanged) ? 
                         <button
                           type="submit"
@@ -857,7 +857,7 @@ class Campaign extends Component {
                   }
 
   &nbsp;
-  { this.state.isMaker?
+  { !currentCampaign.smartcontractaddress && this.state.isMaker?
 
                   <button
                     className="m-3 btn btn-sm btn-danger"
@@ -867,7 +867,7 @@ class Campaign extends Component {
                   </button>
                   : null}
   &nbsp;
-  { this.state.isMaker?
+  { !currentCampaign.smartcontractaddress && this.state.isMaker?
 
                    ((this.state.datachanged) ? 
                     <button className="m-3 btn btn-sm btn-secondary" onClick={this.showModal_Leave}>

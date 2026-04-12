@@ -22,12 +22,12 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
         uint256 milestoneId;  // New: Groups payables by milestone
     }
 
-    mapping(uint256 => Payable) public payables; // Token ID => Payable
-    mapping(uint256 => EnumerableSet.UintSet) private milestoneToTokens; // Milestone ID => Set of token IDs
+    mapping(uint256 => Payable) public payables;                            // Token ID => Payable
+    mapping(uint256 => EnumerableSet.UintSet) private milestoneToTokens;    // Milestone ID => Set of token IDs
     mapping(uint256 => string) private _tokenURIs;
     EnumerableSet.UintSet private tokenIds;
-    mapping(uint256 => address) public tokenOwners; // Track owner per token ID (NFT-like)
-    uint256 private nextTokenId = 1;  // Start from 1
+    mapping(uint256 => address) public tokenOwners;                         // Track owner per token ID (NFT-like)
+    uint256 private nextTokenId = 1;                                        // Start from 1
 
     event PayableCreated(uint256 indexed id, uint256 value, uint256 maturityDate, address issuer, uint256 milestoneId);
     event PayableSplit(uint256 indexed originalId, uint256 newId, uint256 splitValue);

@@ -13,6 +13,9 @@ class DtscfDataService {
   getAllInvestorsById(id) {
     return http.get(`/dtscf/getallinvestorsbyid?id=${id}`);
   }
+  getTPbyOrgId(id) {
+    return http.get(`/dtscf/gettpbyorgid?id=${id}`);
+  }
   getAllByDtscfId(id) {
     return http.get(`/dtscf/getallbydtscfid?id=${id}`);
   }
@@ -113,6 +116,8 @@ class DtscfDataService {
     });
   }
 */
+
+
   draftCreate(data, onLog = () => {}) {
     const baseURL = http.defaults.baseURL;
     return new Promise((resolve, reject) => {
@@ -346,6 +351,11 @@ class DtscfDataService {
       })
       .catch(reject);
     });
+  }
+
+  getTPNFT(id, data) {
+    console.log("Calling /dtscf/gettpnft?id");
+    return http.put(`/dtscf/gettpnft/${id}`, data);
   }
 
   submitDraftById(id, data, onLog = () => {}) {

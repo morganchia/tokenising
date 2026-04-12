@@ -23,6 +23,9 @@ module.exports = (sequelize, Sequelize) => {
     dtscf_contractor_id: {
       type: Sequelize.INTEGER  // reference the id in Dtscf contractor table
     },
+    dtscf_milestone_id: {
+      type: Sequelize.INTEGER  // reference the id in Dtscf milestone table
+    },
     invoice_blob: {
       type: Sequelize.BLOB('long')  // store invoice file as blob
     },
@@ -31,16 +34,19 @@ module.exports = (sequelize, Sequelize) => {
       defaultValue: false,
     },
     amount_changed: {  
-      type: Sequelize.INTEGER,  
+      type: Sequelize.BOOLEAN,  
       defaultValue: false,
     },
     dtscf_project_id_changed: {  
-      type: Sequelize.INTEGER,  
+      type: Sequelize.BOOLEAN,  
       defaultValue: false,
     },
     dtscf_contractor_id_changed: {  
-      type: Sequelize.INTEGER,  
+      type: Sequelize.BOOLEAN,  
       defaultValue: false,
+    },
+    dtscf_milestone_id_changed: {
+      type: Sequelize.BOOLEAN  // reference the id in Dtscf milestone table
     },
     description_original: {
       type: Sequelize.STRING,  // varchar(50)
@@ -52,6 +58,9 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.INTEGER,  
     },
     dtscf_contractor_id_original: {  
+      type: Sequelize.INTEGER,  
+    },
+    dtscf_milestone_id_original: {  
       type: Sequelize.INTEGER,  
     },
     createdAt: {

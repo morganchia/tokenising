@@ -23,6 +23,64 @@ verifyToken = (req, res, next) => {
   });
 };
 
+isAnchor = (req, res, next) => {
+  User.findByPk(req.userId).then(user => {
+    user.getRoles().then(roles => {
+      for (let i = 0; i < roles.length; i++) {
+        if (roles[i].name === "anchor") {
+          next();
+          return;
+        }
+      }
+
+      res.status(403).send({
+        message: "Require Anchor Role!"
+      });
+      return;
+    });
+  });
+};
+
+isContractor = (req, res, next) => {
+  User.findByPk(req.userId).then(user => {
+    user.getRoles().then(roles => {
+      for (let i = 0; i < roles.length; i++) {
+        if (roles[i].name === "contractor") {
+          next();
+          return;
+        }
+      }
+
+      res.status(403).send({
+        message: "Require Contractor Role!"
+      });
+      return;
+    });
+  });
+};
+/*
+// isUser is added as part of the changes to restrict access to the dashboard page to only users with the "user" role. 
+// This is because the dashboard page contains sensitive information and functionalities that should only be accessible to authenticated users with the appropriate role. 
+// By implementing the isUser middleware, we can ensure that only users with the "user" role can access the dashboard page, thereby enhancing the security of the application.
+isUser = (req, res, next) => {
+  User.findByPk(req.userId).then(user => {
+    user.getRoles().then(roles => {
+      for (let i = 0; i < roles.length; i++) {
+        if (roles[i].name === "user") {
+          next();
+          return;
+        }
+      }
+
+      res.status(403).send({
+        message: "Require User Role!"
+      });
+      return;
+    });
+  });
+};
+*/
+
 isAdmin = (req, res, next) => {
   User.findByPk(req.userId).then(user => {
     user.getRoles().then(roles => {
@@ -82,6 +140,8 @@ isModeratorOrAdmin = (req, res, next) => {
 
 const authJwt = {
   verifyToken: verifyToken,
+  isAnchor: isAnchor,
+  isContractor: isContractor,
   isAdmin: isAdmin,
   isModerator: isModerator,
   isModeratorOrAdmin: isModeratorOrAdmin

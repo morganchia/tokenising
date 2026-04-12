@@ -34,6 +34,8 @@ module.exports = app => {
   // Retrieve all Dtscf with LIKE condition
   router.get("/findByName", dtscf.findByName);
 
+  router.get("/gettpbyorgid", dtscf.getTPbyOrgId);
+
   router.get("/getallbydtscfid", dtscf.getAllByDtscfId);
 
   router.get("/getalldraftsbyuserid", dtscf.getAllDraftsByUserId);
@@ -57,6 +59,7 @@ module.exports = app => {
   router.get("/:id", dtscf.findOne);
 
   // sequence matters
+  router.put("/gettpnft/:id", dtscf.getTPNFT);
   router.put("/submitdraftbyid/:id", dtscf.submitDraftById);
   router.put("/acceptdraftbyid/:id", dtscf.acceptDraftById);
   router.put("/approvedraftbyid/:id", dtscf.approveDraftById);

@@ -3,6 +3,7 @@ const config = require("../config/auth.config");
 const User = db.user;
 const Role = db.role;
 const UserOpsRole  = db.useropsrole;
+const Recipients = db.recipients;
 
 const Op = db.Sequelize.Op;
 
@@ -19,6 +20,7 @@ exports.signup = async (req, res) => {
     .then(user => {
       if (req.body.roles) {
         Role.findAll({
+//        UserOpsRole.findAll({
           where: {
             name: {
               [Op.or]: req.body.roles
@@ -73,25 +75,44 @@ exports.signin = async (req, res) => {
 
      var opsRoles = [];
      UserOpsRole.findAll(
+        { 
+          include: db.opsrole,
+          //attributes: ['id', 'name', 'transactionType'],
+          where: {userId: user.id} ,
+        }
+      )
+      .then(data => {
+        console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>  UserOpsRole.findAll:", data)
+        opsRoles = data;
+      })
+      .catch(err => {
+        console.log("Error while retreiving findAll: "+err.message);
+    
+        res.status(500).send({
+          message:
+            err.message || "Some error occurred while retrieving opsrole."
+        });
+      });
+  
+     var recipients = [];
+     Recipients.findAll(
       { 
-        include: db.opsrole,
-        //attributes: ['id', 'name', 'transactionType'],
-        where: {userId: user.id} ,
+        where: {id: user.organisation_id} ,
       }
     )
     .then(data => {
-      console.log("UserOpsRole.findAll:", data)
-      opsRoles = data;
+      console.log("Recipients.findAll:", data)
+      recipients = data;
+      console.log("Wallet Address from recipients: ", recipients[0] ? recipients[0].walletaddress : recipients.walletaddress);
     })
     .catch(err => {
       console.log("Error while retreiving findAll: "+err.message);
   
       res.status(500).send({
         message:
-          err.message || "Some error occurred while retrieving opsrole."
+          err.message || "Some error occurred while retrieving recipients."
       });
     });
-  
 
       var authorities = [];
       user.getRoles().then(roles => {
@@ -107,6 +128,7 @@ exports.signin = async (req, res) => {
           username: user.username,
           email: user.email,
           organisation_id: user.organisation_id,
+          walletaddress: recipients[0] ? recipients[0].walletaddress: recipients.walletaddress,
           lastlogin: user.lastlogin,
           opsrole: opsRoles,
           roles: authorities,
