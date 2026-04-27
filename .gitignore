@@ -25,6 +25,7 @@ node_modules*/
 *.old
 *.test
 *.err
+*.bak
 
 npm-debug.log*
 yarn-debug.log*
