@@ -328,9 +328,9 @@ class App extends Component {
                         <li>
                           <Link to={"/dtscf"} className="nav-link">
                             <i className='bx bx-atom'></i>
-                            <span className="links_name">Deep-tier Supply Chain Financing</span>
+                            <span className="links_name">Tokenised Payables</span>
                           </Link>
-                          <span className="tooltip">Deep-tier Supply Chain Financing</span>
+                          <span className="tooltip">Tokenised Payables</span>
                         </li>
                       </ul>
                     )}

@@ -31,12 +31,13 @@ module.exports = app => {
   router.post("/draftcreate/", multerMiddleware, dtscf.draftCreate);
 //  router.post("/templatecreate/", dtscf.templateCreate);
 
-  // Retrieve all Dtscf with LIKE condition
-  router.get("/findByName", dtscf.findByName);
+  router.get("/findByName", dtscf.findByName);     // Retrieve all Dtscf with LIKE condition
 
   router.get("/gettpbyorgid", dtscf.getTPbyOrgId);
 
   router.get("/getallbydtscfid", dtscf.getAllByDtscfId);
+
+//  router.get("/approvemilestonecompletedbyid", dtscf.approveMilestoneCompletedById);
 
   router.get("/getalldraftsbyuserid", dtscf.getAllDraftsByUserId);
 //  router.get("/getallwrapmintdraftsbyuserid", dtscf.getAllWrapMintDraftsByUserId);
@@ -57,6 +58,13 @@ module.exports = app => {
   
   // Retrieve a single Dtscf with id
   router.get("/:id", dtscf.findOne);
+
+
+  router.put("/createunwrapdraft/:id", dtscf.createUnwrapDraft);
+  router.put("/approveunwrapdraftbyid/:id", dtscf.approveUnwrapDraftById);
+  router.put("/approvemilestonecompletedbyid/:id", dtscf.approveMilestoneCompletedById);
+
+
 
   // sequence matters
   router.put("/gettpnft/:id", dtscf.getTPNFT);

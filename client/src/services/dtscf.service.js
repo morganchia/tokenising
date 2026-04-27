@@ -19,6 +19,11 @@ class DtscfDataService {
   getAllByDtscfId(id) {
     return http.get(`/dtscf/getallbydtscfid?id=${id}`);
   }
+/*
+  approveMilestoneCompletedById(id) {
+    return http.get(`/dtscf/approvemilestonecompletedbyid?id=${id}`);
+  }
+*/
 
 //  draftCreate(data) {
 //    return http.post("/dtscf/draftcreate", data);
@@ -353,6 +358,77 @@ class DtscfDataService {
     });
   }
 
+  createUnwrapDraft(id, data) {
+    console.log("Calling /dtscf/createunwrapdraft?id");
+    return http.put(`/dtscf/createunwrapdraft/${id}`, data);
+  }
+
+  approveUnwrapDraftById(id, data, onLog = () => {}) {
+    console.log(`Calling /dtscf/approveunwrapdraftbyid?${id}`);
+
+    const baseURL = http.defaults.baseURL;
+    return new Promise((resolve, reject) => {
+      fetch(`${baseURL}/dtscf/approveunwrapdraftbyid/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => {
+        if (!response.ok) {
+          reject(new Error(`HTTP error! status: ${response.status}`));
+          return;
+        }
+        const reader = response.body.getReader();
+        let buffer = '';
+        const processStream = ({ done, value }) => {
+          if (done) {
+            const lines = (buffer ? [buffer] : []); // Treat remaining buffer as a line if present
+            lines.forEach(line => {
+              if (line) {
+                if (line.startsWith('LOG: ')) {
+                  onLog(line.substring(5));
+                } else if (line.startsWith('SUCCESS:')) {
+                  resolve({ message: line.substring(9) });
+                  return; // Prevent double resolve
+                } else if (line.startsWith('ERROR:')) {
+                  reject(new Error(line.substring(7)));
+                  return;
+                }
+              }
+            });
+            resolve({ message: 'Operation completed successfully.' });
+            return;
+          }
+          buffer += new TextDecoder().decode(value);
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          lines.forEach(line => {
+            if (line) {
+              if (line.startsWith('LOG: ')) {
+                onLog(line.substring(5));
+              } else if (line.startsWith('SUCCESS: ')) {
+                resolve({ message: line.substring(9) });
+              } else if (line.startsWith('ERROR: ')) {
+                reject(new Error(line.substring(7)));
+              }
+            }
+          });
+          reader.read().then(processStream).catch(reject);
+        };
+        reader.read().then(processStream).catch(reject);
+      })
+      .catch(reject);
+    });
+  } // approveUnwrapDraft
+  
+
+  approveMilestoneCompletedById(id, data) {
+    console.log("Calling /dtscf/approvemilestonecompletedbyid?id");
+    return http.put(`/dtscf/approvemilestonecompletedbyid/${id}`, data);
+  }
+
   getTPNFT(id, data) {
     console.log("Calling /dtscf/gettpnft?id");
     return http.put(`/dtscf/gettpnft/${id}`, data);
@@ -481,25 +557,31 @@ class DtscfDataService {
       .catch(reject);
     });
   }
+
   triggerDtscfCouponPaymentById(id, data) {
     console.log("Calling /dtscf/triggerDtscfCouponPaymentById?id");
     return http.put(`/dtscf/triggerDtscfCouponPaymentById/${id}`, data);
   }
+
   approveDeleteDraftById(id, data) {
     console.log("Calling /dtscf/approvedeletedraftbyid?id");
     return http.put(`/dtscf/approvedeletedraftbyid/${id}`, data);
   }
+
   rejectDraftById(id, data) {
     console.log("Calling /dtscf/rejectdraftbyid?id");
     return http.put(`/dtscf/rejectdraftbyid/${id}`, data);
   }
+
   dropRequestById(id, data) {
     console.log("Calling /dtscf/droprequestbyid?id");
     return http.put(`/dtscf/droprequestbyid/${id}`, data);
   }
+
   delete(id) {
     return http.delete(`/dtscf/${id}`);
   }
+  
   deleteAll() {
     return http.delete(`/dtscf`);
   }

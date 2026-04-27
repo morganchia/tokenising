@@ -25,7 +25,7 @@ verifyToken = (req, res, next) => {
 
 isAnchor = (req, res, next) => {
   User.findByPk(req.userId).then(user => {
-    user.getRoles().then(roles => {
+    user.getRoles().then(roles => {  // getRoles() is a sequelize auto-generated method based on the association defined between user and role model
       for (let i = 0; i < roles.length; i++) {
         if (roles[i].name === "anchor") {
           next();

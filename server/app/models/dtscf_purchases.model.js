@@ -29,6 +29,9 @@ module.exports = (sequelize, Sequelize) => {
     invoice_blob: {
       type: Sequelize.BLOB('long')  // store invoice file as blob
     },
+    dbstatus:{
+      type: Sequelize.STRING,  // "PENDING", "APPROVED", "REJECTED"
+    },
     description_changed: {
       type: Sequelize.BOOLEAN,
       defaultValue: false,

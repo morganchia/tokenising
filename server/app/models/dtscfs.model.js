@@ -60,6 +60,9 @@ module.exports = (sequelize, Sequelize) => {
     draftdtscfid: {
       type: Sequelize.INTEGER   // reference the id in Dtscf_draft table
     },
+    dbstatus:{
+      type: Sequelize.STRING,  // "PENDING", "APPROVED", "REJECTED"
+    },
     name_changed: {
       type: Sequelize.BOOLEAN,
       defaultValue: false,

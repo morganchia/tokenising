@@ -28,6 +28,16 @@ module.exports = (sequelize, Sequelize) => {
     dtscf_project_id: {
       type: Sequelize.INTEGER  // reference the id in Dtscf project table
     },
+    milestone_completed: {
+      type: Sequelize.BOOLEAN,
+      defaultValue: false
+    },
+    milestone_completed_date: {
+      type: Sequelize.DATE,
+    },
+    dbstatus:{
+      type: Sequelize.STRING,  // "PENDING", "APPROVED", "REJECTED"
+    },
     name_changed: {
       type: Sequelize.BOOLEAN,
       defaultValue: false,

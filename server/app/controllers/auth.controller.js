@@ -48,6 +48,7 @@ exports.signin = async (req, res) => {
     where: { username: req.body.username }
   })
     .then(user => {
+      console.log(">>>>>>>>>> User found in DB:", user);
       if (!user) {
         return res.status(404).send({ message: "User Not found." });
       }
@@ -82,7 +83,7 @@ exports.signin = async (req, res) => {
         }
       )
       .then(data => {
-        console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>  UserOpsRole.findAll:", data)
+        console.log("<<<<<<<<<<<<<<<<  UserOpsRole.findAll:", data)
         opsRoles = data;
       })
       .catch(err => {
@@ -115,8 +116,9 @@ exports.signin = async (req, res) => {
     });
 
       var authorities = [];
-      user.getRoles().then(roles => {
+      user.getRoles().then(roles => {  // getRoles() is a sequelize auto-generated method based on the association defined between user and role model
         for (let i = 0; i < roles.length; i++) {
+          console.log("User role from DB:", roles[i].name);
           authorities.push("ROLE_" + roles[i].name.toUpperCase());
         }
         console.log("Retrieving from DB, lastlogin = "+user.lastlogin)

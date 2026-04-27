@@ -148,7 +148,7 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
     }
 
     // Realize all payables for a milestone (OR time/milestone per payable)
-    function realizeMilestoneAgainstMaturityDate(uint256 milestoneId) external onlyOwner whenNotPaused {
+    function realizeMilestone(uint256 milestoneId) external onlyOwner whenNotPaused {
         uint256[] memory tokens = milestoneToTokens[milestoneId].values();
         uint256 count = 0;
 
@@ -166,45 +166,6 @@ contract TokenizedPayable is ERC1155, Ownable, Pausable {
         }
 
         emit MilestoneRealized(milestoneId, count);
-    }
-
-    // Forces all tokens in a milestone to be realized, bypassing maturity dates.
-    function forceRealizeMilestone(uint256 milestoneId) external onlyOwner whenNotPaused {
-        uint256[] memory tokens = milestoneToTokens[milestoneId].values();
-        uint256 count = 0;
-
-        for (uint256 i = 0; i < tokens.length; i++) {
-            uint256 id = tokens[i];
-            if (!payables[id].realized) {
-                payables[id].realized = true;
-                emit PayableRealized(id, tokenOwners[id]);
-                count++;
-            }
-        }
-
-        emit MilestoneRealized(milestoneId, count);
-    }
-
-     // Updates maturityDate, realized status, or conditions.
-     // Use 0 for maturityDate or empty string for conditions to skip updating those fields.
-    function updateTokenisedPayableDetails(
-        uint256 tokenId,
-        uint256 newMaturityDate,
-        bool newRealized,
-        string calldata newConditions
-    ) external onlyOwner {
-        require(payables[tokenId].value > 0, "Token does not exist");
-        
-        if (newMaturityDate != 0) {
-            payables[tokenId].maturityDate = newMaturityDate;
-        }
-        
-        // Note: Boolean cannot be "null", so this will update to whatever is passed.
-        payables[tokenId].realized = newRealized;
-
-        if (bytes(newConditions).length > 0) {
-            payables[tokenId].conditions = newConditions;
-        }
     }
 
     // Unwrap: Burn payable and release escrowed deposit if realized

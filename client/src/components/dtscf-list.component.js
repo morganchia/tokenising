@@ -19,6 +19,8 @@ export default class DtscfList extends Component {
       dtscf: [],
       opsRoles: [],
       currentDtscf: null,
+      isAnchor: false,
+      isContractor: false,
       isMaker: false,
       isChecker: false,
       isApprover: false,
@@ -66,7 +68,7 @@ export default class DtscfList extends Component {
             //var el_id = element.id;                       console.log("typeof(el_id)", typeof(el_id));
             console.log("element.name:", element.name);   console.log("typeof(element.name)", typeof(element.name));
             try {
-              if (element.name.toUpperCase() === "CHECKER") 
+              if (element.name?.toUpperCase() === "CHECKER") 
                 return element;
             } catch(e) {
               // do nothing, sometime when dtscfList not loaded yet, element/el_id will be undefined, so need make sure it doesnt bomb
@@ -141,20 +143,30 @@ export default class DtscfList extends Component {
     this.retrieveDtscf();
 //    this.retrieveOpsRole(currentUser.id);
 
+    console.log("user.roles[0]:", user.roles[0]?.toUpperCase());
+
+    //let is_anchor= (user.roles[0].toUpperCase() === "ROLE_ANCHOR");
+    console.log("isAnchor:", (user.roles[0]?.toUpperCase() === "ROLE_ANCHOR"));
+    this.setState({ isAnchor: (user.roles[0]?.toUpperCase() === "ROLE_ANCHOR") });
+
+    //let is_contractor= (user.roles[0].toUpperCase() === "ROLE_CONTRACTOR");
+    console.log("isContractor:", (user.roles[0]?.toUpperCase() === "ROLE_CONTRACTOR"));
+    this.setState({ isContractor: (user.roles[0]?.toUpperCase() === "ROLE_CONTRACTOR") });
+
     let ismaker= user.opsrole.find((el) => 
-      el.opsrole.name.toUpperCase() === "MAKER" && el.transactionType.toUpperCase() === "DTSCF"
+      el.opsrole.name?.toUpperCase() === "MAKER" && el.transactionType?.toUpperCase() === "DTSCF"
     );
     console.log("isMaker:", (ismaker === undefined? false: true));
     this.setState({ isMaker: (ismaker === undefined? false: true),});
 
     let ischecker= user.opsrole.find((el) => 
-      el.opsrole.name.toUpperCase() === "CHECKER" && el.transactionType.toUpperCase() === "DTSCF"
+      el.opsrole.name?.toUpperCase() === "CHECKER" && el.transactionType?.toUpperCase() === "DTSCF"
     );
     console.log("isChecker:", (ischecker === undefined? false: true));
     this.setState({ isChecker: (ischecker === undefined? false: true),});
 
     let isapprover= user.opsrole.find((el) => 
-      el.opsrole.name.toUpperCase() === "APPROVER" && el.transactionType.toUpperCase() === "DTSCF"
+      el.opsrole.name?.toUpperCase() === "APPROVER" && el.transactionType?.toUpperCase() === "DTSCF"
     );
     console.log("isApprover:", (isapprover === undefined? false: true));
     this.setState({ isApprover: (isapprover === undefined? false: true),});
@@ -191,7 +203,7 @@ export default class DtscfList extends Component {
           <div>
           <header className="jumbotron col-md-8">
             <h3>
-              <strong>Deployed Deep-Tier Supply Chain Financing Projects { (this.state.isMaker? "(Maker)" : (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null))) }</strong>
+              <strong>Deployed Tokenised Payable Projects { (this.state.isMaker? "(Maker)" : (this.state.isChecker? "(Checker)": (this.state.isApprover? "(Approver)":null))) }</strong>
             </h3>
           </header>
 
@@ -227,6 +239,7 @@ export default class DtscfList extends Component {
               <table style={{ border:"1px solid"}}>
                 {(dtscf.length > 0)?
                 <tr>
+                  <th>ID</th>
                   <th>Project Name</th>
                   <th>Anchor</th>
                   <th>Total Budget</th>
@@ -241,7 +254,6 @@ export default class DtscfList extends Component {
                   <th>Add Sub-Contractors and Purchases</th>
                   <th>Action</th>
 {/*
-                  <th>Action</th>
                   <th>Transfer</th>
 */}
                 </tr>
@@ -249,6 +261,7 @@ export default class DtscfList extends Component {
                 {dtscf && dtscf.length > 0 &&
                   dtscf.map((dtscf1, index) => (
                     <tr>
+                      <td>{dtscf1.id}</td>
                       <td>{dtscf1.name}</td>
                       <td>{dtscf1.anchorName}</td>
                       <td>{dtscf1.totalBudget.toLocaleString()}</td>
@@ -339,14 +352,26 @@ export default class DtscfList extends Component {
                            {this.state.isMaker? "Add Contractors" : null}
                         </Link>
                       </td>
-                      <td>
-                        <Link
-                          to={"/dtscfrealisemilestone/" + dtscf1.id}
-                          className="badge badge-warning"
-                        >
-                           {this.state.isMaker? "Set Milestone Completion" : null}
-                        </Link>
-                      </td>
+                      {this.state.isMaker && this.state.isAnchor &&
+                        <td>
+                            <Link
+                              to={"/dtscfrealisemilestone/" + dtscf1.id}
+                              className="badge badge-warning"
+                            >
+                              {this.state.isMaker? "Set Milestone Completion" : null}
+                            </Link>
+                        </td>
+                      }
+                      {this.state.isMaker && this.state.isContractor &&
+                        <td>
+                            <Link
+                              to={"/dtscfunwrap/" + dtscf1.id}
+                              className="badge badge-warning"
+                            >
+                              {this.state.isMaker? "Unwrap" : null}
+                            </Link>
+                        </td>
+                      }
 {/*
                       <td>
                         <Link

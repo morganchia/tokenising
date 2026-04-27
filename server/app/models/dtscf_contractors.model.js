@@ -28,6 +28,9 @@ module.exports = (sequelize, Sequelize) => {
     dtscf_parent_contractor_id: {
       type: Sequelize.INTEGER  // reference the id in Dtscf project table
     },
+    dbstatus:{
+      type: Sequelize.STRING,  // "PENDING", "APPROVED", "REJECTED"
+    },
     name_changed: {
       type: Sequelize.BOOLEAN,
       defaultValue: false,

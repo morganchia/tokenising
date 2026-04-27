@@ -518,7 +518,7 @@ class DTSCFProjectCreation extends Component {
 
   addPurchase(conIndex) {
     const contractors = [...this.state.currentProject.contractors];
-    contractors[conIndex].purchases.push({ description: "", amount: 0, milestone: "", invoices: [] });
+    contractors[conIndex].purchases.push({ description: "", dtscf_contractor_id: this.state.currentProject.contractors[conIndex].id, amount: 0, milestone: "", invoices: [] });
     this.setState(prevState => ({
       currentProject: { ...prevState.currentProject, contractors },
       datachanged: true
@@ -898,7 +898,8 @@ class DTSCFProjectCreation extends Component {
 
       this.setState({ isLoading: true });
 
-      DtscfDataService.submitDraftById(this.state.currentProject.id, submitData, (log1) => {
+//      DtscfDataService.submitDraftById(this.state.currentProject.id, submitData, (log1) => {
+      DtscfDataService.submitDraftById(this.state.currentProject.id, this.state.currentProject, (log1) => {
         this.setState(prevState => ({
           modalmsg: prevState.modalmsg + log1 + "\n"
         }));

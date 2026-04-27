@@ -24,6 +24,14 @@ class UserService {
   getAdminBoard() {
     return axios.get(API_URL + 'admin', { headers: authHeader() });
   }
+
+  getAnchorBoard() {
+    return axios.get(API_URL + 'anchor', { headers: authHeader() });
+  }
+
+  getContractorBoard() {
+    return axios.get(API_URL + 'contractor', { headers: authHeader() });
+  }
 }
 
 export default new UserService();

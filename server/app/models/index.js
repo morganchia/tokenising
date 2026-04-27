@@ -79,8 +79,8 @@ db.user.belongsToMany(db.role, {
 });
 
 
-//db.ROLES = ["user", "admin", "moderator"]; 
-db.ROLES = ["user", "admin", "moderator", "anchor", "contractor"]; // user is actually "bank" in the current implementation, but we will use "user" to avoid confusion with the "bank" role in the future when we implement the bank role.
+//db.ROLES = ["user", "moderator", "admin"]; 
+db.ROLES = ["user", "moderator", "admin", "anchor", "contractor"]; // user is actually "bank" in the current implementation, but we will use "user" to avoid confusion with the "bank" role in the future when we implement the bank role.
 
 //db.useropsrole = require("./useropsrole.model.js")(sequelize, Sequelize);
 db.useropsrole =  UserOpsRole = sequelize.define("user_opsroles", {

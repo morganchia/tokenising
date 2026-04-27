@@ -87,7 +87,7 @@ class DTSCFProjectCreation extends Component {
     this.deleteDtscf = this.deleteDtscf.bind(this);
     this.dropRequest = this.dropRequest.bind(this);
 */
-    this.approveDtscf = this.approveDtscf.bind(this);
+    this.approveMilestoneCompleted = this.approveMilestoneCompleted.bind(this);
 
     this.showModal_Leave = this.showModal_Leave.bind(this);
     this.hideModal = this.hideModal.bind(this);
@@ -110,10 +110,10 @@ class DTSCFProjectCreation extends Component {
         campaign_id: 0,
         startdate: getToday(),
         enddate: getToday(),
-        milestones: [{name: "mmm", budget: 222, startdate: getToday(), enddate: getToday()}],
-        contractors: [{name: "ccc", budget: 3333, walletaddress: "", purchases: [{description: "ppp", amount: 4444}],  invoices: []}], // invoices as File objects
-
         selectedMilestone: "", // Track selected milestone name
+        selectedMilestoneId: null, // Track selected milestone ID
+        milestones: [{id: 0, name: "mmm", budget: 222, startdate: getToday(), enddate: getToday()}],
+        contractors: [{name: "ccc", budget: 3333, walletaddress: "", purchases: [{description: "ppp", amount: 4444}],  invoices: []}], // invoices as File objects
       },
       underlyingDSGDList: [],
       checkerList: {
@@ -169,6 +169,16 @@ class DTSCFProjectCreation extends Component {
     this.setState({ currentUser: user });
     console.log("Current user:", user); 
 
+    console.log("user.roles[0]:", user.roles[0].toUpperCase());
+
+    //let is_anchor= (user.roles[0].toUpperCase() === "ROLE_ANCHOR");
+    console.log("isAnchor:", (user.roles[0].toUpperCase() === "ROLE_ANCHOR"));
+    this.setState({ isAnchor: (user.roles[0].toUpperCase() === "ROLE_ANCHOR") });
+
+    //let is_contractor= (user.roles[0].toUpperCase() === "ROLE_CONTRACTOR");
+    console.log("isContractor:", (user.roles[0].toUpperCase() === "ROLE_CONTRACTOR"));
+    this.setState({ isContractor: (user.roles[0].toUpperCase() === "ROLE_CONTRACTOR") });
+
     if (!user) {
       this.setState({ redirect: "/login" });
     } else {
@@ -179,12 +189,6 @@ class DTSCFProjectCreation extends Component {
       );
       console.log("isMaker:", (ismaker === undefined? false: true));
       this.setState({ isMaker: (ismaker === undefined? false: true),});
-
-//      let ischecker= user.opsrole.find((el) => 
-//        el.opsrole.name.toUpperCase() === "CHECKER"
-//      );
-//      console.log("isChecker:", (ischecker === undefined? false: true));
-//      this.setState({ isChecker: (ischecker === undefined? false: true),});
 
       let isapprover= user.opsrole.find((el) => 
       el.opsrole.name.toUpperCase() === "APPROVER"
@@ -330,351 +334,28 @@ class DTSCFProjectCreation extends Component {
         //return(null);
       });
   }
-/*
-  onChangeName(e) {
-    const name = e.target.value;
-    this.setState({
-      datachanged: true
-    });
-
-    this.setState(function(prevState) {
-      return {
-        currentProject: {
-          ...prevState.currentProject,
-          name: name
-        }
-      };
-    });
-  }
-
-  onChangeDescription(e) {
-    const description = e.target.value;
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, description },
-      datachanged: true
-    }));
-  }
-
-  onChangeTotalBudget(e) {
-    const totalBudget = parseFloat(e.target.value);
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, totalBudget },
-      datachanged: true
-    }));
-  }
-
-  onChangeUnderlying(e) {
-    const underlyingTokenID = parseInt(e.target.value);
-    console.log("New underlyingTokenID=", underlyingTokenID);
-    const newBlockchain = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).blockchain;
-    console.log("New blockchain=", newBlockchain);
-    const newUnderlyingDSGDsmartcontractaddress = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID)).smartcontractaddress
-    console.log("New UnderlyingDSGDsmartcontractaddress=", newUnderlyingDSGDsmartcontractaddress);
-    const newCampaign = this.state.underlyingDSGDList.find((ee) => ee.id === parseInt(underlyingTokenID));
-    console.log("New Campaign=", newCampaign);
-
-    // when underlying changes, blockchain might change also bccos underlying could be in different blockchain
-    this.setState({
-      datachanged: true
-    });
-    this.setState(function(prevState) {
-      return {
-        currentProject: {
-          ...prevState.currentProject,
-          underlyingTokenID: underlyingTokenID,
-          blockchain: newBlockchain,
-          underlyingDSGDsmartcontractaddress: newUnderlyingDSGDsmartcontractaddress,
-          campaign: newCampaign,  // updating this will change the blockchain field also
-        }
-      };
-    });
-    console.log("New currentProject=", this.state.currentProject);
-
-  }
-
-  onChangeStartDate(e) {
-    const startdate = e.target.value;
-    this.setState({
-      datachanged: true
-    });
-
-    this.setState(prevState => ({
-      currentProject: {
-        ...prevState.currentProject,
-        startdate: startdate
-      }
-    }));
-  }
-
-  onChangeEndDate(e) {
-    const enddate = e.target.value;
-    this.setState({
-      datachanged: true
-    });
-
-    this.setState(prevState => ({
-      currentProject: {
-        ...prevState.currentProject,
-        enddate: enddate
-      }
-    }));
-  }
-
-  addMilestone() {
-    this.setState(prevState => ({
-      currentProject: {
-        ...prevState.currentProject,
-        milestones: [...prevState.currentProject.milestones, { name: "", budget: 0, startdate: getToday(), enddate: getToday() }]
-      },
-      datachanged: true
-    }));
-  }
-
-  onChangeMilestone(index, field, value) {
-    const milestones = [...this.state.currentProject.milestones];
-    const oldName = milestones[index].name;
-    milestones[index][field] = field === 'budget' ? parseFloat(value) : value;
-
-    // Update purchases if the milestone name changes
-    let contractors = [...this.state.currentProject.contractors];
-    if (field === 'name') {
-      contractors.forEach(con => {
-        con.purchases.forEach(pur => {
-          if (pur.milestone === oldName) {
-            pur.milestone = value; // update to new name dynamically
-          }
-        });
-      });
-    }
-
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, milestones, contractors },
-      datachanged: true
-    }));
-  }
-
-  removeMilestone(index) {
-    const milestones = [...this.state.currentProject.milestones];
-    milestones.splice(index, 1);
-    
-    // Reset purchase dropdown to blank if its tagged milestone is deleted
-    const contractors = [...this.state.currentProject.contractors];
-    const validMilestoneNames = milestones.map(m => m.name);
-    
-    contractors.forEach(con => {
-      con.purchases.forEach(pur => {
-        if (!validMilestoneNames.includes(pur.milestone)) {
-          pur.milestone = ""; 
-        }
-      });
-    });
-
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, milestones, contractors },
-      datachanged: true
-    }));
-  }
-
-  addContractor() {
-    this.setState(prevState => ({
-      currentProject: {
-        ...prevState.currentProject,
-        contractors: [...prevState.currentProject.contractors, { name: "", budget: 0, walletaddress: "", purchases: [], invoices: [] }]
-      },
-      datachanged: true
-    }));
-  }
-
-  onChangeContractor(index, field, value) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors[index][field] = field === 'budget' ? parseFloat(value) : value;
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  removeContractor(index) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors.splice(index, 1);
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  addPurchase(conIndex) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors[conIndex].purchases.push({ description: "", amount: 0, milestone: "", invoices: [] });
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  onChangePurchase(conIndex, purIndex, value) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors[conIndex].purchases[purIndex].description = value;
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  onChangePurchaseAmount(conIndex, purIndex, value) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors[conIndex].purchases[purIndex].amount = parseFloat(value);
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-  
-  onChangePurchaseMilestone(conIndex, purIndex, value) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors[conIndex].purchases[purIndex].milestone = value;
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  removePurchase(conIndex, purIndex) {
-    const contractors = [...this.state.currentProject.contractors];
-    contractors[conIndex].purchases.splice(purIndex, 1);
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  handleInvoiceUpload(conIndex, purIndex, e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const contractors = [...this.state.currentProject.contractors];
-    const purchase = contractors[conIndex].purchases[purIndex];
-
-    // FIX: Ensure the invoices array exists before pushing
-    if (!purchase.invoices) {
-      purchase.invoices = [];
-    }
-
-    purchase.invoices.push(file);
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, contractors },
-      datachanged: true
-    }));
-  }
-
-  onChangeApprover(e) {
-    const approver = e.target.value;
-    this.setState(prevState => ({
-      currentProject: {
-        ...prevState.currentProject,
-        approver: approver
-      }
-    }));
-  }
-
-  onChangeApproverComments(e) {
-    const approverComments = e.target.value;
-
-    this.setState({
-      datachanged: true
-    });
-    this.setState(function(prevState) {
-      return {
-        currentProject: {
-          ...prevState.currentProject,
-          approverComments: approverComments
-        }
-      };
-    });
-  }
-*/
+ 
   handleMilestoneChange(e) {
-    this.setState({ selectedMilestone: e.target.value });
+    this.setState({
+      datachanged: true
+    });
+
+    const [selectedMilestoneId, selectedMilestone] = e.target.value.split('|'); // Assuming value is in format "id|name"
+    console.log("Selected Milestone ID:", selectedMilestoneId);
+    console.log("Selected Milestone Name:", selectedMilestone);
+    console.log("value:'"+e.target.value+"'");
+
+    this.setState(prevState => ({
+      currentProject: {
+        ...prevState.currentProject,
+        selectedMilestone: selectedMilestone,
+        selectedMilestoneId: selectedMilestoneId
+      }
+    }));
   }
-
-/*
-  async validateForm() {    
-    var err = "";
-
-    if (!(typeof this.state.currentProject.name ==='string' || this.state.currentProject.name instanceof String) || (this.state.currentProject.name.trim() === "" || this.state.currentProject.name === null || this.state.currentProject.name === undefined)) {
-      err += "- Name cannot be empty\n";
-    } 
-
-    this.state.currentProject.contractors.forEach(con => {
-      if (!(typeof con.name ==='string' || con.name instanceof String) || (con.name.trim() === "" || con.name === null || con.name === undefined)) {
-        err += "- Contractor's Name cannot be empty\n"; 
-      } 
-
-      if (!(typeof con.walletaddress ==='string' || con.walletaddress instanceof String) || (con.walletaddress.trim() === "" || con.walletaddress === null || con.walletaddress === undefined)) {
-        err += "- Contractor's Wallet Address cannot be empty\n"; 
-      } else if (!isValidAddress(con.walletaddress)) {
-        err += `- Contractor ${con.name}'s Wallet Address is invalid\n`;
-      }
-    });
-
-    this.state.currentProject.milestones.forEach(ms => {
-      if (! validator.isDate(ms.startdate)) err += "- Milestone '" + ms.name + "' Start Date is invalid\n";
-      if (! validator.isDate(ms.enddate)) err += "- Milestone '" + ms.name + "' End Date is invalid\n";
-      if (validator.isDate(ms.startdate) && validator.isDate(ms.enddate)) {
-        if (moment(ms.startdate).isAfter(moment(ms.enddate))) err += "- Milestone '" + ms.name + "' Start date cannot be later than End date\n";
-        if (! moment(ms.enddate).isAfter(moment(ms.startdate))) err += "- Milestone '" + ms.name + "' End date must be after Start date\n";
-      }
-    });
-
-      // dont need t check description, it can be empty
-    if (! validator.isDate(this.state.currentProject.startdate)) err += "- Start Date is invalid\n";
-    if (! validator.isDate(this.state.currentProject.enddate)) err += "- End Date is invalid\n";
-    if (validator.isDate(this.state.currentProject.startdate) && validator.isDate(this.state.currentProject.enddate)) {
-      if (moment(this.state.currentProject.startdate).isAfter(moment(this.state.currentProject.enddate))) err += "- Project Start date cannot be later than End date\n";
-      if (! moment(this.state.currentProject.enddate).isAfter(moment(this.state.currentProject.startdate))) err += "- Project End date must be after Start date\n";
-    }
-    if (this.state.currentProject.underlyingTokenID === 0 || this.state.currentProject.underlyingTokenID === "" || this.state.currentProject.underlyingTokenID === null || this.state.currentProject.underlyingTokenID === undefined) err += "- Underlying Digital Money cannot be empty\n";
-    if (this.state.currentProject.totalBudget === "" || this.state.currentProject.totalBudget === null || this.state.currentProject.totalBudget === undefined) 
-    {
-        err += "- Budget cannot be empty\n";
-    } else
-        if (parseInt(this.state.currentProject.totalBudget) <=  0) err += "- Budget must be more than zero\n";
-    if (this.state.currentProject.startdate!== "" && this.state.currentProject.enddate !== "" && this.state.currentProject.startdate > this.state.currentProject.enddate) err += "- Start date cannot be later than End date\n";    
-
-    console.log("start date:'"+this.state.currentProject.startdate+"'");
-    console.log("end date:'"+this.state.currentProject.enddate+"'");
-    console.log("Start > End? "+ (this.state.currentProject.startdate > this.state.currentProject.enddate));
-
-//    console.log("Checker:'"+this.state.currentProject.checker+"'");
-    console.log("Approver:'"+this.state.currentProject.approver+"'");
-
-//    if (this.state.currentProject.checker === "" || this.state.currentProject.checker === null || this.state.currentProject.checker === undefined) err += "- Checker cannot be empty\n";
-    if (this.state.currentProject.approver === "" || this.state.currentProject.approver === null || this.state.currentProject.approver === undefined) err += "- Approver cannot be empty\n";
-    if (
-      //this.state.currentProject.checker === this.state.currentUser.id.toString() && 
-        this.state.currentProject.approver === this.state.currentUser.id.toString()) {
-      err += "- Maker and Approver cannot be the same person\n";
-    } else {
-//      if (this.state.currentProject.checker === this.state.currentUser.id.toString()) err += "- Maker and Checker cannot be the same person (yourself)\n";
-      if (this.state.currentProject.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
-//      if (this.state.currentProject.checker!==null && this.state.currentProject.checker!=="" && this.state.currentProject.checker !== undefined
-//            && this.state.currentProject.checker === this.state.currentProject.approver) err += "- Checker and Approver cannot be the same person\n";
-    }
-
-    if (err !=="" ) {
-      err = "Form validation issues found:\n"+err;
-      //alert(err);
-      this.displayModal(err, null, null, null, "OK");
-      err = ""; // clear var
-      return false;
-    }
-    return true;
-  }  // validateForm()
-*/
-
   //////////////////////////////////////////////////////////////////////
 
-  async approveDtscf() {
+  async approveMilestoneCompleted() {
     this.setState({ // show loading modal with logs
       isLoading: true,
       logs: [] ,
@@ -691,419 +372,40 @@ class DTSCFProjectCreation extends Component {
     console.log("IsLoad=true");
     this.show_loading();
 
+    const selectedMilestone_id = this.state.currentProject.milestones.find((mm) => mm.name === this.state.selectedMilestone);
+
     console.log("Approving selectedMilestone:", this.state.selectedMilestone);
+    console.log("Approving selectedMilestone ID:", selectedMilestone_id?.id);
 
-    await DtscfDataService.approveMilestoneCompletedById(this.state.selectedMilestone, (log1) => {
-      this.setState(prevState => ({
-        modalmsg: prevState.modalmsg + log1 + "\n"
-      }));
-      //this.setState({ logs: [...this.state.logs, log1] });
-    })
-    .then(response => {
-      this.setState(prevState => ({
-        modalmsg: prevState.modalmsg + response.message + "\n",
-        button0text: "Close",
-        isLoading: false,
-        afterModalClose: () => this.props.router.navigate("/dtscf")
-      }));
-      //this.setState({ logs: [...this.state.logs, log1] });
+    //await DtscfDataService.getAllByDtscfId(id)
 
-      this.setState({
-/*          currentProject: {
-          ...this.state.currentProject,
-          id: response.data.id || response.message?.match(/id=(\d+)/)?.[1] || this.state.currentProject.id,  // Parse id if in message
-          maker: this.state.currentUser.id,
-          txntype: 0  // For new creation requests
-        },
-*/
-        message: response.message,
-        isLoading: false
-      });
-    })
-    .catch(e => {
-      const errMsg = (e.response && e.response.data && e.response.data.message) || e.message || e.toString();
-      this.setState(prevState => ({
-        modalmsg: prevState.modalmsg + "Error: " + errMsg + "\n",
-        button0text: "Close",
-        isLoading: false,
-      }));
-      //this.setState({ logs: [...this.state.logs, log1] });
-    });
-
-  } // approveDtscf()
-
-/*
-  async createProject(){
-    this.setState({
-      isLoading: true,
-      logs: [] ,
-      message: "",
-      showm: true,
-      modalmsg: "Processing...\n",
-      button1text: null,
-      button2text: null,
-      button3text: null,
-      button0text: null,
-      afterModalClose: null,
-    });
-
-    console.log('[CLIENT] createProject called with data:', this.state.currentProject);
-
-    this.setState({ isLoading: true, logs: [], message: '' });
-
-    if (await this.validateForm() === true) {   
-      const draftData = {
-          name: this.state.currentProject.name,
-          description: this.state.currentProject.description,
-          totalBudget: this.state.currentProject.totalBudget,
-          underlyingDSGDsmartcontractaddress: this.state.currentProject.underlyingDSGDsmartcontractaddress,
-          underlyingTokenID: this.state.currentProject.underlyingTokenID,
-          campaign_id: this.state.currentProject.campaign_id,
-          blockchain: this.state.currentProject.blockchain,
-          startdate: this.state.currentProject.startdate,
-          enddate: this.state.currentProject.enddate,
-          txntype: this.state.currentProject.txntype || 0,  // Fallback only if truly missing, but ensure set
-          anchor_id: this.state.currentProject.anchor_id,  // From state, even if undefined
-          maker: this.state.currentProject.maker || this.state.currentUser.id,
-          approver: this.state.currentProject.approver,
-          actionby: this.state.currentUser.username,  // Use username for consistency
-          approveddtscfid: this.state.currentProject.approveddtscfid || -1,
-          milestones: this.state.currentProject.milestones.map(ms => ({
-            id: ms.id,
-            name: ms.name,
-            budget: ms.budget,
-            startdate: ms.startdate,
-            enddate: ms.enddate,
-            description: ms.description || ''  // Include if needed
-          })),
-          contractors: this.state.currentProject.contractors.map(con => ({
-            id: con.id,
-            name: con.name,
-            budget: con.budget,
-            walletaddress: con.walletaddress,
-            purchases: con.purchases.map(pur => ({
-              id: pur.id,
-              description: pur.description,
-              amount: pur.amount,
-              milestone: pur.milestone, 
-              invoices: pur.invoices  
-            })),
-            subcontractors: con.subcontractors || []  // If applicable
-          }))
-      };
-
-      console.log('Full draftData being sent:', JSON.stringify(draftData));  // This should now show all data
-
-      this.setState({ isLoading: true });
-
-      DtscfDataService.draftCreate(draftData, (log1) => {
-        this.setState(prevState => ({
-          modalmsg: prevState.modalmsg + log1 + "\n"
-        }));
-        console.log('[CLIENT UI] Received log:', log1); // NEW: Confirm onLog calls
-        this.setState({ logs: [...this.state.logs, log1] });
-      })
-      .then(response => {
-        this.setState(prevState => ({
-          modalmsg: prevState.modalmsg + response.message + "\n",
-          button0text: "Close",
-          isLoading: false,
-          afterModalClose: () => this.props.router.navigate("/dtscf")
-        }));
-        console.log('[CLIENT UI] draftCreate success:', response); // NEW: Confirm resolve
-        //this.setState({ logs: [...this.state.logs, log1] });
-
-        this.setState({
-          message: response.message,
-          isLoading: false
-        });
-      })
-      .catch(e => {
-        const errMsg = (e.response && e.response.data && e.response.data.message) || e.message || e.toString();
-        this.setState(prevState => ({
-          modalmsg: prevState.modalmsg + "Error: " + errMsg + "\n",
-          button0text: "Close",
-          isLoading: false,
-        }));
-        console.error('[CLIENT UI] draftCreate error:', errMsg); // NEW: Confirm reject
-        //this.setState({ logs: [...this.state.logs, log1] });
-      });
-    } // await this.validateForm()
-    this.hide_loading();
-
-  }
-  
-  async submitDtscf() {
-    this.setState({ // show loading modal with logs
-      isLoading: true,
-      logs: [] ,
-      message: "",
-      showm: true,
-      modalmsg: "Processing...\n",
-      button1text: null,
-      button2text: null,
-      button3text: null,
-      button0text: null,
-      afterModalClose: null,
-    });
-
-    if (await this.validateForm() === true) {   
-      const submitData = {
-        name: this.state.currentProject.name,
-        description: this.state.currentProject.description,
-        totalBudget: this.state.currentProject.totalBudget,
-        underlyingDSGDsmartcontractaddress: this.state.currentProject.underlyingDSGDsmartcontractaddress,
-        underlyingTokenID: this.state.currentProject.underlyingTokenID,
-        campaign_id: this.state.currentProject.campaign_id,
-        blockchain: this.state.currentProject.blockchain,
-        startdate: this.state.currentProject.startdate,
-        enddate: this.state.currentProject.enddate,
-        txntype: this.state.currentProject.txntype || 0,  // Fallback only if truly missing, but ensure set
-        anchor_id: this.state.currentProject.anchor_id,  // From state, even if undefined
-        maker: this.state.currentProject.maker || this.state.currentUser.id,
-        approver: this.state.currentProject.approver,
-        actionby: this.state.currentUser.username,  // Use username for consistency
-        approveddtscfid: this.state.currentProject.approveddtscfid || -1,
-        milestones: this.state.currentProject.milestones.map(ms => ({
-          id: ms.id,
-          name: ms.name,
-          budget: ms.budget,
-          startdate: ms.startdate,
-          enddate: ms.enddate,
-          description: ms.description || ''  // Include if needed
-        })),
-        contractors: this.state.currentProject.contractors.map(con => ({
-          id: con.id,
-          name: con.name,
-          budget: con.budget,
-          walletaddress: con.walletaddress,
-          purchases: con.purchases.map(pur => ({
-            id: pur.id,
-            description: pur.description,
-            milestone: pur.milestone, 
-            amount: pur.amount
-            // invoices: pur.invoices  // Omit files since no upload in submit; already handled in create/update
-          })),
-          subcontractors: con.subcontractors || []  // If applicable
-        }))
-      };
-
-      console.log('Full submitData being sent:', JSON.stringify(submitData));  // This should now show all data
-
-      this.setState({ isLoading: true });
-
-      DtscfDataService.submitDraftById(this.state.currentProject.id, submitData, (log1) => {
-        this.setState(prevState => ({
-          modalmsg: prevState.modalmsg + log1 + "\n"
-        }));
-        //this.setState({ logs: [...this.state.logs, log1] });
-      })
-      .then(response => {
-        this.setState(prevState => ({
-          modalmsg: prevState.modalmsg + response.message + "\n",
-          button0text: "Close",
-          isLoading: false,
-          afterModalClose: () => this.props.router.navigate("/dtscf")
-        }));
-        //this.setState({ logs: [...this.state.logs, log1] });
-
-        this.setState({
-          message: response.message,
-          isLoading: false
-        });
-      })
-      .catch(e => {
-        const errMsg = (e.response && e.response.data && e.response.data.message) || e.message || e.toString();
-        this.setState(prevState => ({
-          modalmsg: prevState.modalmsg + "Error: " + errMsg + "\n",
-          button0text: "Close",
-          isLoading: false,
-        }));
-        //this.setState({ logs: [...this.state.logs, log1] });
-      });
-    }
-    this.setState({ isLoading: false });
-  } // submitDtscf()
-
-  async acceptDtscf() {
-      console.log("IsLoad=true");
-      this.show_loading();
-
-      await DtscfDataService.acceptDraftById(
-        this.state.currentProject.id,
+    await DtscfDataService.approveMilestoneCompletedById(
+        this.state.currentUser.walletaddress,
         this.state.currentProject
-      )
-      .then(response => {
-        this.hide_loading();
-
-        console.log("Response: ", response);
-        console.log("IsLoad=false");
-        this.hide_loading();
-  
-        this.setState({  
-          datachanged: false,
-        });
-        this.displayModal("Dtscf request checked, sending for approval.", "OK", null, null, null);
-      })
-      .catch(e => {
-        this.hide_loading();
-
-        console.log(e);
-        console.log(e.message);
-        this.displayModal("Dtscf accept failed.", null, null, null, "OK");
-
-        try {
-          console.log(e.response.data.message);
-          if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-            this.displayModal("The Dtscf accept failed. The Dtscf name is already used, please use another name.", null, null, null, "OK");
-          }
-        } catch(e) {
-          this.hide_loading();
-
-          console.log("Error: ",e);
-          console.log("Response error:",e.response.data.message);
-          if (e.response.data.message !== "") 
-            this.displayModal("Error: "+e.response.data.message+". Please contact tech support.", null, null, null, "OK");
-          else
-            this.displayModal("Error: "+e.message+". Please contact tech support.", null, null, null, "OK");
-        } 
-      });
-    this.hide_loading();
-  } //  acceptDtscf()
-
-  async updateProject() {
-    this.setState({ isLoading: true });
-    const formData = new FormData();
-    formData.append('id', this.state.currentProject.id);
-    formData.append('name', this.state.currentProject.name);
-    formData.append('description', this.state.currentProject.description);
-    formData.append('totalBudget', this.state.currentProject.totalBudget);
-    formData.append('startdate', this.state.currentProject.startdate);
-    formData.append('enddate', this.state.currentProject.enddate);
-    formData.append('milestones', JSON.stringify(this.state.currentProject.milestones));
-    formData.append('contractors', JSON.stringify(this.state.currentProject.contractors.map(c => (
-      {...c, purchases: c.purchases.map(p => (
-        { ...p, 
-          milestone: p.milestone || "", 
-          invoices: []
-        }
-      ))}
-    )))); // Send metadata
-
-    this.state.currentProject.contractors.forEach((con, conIndex) => {
-      con.purchases.forEach((pur, purIndex) => {
-        if (pur.invoices.length > 0) {
-          formData.append(`contractor_${conIndex}_purchase_${purIndex}_invoice`, pur.invoices[0]);
-        }
-      });
-    });
-
-    await DtscfDataService.update(this.state.currentProject.id, formData)
-      .then(response => {
-        //this.setState({ message: "Project updated successfully!", isLoading: false });
-        this.displayModal("Dtscf project update request submitted for review.", "OK", null, null, null);
-      })
-      .catch(e => {
-        console.log(e);
-        this.setState({ isLoading: false });
-      });
-  }
-
-  async rejectDtscf() {
-
-//    console.log("isChecker? ", this.state.isChecker);
-//    console.log("this.state.currentProject.checkerComments: ", this.state.currentProject.checkerComments);
-    console.log("isApprover? ", this.state.isApprover);
-    console.log("this.state.currentProject.approverComments: ", this.state.currentProject.approverComments);
-
-//    if ( this.state.isChecker && (typeof this.state.currentProject.checkerComments==="undefined" || this.state.currentProject.checkerComments==="" || this.state.currentProject.checkerComments===null)) { 
-//      this.displayModal("Please enter the reason for rejection in the Checker Comments.", null, null, null, "OK");
-//    } else 
-    if (this.state.isApprover && (typeof this.state.currentProject.approverComments==="undefined" || this.state.currentProject.approverComments==="" || this.state.currentProject.approverComments===null)) {
-      this.displayModal("Please enter the reason for rejection in the Approver Comments.", null, null, null, "OK");
-    } else {
-      //console.log("Form Validation passed");
-    
-      console.log("IsLoad=true");
-      this.show_loading();
-
-      await DtscfDataService.rejectDraftById(
-        this.state.currentProject.id,
-        this.state.currentProject,
-      )
-      .then(response => {
-        this.hide_loading();
-
-        console.log("Response: ", response);
-        console.log("IsLoad=false");
-        this.hide_loading();
-
-        this.setState({  
-          datachanged: false,
-        });
-        this.displayModal("This Dtscf request is rejected. Routing back to maker.", "OK", null, null, null);
-      })
-      .catch(e => {
-        this.hide_loading();
-
-        console.log(e);
-        console.log(e.message);
-        this.displayModal("Dtscf rejection failed.", null, null, null, "OK");
-      });
-    }
-    this.hide_loading();
-  }
-    
-  async deleteDtscf() {    
-    console.log("IsLoad=true");
-    this.show_loading();        // show progress
-
-    await DtscfDataService.approveDeleteDraftById(
-      this.state.currentProject.id,
-      this.state.currentProject,
     )
     .then(response => {
-      console.log("IsLoad=false");
-      this.hide_loading();     // hide progress
+      this.hide_loading();
 
-      this.displayModal("Dtscf is deleted.", "OK", null, null, null);
-      console.log(response.data);
-      //this.props.router.navigate('/inbox');
+      console.log("Response: ", response);
+      console.log("IsLoad=false");
+      this.hide_loading();
+
+      this.setState({  
+        datachanged: false,
+      });
+      this.displayModal("Milestone has been set to completed.", "OK", null, null, null);
     })
     .catch(e => {
-      console.log("IsLoad=false");
-      this.hide_loading();     // hide progress
-      this.displayModal(e.message+". "+(typeof(e.response.data.message)!=='undefined' && e.response.data.message!==null ? e.response.data.message:""), null, null, null, "OK");
+      this.hide_loading();
 
-      console.log(e);
+      console.log(">>>> "+e);
+      console.log(e.message);
+      this.displayModal("Milestone update failed.", null, null, null, "OK");
     });
-  } // deleteDtscf()
+      
+    this.hide_loading();
+  } // approveMilestoneCompleted()
 
-  async dropRequest() {    
-    console.log("IsLoad=true");
-    this.show_loading();        // show progress
-
-    await DtscfDataService.dropRequestById(
-      this.state.currentProject.id,
-      this.state.currentProject,
-    )
-    .then(response => {
-      console.log("IsLoad=false");
-      this.hide_loading();     // hide progress
-
-      this.displayModal("Request is dropped (deleted).", "OK", null, null, null);
-      console.log(response.data);
-      //this.props.router.navigate('/inbox');
-    })
-    .catch(e => {
-      console.log("IsLoad=false");
-      this.hide_loading();     // hide progress
-      this.displayModal(e.message+". "+(typeof(e.response.data.message)!=='undefined' && e.response.data.message!==null ? e.response.data.message:""), null, null, null, "OK");
-
-      console.log(e);
-    });
-  } // dropRequest()
-*/
   show_loading() {
     this.setState({isLoading: true});
   }
@@ -1270,7 +572,7 @@ class DTSCFProjectCreation extends Component {
               maxlength="50"
               value={currentProject.name} 
               onChange={this.onChangeName} 
-              disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
+              disabled="true"
             />
             <label htmlFor="description">Project Description</label>
             <input 
@@ -1280,7 +582,7 @@ class DTSCFProjectCreation extends Component {
               maxlength="255"
               value={currentProject.description} 
               onChange={this.onChangeDescription} 
-              disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
+              disabled="true"
             />
           </div>
           <div className="form-group">
@@ -1292,7 +594,7 @@ class DTSCFProjectCreation extends Component {
               max="1000000000000"
               value={currentProject.totalBudget} 
               onChange={this.onChangeTotalBudget} 
-              disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
+              disabled="true"
             />
           </div>
           { (currentProject && currentProject.smartcontractaddress !== "" && currentProject.smartcontractaddress !== null && currentProject.smartcontractaddress !=='undefined') && 
@@ -1315,7 +617,7 @@ class DTSCFProjectCreation extends Component {
                   className="form-control"
                   id="underlyingTokenID"
                   required
-                  disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
+                  disabled="true"
             >
                   <option value=""> </option>
                   {
@@ -1355,7 +657,7 @@ class DTSCFProjectCreation extends Component {
               id="startdate"
               value={currentProject.startdate}
               onChange={this.onChangeStartDate}
-              disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
+              disabled="true"
             />
           </div>
           <div className="form-group">
@@ -1366,7 +668,7 @@ class DTSCFProjectCreation extends Component {
               id="enddate"
               value={currentProject.enddate}
               onChange={this.onChangeEndDate}
-              disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
+              disabled="true"
             />
           </div>
           <br />
@@ -1380,10 +682,11 @@ class DTSCFProjectCreation extends Component {
             className="form-control" 
             value={selectedMilestone} 
             onChange={this.handleMilestoneChange}
+            disabled={!(this.state.isAnchor && this.state.isMaker && currentProject.status === null) }
           >
             <option value="">-- Select a Milestone --</option>
             {currentProject.milestones.map((ms, index) => (
-              <option key={index} value={ms.name}>{ms.name}</option>
+              <option key={index} value={ms.id + "|" + ms.name} disabled={ms.milestone_completed}>{ms.name} (Completion Date: {ms.enddate})</option>
             ))}
           </select>
         </div>
@@ -1394,7 +697,10 @@ class DTSCFProjectCreation extends Component {
             {filteredDisplay.length > 0 ? (
               filteredDisplay.map((con, cIdx) => (
                 <div key={cIdx} className="border p-2 mb-2">
-                  <strong>Contractor: {con.name}</strong> (Wallet: {con.walletaddress})
+                  <strong>Contractor: {con.name}</strong> 
+                  {/*
+                  (Wallet: {con.walletaddress})
+                  */}
                   <ul>
                     {con.relevantPurchases.map((pur, pIdx) => (
                       <li key={pIdx}>
@@ -1411,7 +717,7 @@ class DTSCFProjectCreation extends Component {
         )}
       </div>
 
-
+{/*}
           <div className="form-group">
             <label htmlFor="approver">Approver *</label>
             <select
@@ -1419,7 +725,7 @@ class DTSCFProjectCreation extends Component {
                 onChange={this.onChangeApprover}                         
                 className="form-control"
                 id="approver"
-                disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
+                disabled={!(this.state.isAnchor && this.state.isMaker && currentProject.status === null) }
                 >
                 <option></option>
               {
@@ -1452,12 +758,12 @@ class DTSCFProjectCreation extends Component {
           : null
           )
           }
-
+*/}
           </form>
 
 
               {  //// buttons!
-
+/*
 
                   this.state.isMaker && currentProject.id === 0 &&  // creating new draft
                         <button 
@@ -1467,6 +773,7 @@ class DTSCFProjectCreation extends Component {
                         >
                           Submit Request
                         </button>
+*/
               }
 
               { 
@@ -1514,11 +821,11 @@ class DTSCFProjectCreation extends Component {
 */
               }
               {
-                    
+                    this.state.isAnchor && this.state.isMaker && currentProject.status === null &&
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-primary"
-                    onClick={this.approveDtscf}
+                    onClick={this.approveMilestoneCompleted}
                     >
                       Set Milestone Completed
                     </button> 

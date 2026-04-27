@@ -96,13 +96,13 @@ export default class Dashboard extends Component {
               <strong> Dashboard</strong>
             </h3>
           </header>
-          { (currentUser.organisation_id === null || currentUser.organisation_id === undefined) && (
+          { (currentUser.roles === null || currentUser.roles[0] === "ROLE_USER") && (
             <center>
               <Chart />
             </center>
             ) 
           } 
-          { (currentUser.organisation_id !== null && currentUser.organisation_id !== undefined) && (
+          { (currentUser.roles !== null && currentUser.organisation_id !== undefined && currentUser.organisation_id !== null) && (
             <>
                     <div className="list row">
                       <div className="col-md-8">

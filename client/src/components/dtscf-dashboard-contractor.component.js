@@ -82,7 +82,7 @@ const ContractorDashboard = () => {
   return (
     <div className="container">
       <header className="jumbotron">
-        <h3 className="center">Contractor Dashboard – Deep Tier Tokenized Payables</h3>
+        <h3 className="center">Contractor Dashboard – Tokenised Payables</h3>
       </header>
 
       <div className="card">

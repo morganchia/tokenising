@@ -77,11 +77,10 @@ class DTSCFProjectCreation extends Component {
     this.handleMilestoneChange = this.handleMilestoneChange.bind(this); 
 
 
-    this.createProject = this.createProject.bind(this);
+    this.createUnwrapDraft = this.createUnwrapDraft.bind(this);
     this.updateProject = this.updateProject.bind(this);
     this.submitDtscf = this.submitDtscf.bind(this);
-    this.acceptDtscf = this.acceptDtscf.bind(this);
-    this.approveDtscf = this.approveDtscf.bind(this);
+    this.approveUnwrap = this.approveUnwrap.bind(this);
     this.rejectDtscf = this.rejectDtscf.bind(this);
     this.deleteDtscf = this.deleteDtscf.bind(this);
     this.dropRequest = this.dropRequest.bind(this);
@@ -107,10 +106,10 @@ class DTSCFProjectCreation extends Component {
         campaign_id: 0,
         startdate: getToday(),
         enddate: getToday(),
+        selectedMilestone: "", // Track selected milestone name
+        selectedMilestoneId: null, // Track selected milestone ID
         milestones: [{name: "mmm", budget: 222, startdate: getToday(), enddate: getToday()}],
         contractors: [{name: "ccc", budget: 3333, walletaddress: "", purchases: [{description: "ppp", amount: 4444}],  invoices: []}], // invoices as File objects
-
-        selectedMilestone: "", // Track selected milestone name
       },
       underlyingDSGDList: [],
       checkerList: {
@@ -596,11 +595,31 @@ class DTSCFProjectCreation extends Component {
   }
 
   handleMilestoneChange(e) {
-    this.setState({ selectedMilestone: e.target.value });
+    this.setState({
+      datachanged: true
+    });
+
+    const [selectedMilestoneId, selectedMilestone] = e.target.value.split('|'); // Assuming value is in format "id|name"
+    console.log("Selected Milestone ID:", selectedMilestoneId);
+    console.log("Selected Milestone Name:", selectedMilestone);
+    console.log("value:'"+e.target.value+"'");
+
+    this.setState(prevState => ({
+      currentProject: {
+        ...prevState.currentProject,
+        selectedMilestone: selectedMilestone,
+        selectedMilestoneId: selectedMilestoneId
+      }
+    }));
   }
 
   async validateForm() {    
     var err = "";
+console.log("Validating form with currentProject:", this.state.currentProject);
+console.log("Selected Milestone for Purchase:", this.state.currentProject.selectedMilestone);
+    if (this.state.currentProject.selectedMilestone === "" || this.state.currentProject.selectedMilestone === null || this.state.currentProject.selectedMilestone === undefined) {
+      err += "- Please select a Milestone for the Purchase\n";
+    }
 
     if (!(typeof this.state.currentProject.name ==='string' || this.state.currentProject.name instanceof String) || (this.state.currentProject.name.trim() === "" || this.state.currentProject.name === null || this.state.currentProject.name === undefined)) {
       err += "- Name cannot be empty\n";
@@ -646,25 +665,18 @@ class DTSCFProjectCreation extends Component {
     console.log("end date:'"+this.state.currentProject.enddate+"'");
     console.log("Start > End? "+ (this.state.currentProject.startdate > this.state.currentProject.enddate));
 
-//    console.log("Checker:'"+this.state.currentProject.checker+"'");
     console.log("Approver:'"+this.state.currentProject.approver+"'");
 
-//    if (this.state.currentProject.checker === "" || this.state.currentProject.checker === null || this.state.currentProject.checker === undefined) err += "- Checker cannot be empty\n";
     if (this.state.currentProject.approver === "" || this.state.currentProject.approver === null || this.state.currentProject.approver === undefined) err += "- Approver cannot be empty\n";
     if (
-      //this.state.currentProject.checker === this.state.currentUser.id.toString() && 
         this.state.currentProject.approver === this.state.currentUser.id.toString()) {
       err += "- Maker and Approver cannot be the same person\n";
     } else {
-//      if (this.state.currentProject.checker === this.state.currentUser.id.toString()) err += "- Maker and Checker cannot be the same person (yourself)\n";
       if (this.state.currentProject.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
-//      if (this.state.currentProject.checker!==null && this.state.currentProject.checker!=="" && this.state.currentProject.checker !== undefined
-//            && this.state.currentProject.checker === this.state.currentProject.approver) err += "- Checker and Approver cannot be the same person\n";
     }
 
     if (err !=="" ) {
       err = "Form validation issues found:\n"+err;
-      //alert(err);
       this.displayModal(err, null, null, null, "OK");
       err = ""; // clear var
       return false;
@@ -674,113 +686,6 @@ class DTSCFProjectCreation extends Component {
   
 
   //////////////////////////////////////////////////////////////////////
-
-  async createProject(){
-    this.setState({
-      isLoading: true,
-      logs: [] ,
-      message: "",
-      showm: true,
-      modalmsg: "Processing...\n",
-      button1text: null,
-      button2text: null,
-      button3text: null,
-      button0text: null,
-      afterModalClose: null,
-    });
-
-    console.log('[CLIENT] createProject called with data:', this.state.currentProject);
-
-    this.setState({ isLoading: true, logs: [], message: '' });
-
-    if (await this.validateForm() === true) {   
-      const draftData = {
-          name: this.state.currentProject.name,
-          description: this.state.currentProject.description,
-          totalBudget: this.state.currentProject.totalBudget,
-          underlyingDSGDsmartcontractaddress: this.state.currentProject.underlyingDSGDsmartcontractaddress,
-          underlyingTokenID: this.state.currentProject.underlyingTokenID,
-          campaign_id: this.state.currentProject.campaign_id,
-          blockchain: this.state.currentProject.blockchain,
-          startdate: this.state.currentProject.startdate,
-          enddate: this.state.currentProject.enddate,
-          txntype: this.state.currentProject.txntype || 0,  // Fallback only if truly missing, but ensure set
-          anchor_id: this.state.currentProject.anchor_id,  // From state, even if undefined
-          maker: this.state.currentProject.maker || this.state.currentUser.id,
-          approver: this.state.currentProject.approver,
-          actionby: this.state.currentUser.username,  // Use username for consistency
-          approveddtscfid: this.state.currentProject.approveddtscfid || -1,
-          milestones: this.state.currentProject.milestones.map(ms => ({
-            id: ms.id,
-            name: ms.name,
-            budget: ms.budget,
-            startdate: ms.startdate,
-            enddate: ms.enddate,
-            description: ms.description || ''  // Include if needed
-          })),
-          contractors: this.state.currentProject.contractors.map(con => ({
-            id: con.id,
-            name: con.name,
-            budget: con.budget,
-            walletaddress: con.walletaddress,
-            purchases: con.purchases.map(pur => ({
-              id: pur.id,
-              description: pur.description,
-              amount: pur.amount,
-              milestone: pur.milestone, 
-              invoices: pur.invoices  
-            })),
-            subcontractors: con.subcontractors || []  // If applicable
-          }))
-      };
-
-      console.log('Full draftData being sent:', JSON.stringify(draftData));  // This should now show all data
-
-      this.setState({ isLoading: true });
-
-      DtscfDataService.draftCreate(draftData, (log1) => {
-        this.setState(prevState => ({
-          modalmsg: prevState.modalmsg + log1 + "\n"
-        }));
-        console.log('[CLIENT UI] Received log:', log1); // NEW: Confirm onLog calls
-        this.setState({ logs: [...this.state.logs, log1] });
-      })
-      .then(response => {
-        this.setState(prevState => ({
-          modalmsg: prevState.modalmsg + response.message + "\n",
-          button0text: "Close",
-          isLoading: false,
-          afterModalClose: () => this.props.router.navigate("/dtscf")
-        }));
-        console.log('[CLIENT UI] draftCreate success:', response); // NEW: Confirm resolve
-        //this.setState({ logs: [...this.state.logs, log1] });
-
-        this.setState({
-/*          currentProject: {
-            ...this.state.currentProject,
-            id: response.data.id || response.message?.match(/id=(\d+)/)?.[1] || this.state.currentProject.id,  // Parse id if in message
-            maker: this.state.currentUser.id,
-            txntype: 0  // For new creation requests
-          },
-*/
-          message: response.message,
-          isLoading: false
-        });
-      })
-      .catch(e => {
-        const errMsg = (e.response && e.response.data && e.response.data.message) || e.message || e.toString();
-        this.setState(prevState => ({
-          modalmsg: prevState.modalmsg + "Error: " + errMsg + "\n",
-          button0text: "Close",
-          isLoading: false,
-        }));
-        console.error('[CLIENT UI] draftCreate error:', errMsg); // NEW: Confirm reject
-        //this.setState({ logs: [...this.state.logs, log1] });
-      });
-    } // await this.validateForm()
-    this.hide_loading();
-
-  }
   
   async submitDtscf() {
     this.setState({ // show loading modal with logs
@@ -881,12 +786,14 @@ class DTSCFProjectCreation extends Component {
     this.setState({ isLoading: false });
   } // submitDtscf()
 
-  async acceptDtscf() {
-      console.log("IsLoad=true");
-      this.show_loading();
+  async createUnwrapDraft() {
+    console.log("IsLoad=true");
+    this.show_loading();
 
-      await DtscfDataService.acceptDraftById(
-        this.state.currentProject.id,
+    if (await this.validateForm() === true) {   
+
+      await DtscfDataService.createUnwrapDraft(
+        this.state.currentUser.walletaddress,
         this.state.currentProject
       )
       .then(response => {
@@ -899,19 +806,19 @@ class DTSCFProjectCreation extends Component {
         this.setState({  
           datachanged: false,
         });
-        this.displayModal("Dtscf request checked, sending for approval.", "OK", null, null, null);
+        this.displayModal("Sending Unwrap Request for approval.", "OK", null, null, null);
       })
       .catch(e => {
         this.hide_loading();
 
         console.log(e);
         console.log(e.message);
-        this.displayModal("Dtscf accept failed.", null, null, null, "OK");
+        this.displayModal("Unwrap request failed: "+e.response.data.message, null, null, null, "OK");
 
         try {
           console.log(e.response.data.message);
           if (e.response.data.message.includes("SequelizeUniqueConstraintError")) {
-            this.displayModal("The Dtscf accept failed. The Dtscf name is already used, please use another name.", null, null, null, "OK");
+            this.displayModal("The Unwrap request failed. The Unwrap name is already used, please use another name.", null, null, null, "OK");
           }
         } catch(e) {
           this.hide_loading();
@@ -924,10 +831,11 @@ class DTSCFProjectCreation extends Component {
             this.displayModal("Error: "+e.message+". Please contact tech support.", null, null, null, "OK");
         } 
       });
+    }
     this.hide_loading();
-  } //  acceptDtscf()
+  } //  createUnwrapDraft()
 
-  async approveDtscf() {
+  async approveUnwrap() {
     this.setState({ // show loading modal with logs
       isLoading: true,
       logs: [] ,
@@ -944,10 +852,10 @@ class DTSCFProjectCreation extends Component {
     console.log("IsLoad=true");
     this.show_loading();
 
-    console.log("Approving Dtscf ID:", this.state.currentProject.id);
-    console.log("Approving Dtscf:", this.state.currentProject);
+    console.log("Approving Unwrap ID:", this.state.currentProject.id);
+    console.log("Approving Unwrap:", this.state.currentProject);
 
-    await DtscfDataService.approveDraftById(this.state.currentProject.id, this.state.currentProject, (log1) => {
+    await DtscfDataService.approveUnwrapDraftById(this.state.currentProject.id, this.state.currentProject, (log1) => {
       this.setState(prevState => ({
         modalmsg: prevState.modalmsg + log1 + "\n"
       }));
@@ -963,13 +871,6 @@ class DTSCFProjectCreation extends Component {
       //this.setState({ logs: [...this.state.logs, log1] });
 
       this.setState({
-/*          currentProject: {
-          ...this.state.currentProject,
-          id: response.data.id || response.message?.match(/id=(\d+)/)?.[1] || this.state.currentProject.id,  // Parse id if in message
-          maker: this.state.currentUser.id,
-          txntype: 0  // For new creation requests
-        },
-*/
         message: response.message,
         isLoading: false
       });
@@ -984,7 +885,7 @@ class DTSCFProjectCreation extends Component {
       //this.setState({ logs: [...this.state.logs, log1] });
     });
 
-  } // approveDtscf()
+  } // approveUnwrap()
 
   async updateProject() {
     this.setState({ isLoading: true });
@@ -1210,12 +1111,12 @@ class DTSCFProjectCreation extends Component {
       return <Navigate to={this.state.redirect} replace />;
     }
 
-    const { underlyingDSGDList, currentProject, selectedMilestone, approverList } = this.state;
+    const { underlyingDSGDList, currentProject, approverList } = this.state;
     console.log("currentProject: ", currentProject);
 
     // Filter logic: Find contractors who have at least one purchase in the selected milestone
     const filteredDisplay = currentProject.contractors.map(con => {
-      const relevantPurchases = con.purchases.filter(pur => pur.milestone === selectedMilestone);
+      const relevantPurchases = con.purchases.filter(pur => pur.milestone === currentProject.selectedMilestone);
       if (relevantPurchases.length > 0) {
         return { ...con, relevantPurchases };
       }
@@ -1387,44 +1288,67 @@ class DTSCFProjectCreation extends Component {
           <br />
 
       <div className="mt-4 card p-3">
-        <h5>View Milestone Details</h5>
+        <h5>Select Milestone to unwrap all the tokenised payables in that milestone</h5>
         <div className="form-group">
-          <label htmlFor="milestoneSelect">Select Milestone:</label>
           <select 
             id="milestoneSelect"
             className="form-control" 
-            value={selectedMilestone} 
+            value={currentProject.selectedMilestone} 
             onChange={this.handleMilestoneChange}
           >
             <option value="">-- Select a Milestone --</option>
             {currentProject.milestones.map((ms, index) => (
-              <option key={index} value={ms.name}>{ms.name}</option>
+              <option key={index} value={ms.id + "|" + ms.name}>{ms.name}</option>
             ))}
           </select>
         </div>
 
-        {selectedMilestone && (
+        {currentProject.selectedMilestone && (
           <div className="mt-3">
-            <h6>Contractors & Purchases for: {selectedMilestone}</h6>
-            {filteredDisplay.length > 0 ? (
-              filteredDisplay.map((con, cIdx) => (
-                <div key={cIdx} className="border p-2 mb-2">
-                  <strong>Contractor: {con.name}</strong> (Wallet: {con.walletaddress})
-                  <ul>
-                    {con.relevantPurchases.map((pur, pIdx) => (
-                      <li key={pIdx}>
-                        Purchase: {pur.description} - Amount: {pur.amount}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))
-            ) : (
-              <p className="text-muted">No associated contractors or purchases found for this milestone.</p>
-            )}
+            <h6>Contractors & Purchases for: {currentProject.selectedMilestone}</h6>
+            <table className="table table-bordered">
+              <tr><td>
+                {filteredDisplay.length > 0 ? (
+                  filteredDisplay.map((con, cIdx) => (
+                    <div key={cIdx}>
+                      <strong>Contractor: {con.name}</strong> (Wallet: {con.walletaddress})
+                      <ul>
+                        {con.relevantPurchases.map((pur, pIdx) => (
+                          <li key={pIdx}>
+                            Purchase: {pur.description} - Amount: {pur.amount}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                  
+                ) : (
+                  <p className="text-muted">No associated contractors or purchases found for this milestone.</p>
+                )}
+            </td></tr>
+            </table>
           </div>
         )}
       </div>
+          <div className="form-group">
+            <label htmlFor="approver">Approver *</label>
+            <select
+                value={currentProject.approver}
+                onChange={this.onChangeApprover}                         
+                className="form-control"
+                id="approver"
+                disabled={!(this.state.isMaker && (currentProject.status === null || currentProject.status <= 0))}
+                >
+                <option></option>
+              {
+                Array.isArray(approverList) ?
+                approverList.map( (d) => {
+                    return <option value={d.id}>{d.username}</option>
+                  })
+                : null
+              }
+            </select>
+          </div>
 
           { 
           (currentProject.id !== 0 ? // add new project
@@ -1453,31 +1377,25 @@ class DTSCFProjectCreation extends Component {
               {  //// buttons!
 
 
-                  this.state.isMaker && currentProject.id === 0 &&  // creating new draft
+                  this.state.isMaker && (currentProject.status === null || currentProject.status <= 0) &&  // creating new draft
                         <button 
-                        onClick={this.createProject} 
+                        onClick={this.createUnwrapDraft} 
                         type="submit"
                         className="m-3 btn btn-sm btn-primary"
                         >
-                          Submit Request
+                          Submit Unwrap Request
                         </button>
               }
 
               { 
-                  this.state.isMaker && currentProject.status !== null && currentProject.status <= 0 &&  // creating draft or amending draft
+                  this.state.isMaker && (currentProject.status > 0) &&  // creating draft or amending draft
                         <>
                             <button
                             type="submit"
                             className="m-3 btn btn-sm btn-primary"
                             onClick={this.submitDtscf}
                             >
-                              Submit&nbsp;
-                              {
-                                (currentProject.txntype===0? " Creation ":
-                                (currentProject.txntype===1? " Updation ":
-                                (currentProject.txntype===2? " Deletion ":null)))
-                              }
-                              Request
+                              Resubmit Unwrap Request
                             </button> 
 
                             <button
@@ -1512,16 +1430,9 @@ class DTSCFProjectCreation extends Component {
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-primary"
-                    onClick={currentProject.txntype===2? this.deleteDraft: this.approveDtscf}
+                    onClick={currentProject.txntype===2? this.deleteDraft: this.approveUnwrap}
                     >
-                      Approve & Deploy
-                      {
-                        (currentProject.txntype===0? " Creation ":
-                        (currentProject.txntype===1? " Updation ":
-                        (currentProject.txntype===2? " Deletion ":null)))
-                      }
-                      Request
-
+                      Approve Unwrap Request
                     </button> 
                 
               }

@@ -284,9 +284,8 @@ export default class Inbox extends Component {
       });
   }
 */
-  componentDidMount() {
-    const user = AuthService.getCurrentUser();
-
+  async componentDidMount() {
+    const user = await AuthService.getCurrentUser();
     if (!user) this.setState({ redirect: "/login" });
     this.setState({ currentUser: user, userReady: true })
 
@@ -1457,7 +1456,7 @@ export default class Inbox extends Component {
                   {(dtscf && dtscf.length > 0)? 
                     <>
                       <h5>
-                        <strong>Deep-Tier Supply Chain Financing Projects</strong>
+                        <strong>Tokenised Payables</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
                         {(dtscf.length > 0)?
