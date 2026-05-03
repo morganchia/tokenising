@@ -44,132 +44,80 @@ exports.signup = async (req, res) => {
 };
 
 exports.signin = async (req, res) => {
-  await User.findOne({
-    where: { username: req.body.username }
-  })
-    .then(user => {
-      console.log(">>>>>>>>>> User found in DB:", user);
-      if (!user) {
-        return res.status(404).send({ message: "User Not found." });
-      }
+  try {
+    // 1. Find User
+    const user = await User.findOne({
+      where: { username: req.body.username }
+    });
+    if (!user) {
+      return res.status(404).send({ message: "User Not found." });
+    }
+    console.log("==== user object:", user);
 
-      console.log("==== user object:", user);
-      var passwordIsValid = bcrypt.compareSync(
-        req.body.password,
-        user.password
-      );
+    // 2. Validate Password
+    var passwordIsValid = bcrypt.compareSync( req.body.password, user.password );
+    if (!passwordIsValid) {
+      return res.status(401).send({ accessToken: null, message: "Invalid Password!" });
+    }
 
-      if (!passwordIsValid) {
-        return res.status(401).send({
-          accessToken: null,
-          message: "Invalid Password!"
-        });
-      }
-
-      // user found and password valid 
-
-
-      var token = jwt.sign({ id: user.id }, config.secret, {
-        expiresIn: 14400 // 10 mins
-      });
+    // 3. Generate Token
+    var token = jwt.sign({ id: user.id }, config.secret, {  expiresIn: 14400 });
      // res.status(500).send({ message: "last login:"+user.lastlogin });
 
-     var opsRoles = [];
-     UserOpsRole.findAll(
-        { 
-          include: db.opsrole,
-          //attributes: ['id', 'name', 'transactionType'],
-          where: {userId: user.id} ,
-        }
-      )
-      .then(data => {
-        console.log("<<<<<<<<<<<<<<<<  UserOpsRole.findAll:", data)
-        opsRoles = data;
-      })
-      .catch(err => {
-        console.log("Error while retreiving findAll: "+err.message);
-    
-        res.status(500).send({
-          message:
-            err.message || "Some error occurred while retrieving opsrole."
-        });
-      });
+    // 4. Get Ops Roles
+    const opsRoles = await UserOpsRole.findAll(
+      { 
+        include: db.opsrole,
+        //attributes: ['id', 'name', 'transactionType'],
+        where: {userId: user.id} ,
+      }
+    );
+    if (!opsRoles) {        
+      console.log("Error while retreiving findAll: "+err.message);
   
-     var recipients = [];
-     Recipients.findAll(
+      res.status(500).send({
+        message:
+          err.message || "Some error occurred while retrieving opsrole."
+      });
+    }
+
+    // 5. Get Recipients
+    const recipients = await Recipients.findAll(
       { 
         where: {id: user.organisation_id} ,
       }
-    )
-    .then(data => {
-      console.log("Recipients.findAll:", data)
-      recipients = data;
-      console.log("Wallet Address from recipients: ", recipients[0] ? recipients[0].walletaddress : recipients.walletaddress);
-    })
-    .catch(err => {
+    );
+    if (!recipients) {        
       console.log("Error while retreiving findAll: "+err.message);
   
       res.status(500).send({
         message:
           err.message || "Some error occurred while retrieving recipients."
       });
+    }
+
+    // 6. Get Roles (Sequelize association)
+      const roles = await user.getRoles();
+      const authorities = roles.map(role => "ROLE_" + role.name.toUpperCase());
+
+    // 7. Update Last Login (Async but don't necessarily need to await it before responding)
+    const yyyymmddhhmmss = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    User.update({ lastlogin: yyyymmddhhmmss }, { where: { username: req.body.username } });
+
+    // 8. Send Final Response
+    res.status(200).send({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      organisation_id: user.organisation_id,
+      walletaddress: recipients[0] ? recipients[0].walletaddress : recipients.walletaddress,
+      lastlogin: user.lastlogin,
+      opsrole: opsRoles,
+      roles: authorities,
+      accessToken: token
     });
 
-      var authorities = [];
-      user.getRoles().then(roles => {  // getRoles() is a sequelize auto-generated method based on the association defined between user and role model
-        for (let i = 0; i < roles.length; i++) {
-          console.log("User role from DB:", roles[i].name);
-          authorities.push("ROLE_" + roles[i].name.toUpperCase());
-        }
-        console.log("Retrieving from DB, lastlogin = "+user.lastlogin)
-        console.log("==== user roles:", authorities);
-        console.log("==== user accessToken:", token);
-
-        res.status(200).send({
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          organisation_id: user.organisation_id,
-          walletaddress: recipients[0] ? recipients[0].walletaddress: recipients.walletaddress,
-          lastlogin: user.lastlogin,
-          opsrole: opsRoles,
-          roles: authorities,
-          accessToken: token
-        });
-      });
-
-      let date_ob = new Date();
-
-      // current date
-      // adjust 0 before single digit date
-      let date = ("0" + date_ob.getDate()).slice(-2);
-      // current month
-      let month = ("0" + (date_ob.getMonth() + 1)).slice(-2);
-      // current year
-      let year = date_ob.getFullYear();
-      // current hours
-      let hours = date_ob.getHours();
-      // current minutes
-      let minutes = date_ob.getMinutes();
-      // current seconds
-      let seconds = date_ob.getSeconds();
-      // prints date & time in YYYY-MM-DD HH:MM:SS format
-      let yyyymmddhhmmss = year + "-" + month + "-" + date + " " + hours + ":" + minutes + ":" + seconds;
-      console.log("Updating last login to "+yyyymmddhhmmss);
-      // update last login
-      User.update(
-        { lastlogin:  yyyymmddhhmmss }, 
-        { where: { username: req.body.username }}
-        )
-        .then(num => {
-          console.log("Updated lastlogin in num records:"+num);
-        })
-        .catch(err => {
-          console.log("Error updating lastlogin:",err);
-        }
-      );           
-    })
-    .catch(err => {
-      res.status(500).send({ message: err.message });
-    });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
 };

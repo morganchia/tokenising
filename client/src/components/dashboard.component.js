@@ -24,9 +24,9 @@ export default class Dashboard extends Component {
     };
   }
 
-  async retrieveDtscf(id) {
+  async retrieveDtscf(Org_id) {
     //const id = this.state.currentUser.organisation_id;
-    return await DtscfDataService.getTPbyOrgId(id)
+    return await DtscfDataService.getTPbyOrgId(Org_id)
     .then(response => {
       this.setState({
         dtscf: response.data
@@ -52,8 +52,10 @@ export default class Dashboard extends Component {
   }
   
   refreshList() {
-    this.retrieveDtscf(this.state.currentUser.organisation_id);
-    this.retrieveCampaigns(this.state.currentUser.organisation_id);
+    if (this.state.currentUser.organisation_id !== undefined && this.state.currentUser.organisation_id !== null) {
+      this.retrieveDtscf(this.state.currentUser.organisation_id);
+      this.retrieveCampaigns(this.state.currentUser.organisation_id);
+    }
     this.setState({
       currentDtscf: null,
       currentIndex: -1
@@ -72,8 +74,11 @@ export default class Dashboard extends Component {
 
     if (!currentUser) this.setState({ redirect: "/login" });
     this.setState({ currentUser: currentUser, userReady: true })
-    this.retrieveDtscf(currentUser.organisation_id);
-    this.retrieveCampaigns(currentUser.organisation_id);
+
+    if (currentUser.organisation_id !== undefined && currentUser.organisation_id !== null) {
+      this.retrieveDtscf(currentUser.organisation_id);
+      this.retrieveCampaigns(currentUser.organisation_id);
+    }
   }
 
   shorten(s) {
@@ -96,12 +101,13 @@ export default class Dashboard extends Component {
               <strong> Dashboard</strong>
             </h3>
           </header>
-          { (currentUser.roles === null || currentUser.roles[0] === "ROLE_USER") && (
+          { 
+            (currentUser.roles === null || currentUser.roles[0] === "ROLE_USER" || currentUser.organisation_id === undefined || currentUser.organisation_id === null) && (
             <center>
               <Chart />
             </center>
             ) 
-          } 
+          }
           { (currentUser.roles !== null && currentUser.organisation_id !== undefined && currentUser.organisation_id !== null) && (
             <>
                     <div className="list row">

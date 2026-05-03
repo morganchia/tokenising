@@ -424,25 +424,7 @@ class DTSCFProjectCreation extends Component {
       datachanged: true
     }));
   }
-/*
-  onChangeMilestone(index, field, value) {
-    const milestones = [...this.state.currentProject.milestones];
-    milestones[index][field] = field === 'budget' ? parseFloat(value) : value;
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, milestones },
-      datachanged: true
-    }));
-  }
 
-  removeMilestone(index) {
-    const milestones = [...this.state.currentProject.milestones];
-    milestones.splice(index, 1);
-    this.setState(prevState => ({
-      currentProject: { ...prevState.currentProject, milestones },
-      datachanged: true
-    }));
-  }
-*/
   onChangeMilestone(index, field, value) {
     const milestones = [...this.state.currentProject.milestones];
     const oldName = milestones[index].name;
@@ -675,12 +657,11 @@ class DTSCFProjectCreation extends Component {
         if (moment(ms.startdate).isAfter(moment(ms.enddate))) err += "- Milestone '" + ms.name + "' Start date cannot be later than End date\n";
         if (! moment(ms.enddate).isAfter(moment(ms.startdate))) err += "- Milestone '" + ms.name + "' End date must be after Start date\n";
       }
-      if (ms.budget && (isNaN(ms.budget) || ms.budget <= 0)) {
+      if (isNaN(ms.budget) || ms.budget <= 0) {
         err += "- Milestone '" + ms.name + "' Budget is invalid\n";
-      } else {
-        if (ms.budget > this.state.currentProject.totalBudget) {
-          err += `- Milestone '${ms.name}' budget cannot be more than Total Budget\n`;
-        }
+      } 
+      if (ms.budget > this.state.currentProject.totalBudget) {
+        err += `- Milestone '${ms.name}' budget cannot be more than Total Budget\n`;
       }
     });
 
@@ -728,7 +709,6 @@ class DTSCFProjectCreation extends Component {
     }
     return true;
   }  // validateForm()
-  
 
   //////////////////////////////////////////////////////////////////////
 

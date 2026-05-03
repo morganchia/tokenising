@@ -362,7 +362,7 @@ export default class Inbox extends Component {
                       <table style={{ border:"1px solid"}}>
                         {(bond.length > 0)?
                         <tr>
-                          <th>Action</th>
+                          <th>Operation</th>
                           <th>Name</th>
                           <th>Token</th>
                           <th>Blockchain</th>
@@ -472,7 +472,7 @@ export default class Inbox extends Component {
                       <table style={{ border:"1px solid"}}>
                         {(repo.length > 0)?
                         <tr>
-                          <th>Action</th>
+                          <th>Operation</th>
                           <th>Name</th>
                           <th>Blockchain</th>
                           <th>Counter Party 1</th>
@@ -592,7 +592,7 @@ export default class Inbox extends Component {
                       le={{ border:"1px solid"}}>
                         {(campaigns.length > 0)?
                         <tr>
-                          <th>Action</th>
+                          <th>Operation</th>
                           <th>Name</th>
                           <th>Token</th>
                           <th>Blockchain</th>
@@ -703,7 +703,7 @@ export default class Inbox extends Component {
                       <table style={{ border:"1px solid"}}>
                         {(mints.length > 0)?
                         <tr>
-                          <th>Action</th>
+                          <th>Operation</th>
                           <th>Campaign</th>
                           <th>Token</th>
                           <th>Blockchain</th>
@@ -801,7 +801,7 @@ export default class Inbox extends Component {
                       <table style={{ border:"1px solid"}}>
                         {(transfers.length > 0)?
                         <tr>
-                          <th>Action</th>
+                          <th>Operation</th>
                           <th>Asset</th>
                           <th>Token</th>
                           <th>Token Name</th>
@@ -900,7 +900,8 @@ export default class Inbox extends Component {
                       <table style={{ border:"1px solid"}}>
                         {(bridge.length > 0)?
                         <tr>
-                          <th>Action</th>
+                          <th>Draft ID</th>
+                          <th>Operation</th>
                           <th>Name</th>
                           <th>Source Blockchain</th>
                           <th>Destination Blockchain</th>
@@ -917,6 +918,7 @@ export default class Inbox extends Component {
                         {bridge && bridge.length > 0 &&
                           bridge.map((bridge1, index) => (
                             <tr>
+                              <td>{bridge1.id}</td>
                               <td>{bridge1.txntype===0?"Create":bridge1.txntype===1?"Update":"Delete"}</td>
                               <td>{bridge1.name}</td>
                               <td>{(() => {
@@ -1057,7 +1059,7 @@ export default class Inbox extends Component {
                       <table style={{ border:"1px solid"}}>
                         {(dvp.length > 0)?
                         <tr>
-                          <th>Action</th>
+                          <th>Operation</th>
                           <th>Name</th>
                           <th>Blockchain</th>
                           <th>Counter Party 1</th>
@@ -1176,7 +1178,7 @@ export default class Inbox extends Component {
                       <table style={{ border:"1px solid"}}>
                         {(pbm.length > 0)?
                         <tr>
-                          <th>Action</th>
+                          <th>Operation</th>
                           <th>Name</th>
                           <th>Token</th>
                           <th>Blockchain</th>
@@ -1286,7 +1288,7 @@ export default class Inbox extends Component {
                       <table style={{ border:"1px solid"}}>
                         {(wrapmint.length > 0)?
                         <tr>
-                          <th>Action</th>
+                          <th>Operation</th>
                           <th>Name</th>
                           <th>Token</th>
                           <th>Blockchain</th>
@@ -1398,7 +1400,7 @@ export default class Inbox extends Component {
                       <table style={{ border:"1px solid"}}>
                         {(recipients.length > 0)?
                         <tr>
-                          <th>Action</th>
+                          <th>Operation</th>
                           <th>Name</th>
                           <th>Wallet Address</th>
                           <th>Bank</th>
@@ -1461,7 +1463,8 @@ export default class Inbox extends Component {
                       <table style={{ border:"1px solid"}}>
                         {(dtscf.length > 0)?
                         <tr>
-                          <th>Action</th>
+                          <th>Draft ID</th>
+                          <th>Operation</th>
                           <th>Name</th>
                           <th>Description</th>
                           <th>Project Budget</th>
@@ -1474,6 +1477,7 @@ export default class Inbox extends Component {
                         {dtscf && dtscf.length > 0 &&
                           dtscf.map((dtscf1, index) => (
                             <tr>
+                              <td>{dtscf1.id}</td>
                               <td>{dtscf1.txntype===0?"Create":dtscf1.txntype===1?"Update":"Delete"}</td>
                               <td>{dtscf1.name}</td>
                               <td>{dtscf1.description}</td>

@@ -9,7 +9,7 @@ if (process.env.NODE_ENV === 'production') {
     pool: {
       max: 5,
       min: 0,
-      acquire: 30000,
+      acquire: 60000, // Increase wait time for a connection to 60s
       idle: 10000
     }
   };
@@ -32,7 +32,7 @@ if (process.env.NODE_ENV === 'production') {
     pool: {
       max: 5,
       min: 0,
-      acquire: 30000,
+      acquire: 60000, // Increase wait time for a connection to 60s
       idle: 10000
     }
   };

@@ -10,6 +10,7 @@ const sequelize = new Sequelize(
     dialect: config.dialect,
     dialectOptions: {
       timezone: '+00:00', // store data in +00:00 for UTC
+      connectTimeout: 60000 // 60 seconds
     },
     timezone: '+08:00', // Convert retrieved dates to SGT
     logging: console.log, // Enable for debugging
