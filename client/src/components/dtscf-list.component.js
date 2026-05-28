@@ -45,13 +45,36 @@ export default class DtscfList extends Component {
     });
   }
 
-  retrieveDtscf() {
+  retrieveDtscf(user) {
+    const currentUser = user || this.state.currentUser;
     DtscfDataService.getAll()
       .then(response => {
-        this.setState({
-          dtscf: response.data
-        });
+        this.setState({ dtscf: response.data });
         console.log("Response data from retrieveDtscf() DtscfDataService.getAll:", response.data);
+
+        if (currentUser && currentUser.organisation_id) {
+          DtscfDataService.getTPbyOrgId(currentUser.organisation_id)
+            .then(tpResponse => {
+              const tokenMap = {};
+              (tpResponse.data || []).forEach(item => {
+                if (item.smartcontractaddress) {
+                  tokenMap[item.smartcontractaddress.toLowerCase()] = {
+                    tokenId: item.tokenId,
+                    allTokenIds: item.allTokenIds,
+                  };
+                }
+              });
+              this.setState(prevState => ({
+                dtscf: prevState.dtscf.map(d => {
+                  const key = d.smartcontractaddress ? d.smartcontractaddress.toLowerCase() : null;
+                  const tokenInfo = key ? tokenMap[key] : null;
+                  return tokenInfo ? { ...d, ...tokenInfo } : d;
+                })
+              }));
+              console.log("Enriched dtscf list with token IDs from blockchain.");
+            })
+            .catch(e => console.log("getTPbyOrgId error:", e));
+        }
       })
       .catch(e => {
         console.log(e);
@@ -90,7 +113,7 @@ export default class DtscfList extends Component {
   }
 */
   refreshList() {
-    this.retrieveDtscf();
+    this.retrieveDtscf(this.state.currentUser);
     this.setState({
       currentDtscf: null,
       currentIndex: -1
@@ -140,7 +163,7 @@ export default class DtscfList extends Component {
     this.setState({ currentUser: user, userReady: true })
 
     //console.log("currentUser: ", currentUser);
-    this.retrieveDtscf();
+    this.retrieveDtscf(user);
 //    this.retrieveOpsRole(currentUser.id);
 
     console.log("user.roles[0]:", user.roles[0]?.toUpperCase());
@@ -251,11 +274,14 @@ export default class DtscfList extends Component {
                   <th>Cash Token Smart Contract</th>
                   <th>View Details</th>
                   <th>View on Blockchain explorer</th>
-                  <th>Add Sub-Contractors and Purchases</th>
-                  <th>Action</th>
-{/*
-                  <th>Transfer</th>
-*/}
+                  <th>View NFT</th>
+                  <th>Sub-Contractors / My Section</th>
+                  {this.state.isMaker && this.state.isAnchor &&
+                    <th>Set Milestone Completion</th>
+                  }
+                  {this.state.isMaker && (this.state.isAnchor || this.state.isContractor) &&
+                    <th>Unwrap TP to Cash Token</th>
+                  }
                 </tr>
                 : null}
                 {dtscf && dtscf.length > 0 &&
@@ -345,43 +371,34 @@ export default class DtscfList extends Component {
                         +dtscf1.smartcontractaddress} target="_blank" rel="noreferrer">View <i className='bx bx-link-external'></i></a>
                       </td>
                       <td>
-                        <Link
-                          to={"/dtscfcheckapprove/" + dtscf1.id}
-                          className="badge badge-warning"
+                        <Link className="m-3 btn btn-sm btn-primary"
+                          to={"/dtscfview/" + dtscf1.smartcontractaddress + "/" + (dtscf1.allTokenIds ? dtscf1.allTokenIds : dtscf1.tokenId)}
                         >
-                           {this.state.isMaker? "Add Contractors" : null}
+                            View NFT
                         </Link>
+                      </td>
+                      <td>
+                          {this.state.isMaker
+                            ? <Link to={"/dtscfcheckapprove2/" + dtscf1.id} className="badge badge-warning">Add Contractors</Link>
+                            : (!this.state.isApprover
+                                ? <Link to={"/dtscfcheckapprove2/" + dtscf1.id} className="badge badge-info">Edit My Section</Link>
+                                : null
+                              )}
                       </td>
                       {this.state.isMaker && this.state.isAnchor &&
                         <td>
-                            <Link
-                              to={"/dtscfrealisemilestone/" + dtscf1.id}
-                              className="badge badge-warning"
-                            >
-                              {this.state.isMaker? "Set Milestone Completion" : null}
-                            </Link>
+                          <Link to={"/dtscfrealisemilestone/" + dtscf1.id} className="badge badge-warning">
+                              Set Milestone Completion
+                          </Link>
                         </td>
                       }
-                      {this.state.isMaker && this.state.isContractor &&
+                      {this.state.isMaker && (this.state.isAnchor || this.state.isContractor) &&
                         <td>
-                            <Link
-                              to={"/dtscfunwrap/" + dtscf1.id}
-                              className="badge badge-warning"
-                            >
-                              {this.state.isMaker? "Unwrap" : null}
-                            </Link>
+                          <Link to={"/dtscfunwrap/" + dtscf1.id} className="badge badge-warning">
+                              Unwrap
+                          </Link>
                         </td>
                       }
-{/*
-                      <td>
-                        <Link
-                          to={"/transfercheckapprove/0"}
-                          className="badge badge-warning"
-                        >
-                           {this.state.isMaker? "Dtscf transfer" : ""}
-                        </Link>
-                      </td>
-*/}
                     </tr>
                   ))}
               </table>

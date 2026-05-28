@@ -1,3 +1,27 @@
+body, table, th, td, div, span, p, input, button, label, .form-control, .btn, .card-container.card, .card {
+  font-size: 13px;
+}
+
+.jumbotron {
+  font-size: 50px !important;
+}
+
+h1 {
+  font-size: 32px;
+}
+
+h3 {
+  font-size: 26px;
+}
+
+h3 {
+  font-size: 20px;
+}
+
+h4 {
+  font-size: 16px;
+}
+
 label {
   display: block;
   margin-top: 10px;

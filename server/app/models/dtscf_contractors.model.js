@@ -22,6 +22,9 @@ module.exports = (sequelize, Sequelize) => {
       unique: false,
       allowNull: false
     },
+    organisation_id: {
+      type: Sequelize.INTEGER  // reference the id in Dtscf_organisation table
+    },
     dtscf_project_id: {
       type: Sequelize.INTEGER  // reference the id in Dtscf project table
     },
@@ -31,49 +34,6 @@ module.exports = (sequelize, Sequelize) => {
     dbstatus:{
       type: Sequelize.STRING,  // "PENDING", "APPROVED", "REJECTED"
     },
-    name_changed: {
-      type: Sequelize.BOOLEAN,
-      defaultValue: false,
-    },
-    budget_changed: {  
-      type: Sequelize.BOOLEAN,  
-      defaultValue: false,
-    },
-    walletaddress_changed: {  
-      type: Sequelize.BOOLEAN,  
-      defaultValue: false,
-    },
-    dtscf_project_id_changed: {  
-      type: Sequelize.BOOLEAN,  
-      defaultValue: false,
-    },
-    dtscf_parent_contractor_id_changed: {  
-      type: Sequelize.BOOLEAN,  
-      defaultValue: false,
-    },
-    name_original: {
-      type: Sequelize.STRING,  // varchar(50)
-    },
-    budget_original: {  
-      type: Sequelize.INTEGER,  
-    },
-    walletaddress_original: {  
-      type: Sequelize.INTEGER,  
-    },
-    dtscf_project_id_original: {  
-      type: Sequelize.INTEGER,  
-    },
-    dtscf_parent_contractor_id_original: {  
-      type: Sequelize.INTEGER,  
-    },
-    createdAt: {
-      type: Sequelize.DATE,
-      defaultValue: Sequelize.literal('NOW()'),
-    },
-    updatedAt: {
-      type: Sequelize.DATE,
-      defaultValue: Sequelize.literal('NOW()'),
-    }
   });
   return Dtscf_Contractors;
 };

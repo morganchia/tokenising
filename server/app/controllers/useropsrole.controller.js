@@ -52,7 +52,7 @@ exports.getAllMakersCheckersApprovers = (req, res) => {
         [{
           model: db.user,
           as: 'user',
-          attributes: ['id', 'username'],
+          attributes: ['id', 'username', 'organisation_id'],
         }],
         where : filters,
 //        where: { 

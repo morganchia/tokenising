@@ -63,6 +63,7 @@ class DTSCFProjectCreation extends Component {
     this.removeMilestone = this.removeMilestone.bind(this);
     this.addContractor = this.addContractor.bind(this);
     this.onChangeContractor = this.onChangeContractor.bind(this);
+    this.onChangeContractorOrg = this.onChangeContractorOrg.bind(this);
     this.removeContractor = this.removeContractor.bind(this);
     this.addPurchase = this.addPurchase.bind(this);
     this.onChangePurchase = this.onChangePurchase.bind(this);
@@ -93,10 +94,10 @@ class DTSCFProjectCreation extends Component {
       recipients: { id: null, name: null },
       currentProject: {
         id: 0,
-        name: "ppp",
-        description: "pppp",
-        totalBudget: 11110,
-        anchor_id: 16,
+        name: "New project",
+        description: "Project description",
+        totalBudget: 100000,
+        anchor_id: null,
         underlyingTokenID: 0,
         underlyingDSGDsmartcontractaddress: "",
         smartcontractaddress: "",
@@ -105,10 +106,11 @@ class DTSCFProjectCreation extends Component {
         campaign_id: 0,
         startdate: getToday(),
         enddate: getToday(),
-        milestones: [{name: "mmm", budget: 222, startdate: getToday(), enddate: getToday()}],
-        contractors: [{name: "ccc", budget: 3333, walletaddress: "", purchases: [{description: "ppp", amount: 4444}],  invoices: []}], // invoices as File objects
+        milestones: [{name: "M1 - milestone one", budget: 0, startdate: getToday(), enddate: getToday()}],
+        contractors: [{name: "", budget: 0, walletaddress: "", purchases: [{description: "New purchase", amount: 0}],  invoices: []}], // invoices as File objects
       },
       underlyingDSGDList: [],
+      contractorOrgList: [],
       checkerList: {
         id: null,
         username: "",
@@ -119,10 +121,13 @@ class DTSCFProjectCreation extends Component {
       },
 
       isNewProject: true,
+      isAnchor: false,
+      isContractor: false,
       datachanged: false,
       message: "",
       isLoading: false,
       logs: [], // New state for streaming logs
+      explorerUrl: "",
       modal: {
         showm: false,
         modalmsg: "",
@@ -153,14 +158,9 @@ class DTSCFProjectCreation extends Component {
   }
 
   componentDidMount() {
-    // Tell MetaMask this page is not for them
-    if (window.ethereum) {
-      window.ethereum.autoRefreshOnNetworkChange = false; // Prevents some auto-connect errors
-    }
-    
     const user = AuthService.getCurrentUser();
     this.setState({ currentUser: user });
-    console.log("Current user:", user); 
+    console.log("Current user:", user);
 
     if (!user) {
       this.setState({ redirect: "/login" });
@@ -179,13 +179,24 @@ class DTSCFProjectCreation extends Component {
 //      console.log("isChecker:", (ischecker === undefined? false: true));
 //      this.setState({ isChecker: (ischecker === undefined? false: true),});
 
-      let isapprover= user.opsrole.find((el) => 
+      let isapprover= user.opsrole.find((el) =>
       el.opsrole.name.toUpperCase() === "APPROVER"
       );
       console.log("isApprover:", (isapprover === undefined? false: true));
       this.setState({ isApprover: (isapprover === undefined? false: true),});
 
+      let isanchor = user.roles && user.roles.find((el) =>
+        el.toUpperCase() === "ROLE_ANCHOR"
+      );
+      this.setState({ isAnchor: (isanchor === undefined ? false : true) });
+
+      let iscontractor = user.roles && user.roles.find((el) =>
+        el.toUpperCase() === "ROLE_CONTRACTOR"
+      );
+      this.setState({ isContractor: (iscontractor === undefined ? false : true) });
+
       this.getAllUnderlyingAssets();
+      this.getContractorOrganisations();
       this.getProject(user, typeof this.props.router.params.id === "string" ? parseInt(this.props.router.params.id) : this.props.router.params.id);
       this.retrieveAllMakersCheckersApprovers();
     }
@@ -201,7 +212,6 @@ class DTSCFProjectCreation extends Component {
 
   async getProject(user, id) {
     console.log("+++ id:'"+id+"' +++");
-    console.log("typeof id:'"+typeof id+"' +++");
 
     this.setState({ isLoading: true });
     if (id !== undefined && id !== 0) {
@@ -244,27 +254,35 @@ class DTSCFProjectCreation extends Component {
                 startdate: moment(ms.startdate).format('YYYY-MM-DD'),
                 enddate: moment(ms.enddate).format('YYYY-MM-DD'),
               })),
-              contractors: (data.dtscf_contractors_drafts || []).map(con => ({
-                ...con,
-                id: con.id,
-                name: con.name || "",
-                budget: con.budget || 0,
-                walletaddress: con.walletaddress || "",
-                purchases: (con.dtscf_purchases_drafts || []).map(pur => {
-                  const matchedMilestone = (data.dtscf_milestones_drafts || []).find(m => m.id === pur.dtscf_milestone_id);
-                  return {
-                    ...pur,
-                    id: pur.id,
-                    description: pur.description || "",
-                    amount: pur.amount || 0,
-                    milestone: matchedMilestone ? matchedMilestone.name : (pur.milestone || ""),
-                    invoices: [] // Initialize as empty array for new uploads
-                  };
-                }),
-                subcontractors: con.subcontractors || []
-              }))            
+              contractors: (() => {
+                const resolvePurchases = (node) =>
+                  (node.dtscf_purchases_drafts || node.purchases || []).map(pur => {
+                    const matchedMs = (data.dtscf_milestones_drafts || []).find(m => m.id === pur.dtscf_milestone_id);
+                    return {
+                      ...pur,
+                      description: pur.description || '',
+                      amount: pur.amount || 0,
+                      milestone: matchedMs ? matchedMs.name : (pur.milestone || ''),
+                      invoices: pur.invoices || []
+                    };
+                  });
+                const mapNode = (node) => ({
+                  ...node,
+                  purchases: resolvePurchases(node),
+                  subcontractors: (node.subcontractors || []).map(mapNode)
+                });
+                return (data.dtscf_contractors_drafts || []).map(con => mapNode({
+                  ...con,
+                  id: con.id,
+                  name: con.name || '',
+                  budget: con.budget || 0,
+                  walletaddress: con.walletaddress || ''
+                }));
+              })()
             },
             isLoading: false
+          }, () => {
+            this.reconcileContractorOrgs();
           });
 
           RecipientDataService.findOne(data.anchor_id)
@@ -294,9 +312,13 @@ class DTSCFProjectCreation extends Component {
       console.log("Organisation id = ", user.organisation_id);
       RecipientDataService.findOne(user.organisation_id)
         .then(response => {
-          this.setState({
-            recipients: response.data
-          });
+          this.setState(prevState => ({
+            recipients: response.data,
+            currentProject: {
+              ...prevState.currentProject,
+              anchor_id: user.organisation_id
+            }
+          }));
           console.log("Organisation:",response.data);
         })
         .catch(e => {
@@ -326,6 +348,62 @@ class DTSCFProjectCreation extends Component {
       });
   }
   
+  getContractorOrganisations() {
+    DtscfDataService.getContractorOrganisations()
+      .then(response => {
+        console.log("ContractorOrgList:", response.data);
+        this.setState({ contractorOrgList: response.data || [] }, () => {
+          this.reconcileContractorOrgs();
+        });
+      })
+      .catch(e => {
+        console.log("getContractorOrganisations error:", e);
+      });
+  }
+
+  reconcileContractorOrgs() {
+    const { contractorOrgList, currentProject } = this.state;
+    if (!contractorOrgList.length || !currentProject || !currentProject.contractors || !currentProject.contractors.length) return;
+
+    let changed = false;
+    const updated = currentProject.contractors.map(con => {
+      // Already has a valid organisation_id — ensure it's an integer for consistent comparison
+      if (con.organisation_id) {
+        const asInt = parseInt(con.organisation_id, 10);
+        if (asInt !== con.organisation_id) { changed = true; return { ...con, organisation_id: asInt }; }
+        return con;
+      }
+      // Try to match by name first
+      if (con.name) {
+        const org = contractorOrgList.find(
+          o => o.name.toLowerCase() === con.name.toLowerCase()
+        );
+        if (org) {
+          changed = true;
+          return { ...con, organisation_id: org.id, walletaddress: con.walletaddress || org.walletaddress || '' };
+        }
+      }
+      // Fall back to wallet address match
+      if (con.walletaddress) {
+        const org = contractorOrgList.find(
+          o => o.walletaddress && o.walletaddress.toLowerCase() === con.walletaddress.toLowerCase()
+        );
+        if (org) {
+          changed = true;
+          return { ...con, organisation_id: org.id, name: con.name || org.name };
+        }
+      }
+      return con;
+    });
+
+    if (changed) {
+      this.setState(prevState => ({
+        currentProject: { ...prevState.currentProject, contractors: updated }
+      }));
+      console.log("reconcileContractorOrgs: updated contractors with organisation_id");
+    }
+  }
+
   onChangeName(e) {
     const name = e.target.value;
     this.setState({
@@ -474,7 +552,7 @@ class DTSCFProjectCreation extends Component {
     this.setState(prevState => ({
       currentProject: {
         ...prevState.currentProject,
-        contractors: [...prevState.currentProject.contractors, { name: "", budget: 0, walletaddress: "", purchases: [], invoices: [] }]
+        contractors: [...prevState.currentProject.contractors, { name: "", organisation_id: null, budget: 0, walletaddress: "", purchases: [], invoices: [] }]
       },
       datachanged: true
     }));
@@ -483,6 +561,25 @@ class DTSCFProjectCreation extends Component {
   onChangeContractor(index, field, value) {
     const contractors = [...this.state.currentProject.contractors];
     contractors[index][field] = field === 'budget' ? parseFloat(value) : value;
+    this.setState(prevState => ({
+      currentProject: { ...prevState.currentProject, contractors },
+      datachanged: true
+    }));
+  }
+
+  // Called when the org dropdown changes — sets organisation_id, name, and walletaddress together
+  onChangeContractorOrg(index, orgId) {
+    const contractors = [...this.state.currentProject.contractors];
+    const org = this.state.contractorOrgList.find(o => o.id === parseInt(orgId));
+    if (org) {
+      contractors[index].organisation_id = org.id;
+      contractors[index].name = org.name;
+      contractors[index].walletaddress = org.walletaddress || '';
+    } else {
+      contractors[index].organisation_id = null;
+      contractors[index].name = '';
+      contractors[index].walletaddress = '';
+    }
     this.setState(prevState => ({
       currentProject: { ...prevState.currentProject, contractors },
       datachanged: true
@@ -758,16 +855,17 @@ class DTSCFProjectCreation extends Component {
           contractors: this.state.currentProject.contractors.map(con => ({
             id: con.id,
             name: con.name,
+            organisation_id: con.organisation_id || null,
             budget: con.budget,
             walletaddress: con.walletaddress,
             purchases: con.purchases.map(pur => ({
               id: pur.id,
               description: pur.description,
               amount: pur.amount,
-              milestone: pur.milestone, 
-              invoices: pur.invoices  
+              milestone: pur.milestone,
+              invoices: pur.invoices
             })),
-            subcontractors: con.subcontractors || []  // If applicable
+            subcontractors: con.subcontractors || []
           }))
       };
 
@@ -861,16 +959,16 @@ class DTSCFProjectCreation extends Component {
         contractors: this.state.currentProject.contractors.map(con => ({
           id: con.id,
           name: con.name,
+          organisation_id: con.organisation_id || null,
           budget: con.budget,
           walletaddress: con.walletaddress,
           purchases: con.purchases.map(pur => ({
             id: pur.id,
             description: pur.description,
-            milestone: pur.milestone, 
+            milestone: pur.milestone,
             amount: pur.amount
-            // invoices: pur.invoices  // Omit files since no upload in submit; already handled in create/update
           })),
-          subcontractors: con.subcontractors || []  // If applicable
+          subcontractors: con.subcontractors || []
         }))
       };
 
@@ -986,10 +1084,13 @@ class DTSCFProjectCreation extends Component {
     console.log("Approving Dtscf:", this.state.currentProject);
 
     await DtscfDataService.approveDraftById(this.state.currentProject.id, this.state.currentProject, (log1) => {
-      this.setState(prevState => ({
-        modalmsg: prevState.modalmsg + log1 + "\n"
-      }));
-      //this.setState({ logs: [...this.state.logs, log1] });
+      if (log1.startsWith('EXPLORER:')) {
+        this.setState({ explorerUrl: log1.substring(9) });
+      } else {
+        this.setState(prevState => ({
+          modalmsg: prevState.modalmsg + log1 + "\n"
+        }));
+      }
     })
     .then(response => {
       this.setState(prevState => ({
@@ -1181,6 +1282,7 @@ class DTSCFProjectCreation extends Component {
     this.setState({
       showm: false,
       modalmsg: "",
+      explorerUrl: "",
       button1text: null,
       button2text: null,
       button3text: null,
@@ -1223,7 +1325,7 @@ class DTSCFProjectCreation extends Component {
   renderContractor(contractor, tier = 1) {
     return (
       <div key={contractor.id} style={{ marginLeft: `${tier * 20}px` }}>
-        <h5>Tier-{tier} Contractor: {contractor.name} (Budget: {contractor.budget}) (Wallet Address: {contractor.walletaddress})</h5>
+        <h5>Tier-{tier} Contractor: {contractor.name} (Wallet Address: {contractor.walletaddress})</h5>
         <h6>Purchases</h6>
         {contractor.purchases.map((purchase, purIndex) => (
           <div key={purIndex}>
@@ -1242,24 +1344,273 @@ class DTSCFProjectCreation extends Component {
     );
   }
 
+  
+  renderProjectDiagram() {
+    const { currentProject } = this.state;
+    if (!currentProject) return null;
+
+    const projectName = currentProject.name || "Untitled Project";
+
+    return (
+      <div className="project-diagram mt-5 mb-4" style={{
+        background: '#ffffff',
+        borderRadius: '12px',
+        padding: '30px 20px',
+        border: '1px solid #334155',
+        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.3)',
+        color: '#e2e8f0',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        width: '100%'
+      }}>
+        <div style={{ maxWidth: '360px', margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+          <div style={{
+            display: 'block',
+            background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
+            color: 'white',
+            padding: '14px 32px',
+            borderRadius: '9px',
+            fontSize: '18px',
+            fontWeight: '700',
+            boxShadow: '0 4px 6px -1px rgb(59 130 246 / 0.3)',
+            border: '2px solid #60a5fa',
+            textAlign: 'center'
+          }}>
+            Project: <span style={{ fontSize: '20px' }}>{projectName}</span>
+          </div>
+          {this.state.isAnchor && currentProject.totalBudget && (
+            <div style={{
+              marginTop: '12px',
+              fontSize: '15px',
+              color: '#94a3b8'
+            }}>
+              Total Budget: <strong style={{ color: '#22c55e' }}>
+                ${parseFloat(currentProject.totalBudget).toLocaleString()}
+              </strong>
+            </div>
+          )}
+        </div>
+
+        {/* Main connector line from project to milestones */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          position: 'relative',
+          margin: '20px 0 40px 0'
+        }}>
+          <div style={{
+            position: 'absolute',
+            width: '4px',
+            height: '60px',
+            background: '#64748b',
+            top: '-30px',
+            zIndex: 1
+          }}></div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {currentProject.milestones && currentProject.milestones.map((milestone, msIndex) => {
+            // Group contractors that have purchases tagged to this milestone
+            const milestoneContractors = currentProject.contractors ?
+              currentProject.contractors.filter(con =>
+                con.purchases && con.purchases.some(p => p.milestone === milestone.name)
+              ) : [];
+
+            return (
+              <div key={msIndex} style={{
+                width: '100%',
+                background: '#ffffff',
+                borderRadius: '12px',
+                padding: '16px',
+                border: '2px solid #3b82f6',
+                position: 'relative',
+                boxSizing: 'border-box'
+              }}>
+                {/* Milestone Box */}
+                <div style={{
+                  background: '#1e40af',
+                  color: 'white',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  fontWeight: '600',
+                  marginBottom: '16px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}>
+                  <div style={{ fontSize: '13px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    MILESTONE #{msIndex + 1}
+                  </div>
+                  <div style={{ fontSize: '15px', marginTop: '4px' }}>
+                    {milestone.name || `Milestone ${msIndex + 1}`}
+                  </div>
+                  <div style={{ fontSize: '13px', marginTop: '6px', opacity: 0.85 }}>
+                    Budget: ${parseFloat(milestone.budget || 0).toLocaleString()}
+                  </div>
+                </div>
+
+                {/* Contractors & Purchases under this milestone */}
+                <div style={{ marginTop: '12px' }}>
+                  {milestoneContractors.length > 0 ? (
+                    milestoneContractors.map((contractor, conIndex) => (
+                      <div key={conIndex} style={{
+                        background: '#334155',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        marginBottom: '12px',
+                        borderLeft: '4px solid #22c55e'
+                      }}>
+                        <div style={{ fontWeight: '600', fontSize: '14px', color: '#86efac' }}>
+                          {contractor.name || `Contractor ${conIndex + 1}`}
+                        </div>
+{/*  
+                        <div style={{ fontSize: '12px', color: '#cbd5e1', marginTop: '2px' }}>
+                          Budget: ${parseFloat(contractor.budget || 0).toLocaleString()}
+                        </div>
+*/}
+                        {/* Purchases tagged to this milestone */}
+                        <div style={{ marginTop: '10px' }}>
+                          {contractor.purchases && contractor.purchases
+                            .filter(p => p.milestone === milestone.name)
+                            .map((purchase, purIndex) => (
+                            <div key={purIndex} style={{
+                              background: '#1e2937',
+                              borderRadius: '6px',
+                              padding: '8px 12px',
+                              marginTop: '6px',
+                              fontSize: '13px',
+                              border: '1px solid #475569'
+                            }}>
+                              <div style={{ fontWeight: '500' }}>{purchase.description || `Purchase ${purIndex + 1}`}</div>
+                              <div style={{ color: '#a3e635', fontSize: '12px', marginTop: '2px' }}>
+                                ${parseFloat(purchase.amount || 0).toLocaleString()}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Sub-contractors with purchases in this milestone — hidden from Anchor */}
+                        {!this.state.isAnchor && (contractor.subcontractors || [])
+                          .filter(sub => (sub.purchases || []).some(p => p.milestone === milestone.name))
+                          .map((sub, subIdx) => (
+                            <div key={subIdx} style={{ marginLeft: '12px', marginTop: '8px', background: '#1a3040', borderRadius: '6px', padding: '10px 12px', borderLeft: '3px solid #06b6d4' }}>
+                              <div style={{ fontWeight: '600', fontSize: '13px', color: '#67e8f9' }}>{sub.name}</div>
+                              {(sub.purchases || []).filter(p => p.milestone === milestone.name).map((p, pi) => (
+                                <div key={pi} style={{ background: '#0f2132', borderRadius: '4px', padding: '6px 10px', marginTop: '4px', fontSize: '12px', border: '1px solid #164e63' }}>
+                                  <div style={{ fontWeight: '500' }}>{p.description}</div>
+                                  <div style={{ color: '#a3e635', marginTop: '2px' }}>${parseFloat(p.amount || 0).toLocaleString()}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ))
+                        }
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{
+                      textAlign: 'center',
+                      color: '#64748b',
+                      fontStyle: 'italic',
+                      fontSize: '13px',
+                      padding: '20px 10px',
+                      border: '2px dashed #475569',
+                      borderRadius: '8px'
+                    }}>
+                      No purchases tagged to this milestone yet
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {(!currentProject.milestones || currentProject.milestones.length === 0) && (
+          <div style={{
+            textAlign: 'center',
+            color: '#64748b',
+            padding: '40px 20px',
+            fontStyle: 'italic',
+            border: '2px dashed #475569',
+            borderRadius: '12px',
+            background: '#1e2937'
+          }}>
+            Add at least one Milestone and tag Purchases to Milestones (via the "Tag to Milestone" dropdown) to build the full project hierarchy diagram.
+          </div>
+        )}
+
+        <div style={{
+          textAlign: 'center',
+          marginTop: '30px',
+          fontSize: '12px',
+          color: '#64748b',
+          fontStyle: 'italic'
+        }}>
+{/*
+          Live Project Hierarchy Diagram • Updates instantly as you edit the form
+ */}
+        </div>
+        </div>
+      </div>
+    );
+  }
+
+
   render() {
 
     if (this.state.redirect) {
       return <Navigate to={this.state.redirect} replace />;
     }
 
-    const { underlyingDSGDList, currentProject, isNewProject, isLoading, 
-//      checkerList, 
+    const { underlyingDSGDList, currentProject, isNewProject, isLoading,
+//      checkerList,
       approverList } = this.state;
     console.log("currentProject: ", currentProject);
 
-    
+    if (isLoading && !this.state.showm) {
+      return (
+        <div className="container mt-4">
+          <div className="d-flex align-items-center gap-2">
+            <div className="spinner-border spinner-border-sm text-secondary" role="status" />
+            &nbsp;<span>Loading ...</span>
+          </div>
+        </div>
+      );
+    }
+
+    const userOrgId = this.state.currentUser && parseInt(this.state.currentUser.organisation_id);
+    const findInTree = (contractors) => {
+      for (const con of contractors) {
+        if (parseInt(con.organisation_id) === userOrgId) return true;
+        if (findInTree(con.subcontractors || [])) return true;
+      }
+      return false;
+    };
+    const isContractorInProject = !this.state.isContractor || findInTree(currentProject.contractors);
+
+    if (!isContractorInProject) {
+      return (
+        <div className="container mt-4">
+          <p className="text-danger">You do not have access to this project.</p>
+          <a href="/dashboard"><button type="button" className="btn btn-sm btn-secondary">Back to Dashboard</button></a>
+        </div>
+      );
+    }
+
     return (
         <div className="container">
           { 
             (this.state.userReady) ?
             <div>
-            <header className="jumbotron col-md-8">
+            <header className="jumbotron col-md-8"
+            style={{
+              background: 'linear-gradient(135deg, #3b82f6, #1e40af)',
+              color: 'white',
+              padding: '20px 30px',
+              borderRadius: '12px',
+              marginBottom: '25px',
+              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.3)',
+              border: '2px solid #60a5fa'
+            }}
+            >
               <h3>
                 <strong>
                   {this.state.currentProject.txntype===0?"Create ":
@@ -1281,8 +1632,10 @@ class DTSCFProjectCreation extends Component {
 
           <div className="edit-form list-row">
             <h4></h4>
-            <div className="col-md-8">
+<div className="row gx-4">
 
+            {/* ==================== LEFT COLUMN: FORM ==================== */}
+            <div className="col-lg-7 col-md-12">
           <form autoComplete="off">
           <div className="form-group">
             { this.state.recipients.id !== null && 
@@ -1293,7 +1646,7 @@ class DTSCFProjectCreation extends Component {
                 className="form-control" 
                 id="id" 
                 value={this.state.recipients.name} 
-                disabled="true"
+                disabled={true}
               />
             </>
             }
@@ -1305,7 +1658,7 @@ class DTSCFProjectCreation extends Component {
                 className="form-control" 
                 id="id" 
                 value={currentProject.id} 
-                disabled="true"
+                disabled={true}
               />
             </>
             }
@@ -1330,18 +1683,20 @@ class DTSCFProjectCreation extends Component {
               disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
             />
           </div>
+          {this.state.isAnchor && (
           <div className="form-group">
             <label htmlFor="totalBudget">Total Budget</label>
-            <input 
-              type="number" 
-              className="form-control" 
-              id="totalBudget" 
+            <input
+              type="number"
+              className="form-control"
+              id="totalBudget"
               max="1000000000000"
-              value={currentProject.totalBudget} 
-              onChange={this.onChangeTotalBudget} 
+              value={currentProject.totalBudget}
+              onChange={this.onChangeTotalBudget}
               disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
             />
           </div>
+          )}
           { (currentProject && currentProject.smartcontractaddress !== "" && currentProject.smartcontractaddress !== null && currentProject.smartcontractaddress !=='undefined') && 
           <div className="form-group">
             <label htmlFor="smartcontractaddress">Tokenised Payable Address</label>
@@ -1351,17 +1706,18 @@ class DTSCFProjectCreation extends Component {
               id="name" 
               maxlength="50"
               value={currentProject.smartcontractaddress} 
-              disabled="true"
+              disabled={true}
             />
           </div>
           }
           <div className="form-group">
             <label htmlFor="name">Underlying Digital Money *</label>
             <select
-                  onChange={this.onChangeUnderlying}                         
+                  onChange={this.onChangeUnderlying}
                   className="form-control"
                   id="underlyingTokenID"
                   required
+                  value={currentProject.campaign ? currentProject.campaign.underlyingTokenID : (this.state.currentProject.underlyingTokenID || "")}
                   disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
             >
                   <option value=""> </option>
@@ -1369,8 +1725,7 @@ class DTSCFProjectCreation extends Component {
                     Array.isArray(underlyingDSGDList) ?
                     underlyingDSGDList.map( (d) => {
                       if (typeof d.id === "number")
-                      // https://stackoverflow.com/questions/61128847/react-adding-a-default-option-while-using-map-in-select-tag
-                        return <option value={d.id} selected={d.id === (currentProject.campaign ? currentProject.campaign.underlyingTokenID : this.state.currentProject.underlyingTokenID)}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
+                        return <option key={d.id} value={d.id}>{d.tokenname} ({d.name} - {d.smartcontractaddress})</option>
                       })
                     : null
                   }
@@ -1379,19 +1734,20 @@ class DTSCFProjectCreation extends Component {
           <div className="form-group">
             <label htmlFor="blockchain">Blockchain *</label>
             <select
-                  onChange={this.onChangeBlockchain}                         
+                  onChange={this.onChangeBlockchain}
                   className="form-control"
                   id="blockchain"
-                  disabled="true"
+                  value={currentProject.campaign ? currentProject.campaign.blockchain : (this.state.currentProject.blockchain || "")}
+                  disabled={true}
                   >
-                  <option >   </option>
-                  <option value="80002"  selected={currentProject.campaign ? currentProject.campaign.blockchain === 80002 : this.state.currentProject.blockchain === 80002}>Polygon   Testnet Amoy</option>
-                  <option value="11155111" selected={currentProject.campaign ? currentProject.campaign.blockchain === 11155111 : this.state.currentProject.blockchain === 11155111}>Ethereum  Testnet Sepolia</option>
-                  <option value="80001"  selected={currentProject.campaign ? currentProject.campaign.blockchain === 80001 : this.state.currentProject.blockchain === 80001} disabled>Polygon   Testnet Mumbai (Deprecated)</option>
-                  <option value="43113"      disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
-                  <option value="137"      disabled>Polygon   Mainnet (not in use at the moment)</option>
-                  <option value="1"        disabled>Ethereum  Mainnet (not in use at the moment)</option>
-                  <option value="43114"      disabled>Avalanche Mainnet (not in use at the moment)</option>
+                  <option value="">   </option>
+                  <option value="80002">Polygon   Testnet Amoy</option>
+                  <option value="11155111">Ethereum  Testnet Sepolia</option>
+                  <option value="80001" disabled>Polygon   Testnet Mumbai (Deprecated)</option>
+                  <option value="43113" disabled>Avalanche Testnet Fuji    (not in use at the moment)</option>
+                  <option value="137" disabled>Polygon   Mainnet (not in use at the moment)</option>
+                  <option value="1" disabled>Ethereum  Mainnet (not in use at the moment)</option>
+                  <option value="43114" disabled>Avalanche Mainnet (not in use at the moment)</option>
                 </select>
           </div>
           <div className="form-group">
@@ -1419,7 +1775,7 @@ class DTSCFProjectCreation extends Component {
           <br />
           <label htmlFor="milestone">Milestones</label>
           <table style={{border : '1px solid blue', width: '100%'}}>
-          <tr>
+          <tbody><tr>
             <td style={{border : '1px solid blue', width: '100%'}}>
               {currentProject.milestones.map((milestone, index) => (
                 <div key={index}>
@@ -1478,50 +1834,42 @@ class DTSCFProjectCreation extends Component {
                   </div>
                 </div>
               ))}
-                    { (currentProject.status<=0 || this.state.currentProject.id===0) &&
+                { (currentProject.status<=0 || this.state.currentProject.id===0) &&
                 <button type="button" className="m-3 btn btn-sm btn-primary" onClick={this.addMilestone} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Add Milestone</button>
               }
             </td>
-          </tr>
+          </tr></tbody>
           </table>
-          
+
           <br />
           <label htmlFor="contractors">Contractors</label>
           <table style={{border : '1px solid blue', width: '100%'}}>
-          <tr>
+          <tbody><tr>
             <td style={{border : '1px solid blue', width: '100%'}}>
               {currentProject.contractors && currentProject.contractors.map((contractor, conIndex) => (
                 <div key={conIndex}>
-                  <label htmlFor="contractor.name">Contractor #{conIndex+1} Name</label>
+                  <label htmlFor="contractor.organisation_id">Contractor #{conIndex+1} Organisation</label>
                   <div>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={contractor.name} 
-                      onChange={(e) => this.onChangeContractor(conIndex, 'name', e.target.value)} 
-                      placeholder="Name" 
+                    <select
+                      className="form-control"
+                      value={contractor.organisation_id ? parseInt(contractor.organisation_id, 10) : ""}
+                      onChange={(e) => this.onChangeContractorOrg(conIndex, e.target.value)}
                       disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
-                    />
+                    >
+                      <option value="">-- Select Contractor Organisation --</option>
+                      {this.state.contractorOrgList.map(org => (
+                        <option key={org.id} value={org.id}>{org.name}</option>
+                      ))}
+                    </select>
                   </div>
-                  <label htmlFor="contractor.budget">Budget</label>
+                  <label htmlFor="contractor.walletaddress">Contractor's Wallet Address</label>
                   <div>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      value={contractor.budget} 
-                      onChange={(e) => this.onChangeContractor(conIndex, 'budget', e.target.value)} 
-                      placeholder="Budget" 
-                      disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
-                    />
-                  </div>
-                  <label htmlFor="contractor.name">Contractor's Wallet Address</label>
-                  <div>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={contractor.walletaddress} 
-                      onChange={(e) => this.onChangeContractor(conIndex, 'walletaddress', e.target.value)} 
-                      placeholder="Wallet Address" 
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={contractor.walletaddress}
+                      onChange={(e) => this.onChangeContractor(conIndex, 'walletaddress', e.target.value)}
+                      placeholder="Auto-filled from organisation selection"
                       disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
                     />
                   </div>
@@ -1529,7 +1877,7 @@ class DTSCFProjectCreation extends Component {
                   <br />
                   <label htmlFor="contractor.name">Purchases</label>
                   <table style={{border : '2px solid lightblue', width: '100%'}}>
-                  <tr>
+                  <tbody><tr>
                     <td style={{border : '2px solid lightblue', width: '100%'}}>
                       {contractor.purchases && contractor.purchases.map((purchase, purIndex) => (
                       <div key={purIndex}>
@@ -1544,22 +1892,22 @@ class DTSCFProjectCreation extends Component {
                             disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
                           />
                         </div>
-    <label htmlFor="purchase.milestone">Tag to Milestone</label>
-    <div>
-      <select 
-        className="form-control" 
-        value={purchase.milestone || ""}
-        onChange={(e) => this.onChangePurchaseMilestone(conIndex, purIndex, e.target.value)}
-        disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
-      >
-        <option value="">-- Select a Milestone --</option>
-        {this.state.currentProject.milestones.map((ms, msIndex) => (
-          <option key={msIndex} value={ms.name}>
-            {ms.name || `Unnamed Milestone ${msIndex + 1}`}
-          </option>
-        ))}
-      </select>
-    </div>
+                        <label htmlFor="purchase.milestone">Tag to Milestone</label>
+                        <div>
+                          <select 
+                            className="form-control" 
+                            value={purchase.milestone || ""}
+                            onChange={(e) => this.onChangePurchaseMilestone(conIndex, purIndex, e.target.value)}
+                            disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
+                          >
+                            <option value="">-- Select a Milestone --</option>
+                            {this.state.currentProject.milestones.map((ms, msIndex) => (
+                              <option key={msIndex} value={ms.name}>
+                                {ms.name || `Unnamed Milestone ${msIndex + 1}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                         <label htmlFor="purchase.amount">Invoice(s) Amount</label>
                         <div>
                           <input 
@@ -1592,8 +1940,41 @@ class DTSCFProjectCreation extends Component {
                       <button type="button" className="m-3 btn btn-sm btn-primary" onClick={() => this.addPurchase(conIndex)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Add Purchase</button>
                       }
                     </td>
-                  </tr>
+                  </tr></tbody>
                   </table>
+                  {/* Sub-contractors hidden from Anchor — only visible to non-anchor roles */}
+                  {!this.state.isAnchor && contractor.subcontractors && contractor.subcontractors.length > 0 && (
+                    <div style={{ marginTop: '12px', paddingLeft: '16px', borderLeft: '3px solid #93c5fd' }}>
+                      <label style={{ fontWeight: 600, color: '#1e40af' }}>Sub-Contractors</label>
+                      {contractor.subcontractors.map((sub, subIdx) => (
+                        <div key={subIdx} style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '10px 14px', marginTop: '8px' }}>
+                          <div><strong>Sub-Contractor #{subIdx + 1}:</strong> {sub.name}</div>
+                          {sub.walletaddress && <div style={{ fontSize: '12px', color: '#64748b' }}>Wallet: {sub.walletaddress}</div>}
+                          {sub.purchases && sub.purchases.length > 0 && (
+                            <table style={{ border: '1px solid #bfdbfe', width: '100%', marginTop: '6px', fontSize: '13px' }}>
+                              <thead>
+                                <tr style={{ background: '#dbeafe' }}>
+                                  <th style={{ padding: '4px 8px', border: '1px solid #bfdbfe' }}>Purchase</th>
+                                  <th style={{ padding: '4px 8px', border: '1px solid #bfdbfe' }}>Milestone</th>
+                                  <th style={{ padding: '4px 8px', border: '1px solid #bfdbfe' }}>Amount</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sub.purchases.map((p, pIdx) => (
+                                  <tr key={pIdx}>
+                                    <td style={{ padding: '4px 8px', border: '1px solid #bfdbfe' }}>{p.description}</td>
+                                    <td style={{ padding: '4px 8px', border: '1px solid #bfdbfe' }}>{p.milestone || p.dtscf_milestone_id || '—'}</td>
+                                    <td style={{ padding: '4px 8px', border: '1px solid #bfdbfe' }}>{p.amount}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {(currentProject.status<=0 || this.state.currentProject.id===0) &&
                   <button type="button" className="m-3 btn btn-sm btn-danger" onClick={() => this.removeContractor(conIndex)} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Remove Contractor</button>
                   }
@@ -1604,7 +1985,7 @@ class DTSCFProjectCreation extends Component {
               <button type="button" className="m-3 btn btn-sm btn-primary" onClick={this.addContractor} disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}>Add Contractor</button>
               }
             </td>
-          </tr>
+          </tr></tbody>
           </table>
           <br />
 { 
@@ -1622,7 +2003,7 @@ class DTSCFProjectCreation extends Component {
                   {
                     Array.isArray(checkerList) ?
                       checkerList.map( (d) => {
-                        return <option value={d.id}>{d.username}</option>
+                        return <option key={d.id} value={d.id}>{d.username}</option>
                       })
                     : null
                   }
@@ -1654,7 +2035,7 @@ class DTSCFProjectCreation extends Component {
           <div className="form-group">
             <label htmlFor="approver">Approver *</label>
             <select
-                value={currentProject.approver}
+                value={currentProject.approver || ""}
                 onChange={this.onChangeApprover}                         
                 className="form-control"
                 id="approver"
@@ -1663,15 +2044,16 @@ class DTSCFProjectCreation extends Component {
                 <option></option>
               {
                 Array.isArray(approverList) ?
-                approverList.map( (d) => {
-                    return <option value={d.id}>{d.username}</option>
+                approverList
+                  .filter(d => d.organisation_id === this.state.currentUser.organisation_id)
+                  .map( (d) => {
+                    return <option key={d.id} value={d.id}>{d.username}</option>
                   })
                 : null
               }
             </select>
           </div>
-          { 
-          (currentProject.id !== 0 ? // add new project
+          { currentProject.id !== 0 && (
           <div className="form-group">
             <label htmlFor="approverComments">Approver Comments</label>
             <input
@@ -1680,19 +2062,16 @@ class DTSCFProjectCreation extends Component {
               className="form-control"
               id="approverComments"
               required
-              value={currentProject.approverComments}
+              value={currentProject.approverComments || ""}
               onChange={this.onChangeApproverComments}
               name="approverComments"
               autoComplete="off"
               disabled={this.state.currentUser.id !== currentProject.approver || currentProject.status!==2}
               />
           </div>
-          : null
-          )
-          }
+          )}
 
           </form>
-
 
               {  //// buttons!
 
@@ -1804,11 +2183,33 @@ class DTSCFProjectCreation extends Component {
                 </button>
                 </Link>
               }  
+            </div>
+
+            {/* ==================== RIGHT COLUMN: DIAGRAM (now on the right + vertically centered) ==================== */}
+            <div className="col-lg-5 col-md-12 d-flex align-items-center" style={{ minHeight: '100%' }}>
+              <div style={{ width: '100%', position: 'sticky', top: '30px' }}>
+                {this.renderProjectDiagram()}
+              </div>
+            </div>
+
+          </div>
+        </div>
 
               {this.state.isLoading ? <LoadingSpinner /> : null}
 
               <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/dtscf'} handleProceed2={this.deleteDtscf} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
-                {this.state.modalmsg}
+                <>
+                  {(this.state.modalmsg || '').split('\n').map((line, i) => (
+                    <p key={i} style={{ fontSize: '1rem', marginBottom: '4px' }}>{line}</p>
+                  ))}
+                  {this.state.explorerUrl && (
+                    <p style={{ marginTop: '8px' }}>
+                      <a href={this.state.explorerUrl} target="_blank" rel="noreferrer" style={{ color: '#4a90e2' }}>
+                        View contract on blockchain explorer ↗
+                      </a>
+                    </p>
+                  )}
+                </>
               </Modal>
               {this.state.logs.length > 0 && (
                 <div className="progress-logs">
@@ -1821,8 +2222,6 @@ class DTSCFProjectCreation extends Component {
                 </div>
               )}
             </div>
-          </div>
-        </div>
     );
   }
 }

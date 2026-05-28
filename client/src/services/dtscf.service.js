@@ -1,4 +1,5 @@
 import http from "../common/http";
+import authHeader from "./auth-header";
 
 class DtscfDataService {
   getAll() {
@@ -15,6 +16,75 @@ class DtscfDataService {
   }
   getTPbyOrgId(id) {
     return http.get(`/dtscf/gettpbyorgid?id=${id}`);
+  }
+  getContractorOrganisations() {
+    return http.get('/dtscf/getcontractororgs');
+  }
+  updateContractorPurchases(data) {
+    return http.put('/dtscf/updatecontractorpurchases', data);
+  }
+  getApproversByOrg(organisation_id) {
+    return http.get(`/dtscf/getapproversbyorg?organisation_id=${organisation_id}`);
+  }
+  getContractorAmendmentDrafts(dtscf_project_id, approver_id) {
+    let url = `/dtscf/getcontractoramendmentdrafts?dtscf_project_id=${dtscf_project_id}`;
+    if (approver_id) url += `&approver_id=${approver_id}`;
+    return http.get(url);
+  }
+  getContractorAmendmentStatus(dtscf_project_id) {
+    return http.get(`/dtscf/getcontractoramendmentstatus?dtscf_project_id=${dtscf_project_id}`);
+  }
+  getMyRejectedContractorAmendmentDraft(dtscf_project_id, maker_id) {
+    return http.get(`/dtscf/getmyrejectedcontractoramendmentdraft?dtscf_project_id=${dtscf_project_id}&maker_id=${maker_id}`);
+  }
+  submitContractorAmendment(data) {
+    return http.post('/dtscf/submitcontractoramendment', data);
+  }
+  approveContractorAmendment(id, data, onLog = () => {}) {
+    const baseURL = http.defaults.baseURL;
+    return new Promise((resolve, reject) => {
+      fetch(`${baseURL}/dtscf/approvecontractoramendment/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(response => {
+        if (!response.ok) { reject(new Error(`HTTP error! status: ${response.status}`)); return; }
+        const reader = response.body.getReader();
+        let buffer = '';
+        let pendingTasks = null;
+        const processStream = ({ done, value }) => {
+          if (done) {
+            (buffer ? buffer.split('\n') : []).filter(l => l).forEach(line => {
+              if (line.startsWith('LOG: ')) onLog(line.substring(5));
+              else if (line.startsWith('TASKS: ')) { try { pendingTasks = JSON.parse(line.substring(7)); } catch (_) {} }
+              else if (line.startsWith('SUCCESS: ')) resolve({ message: line.substring(9), ...pendingTasks });
+              else if (line.startsWith('ERROR: ')) reject(new Error(line.substring(7)));
+            });
+            resolve({ message: 'Completed', ...pendingTasks });
+            return;
+          }
+          buffer += new TextDecoder().decode(value);
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          lines.filter(l => l).forEach(line => {
+            if (line.startsWith('LOG: ')) onLog(line.substring(5));
+            else if (line.startsWith('TASKS: ')) { try { pendingTasks = JSON.parse(line.substring(7)); } catch (_) {} }
+            else if (line.startsWith('SUCCESS: ')) resolve({ message: line.substring(9), ...pendingTasks });
+            else if (line.startsWith('ERROR: ')) reject(new Error(line.substring(7)));
+          });
+          reader.read().then(processStream).catch(reject);
+        };
+        reader.read().then(processStream).catch(reject);
+      })
+      .catch(reject);
+    });
+  }
+  revertContractorSplit(data) {
+    return http.post('/dtscf/revertcontractorsplit', data);
+  }
+  confirmContractorSplit(updates, sourceUpdates = []) {
+    return http.post('/dtscf/confirmcontractorsplit', { updates, sourceUpdates });
   }
   getAllByDtscfId(id) {
     return http.get(`/dtscf/getallbydtscfid?id=${id}`);
@@ -356,6 +426,13 @@ class DtscfDataService {
       })
       .catch(reject);
     });
+  }
+
+  getUnwrapParams(contractAddress, milestoneId, blockchain, tokenIds = [], projectId = null) {
+    const params = { contractAddress, milestoneId, blockchain };
+    if (tokenIds && tokenIds.length > 0) params.tokenIds = tokenIds.join(',');
+    if (projectId) params.projectId = projectId;
+    return http.get(`/dtscf/getunwrapparams`, { params });
   }
 
   createUnwrapDraft(id, data) {
@@ -1075,6 +1152,16 @@ class DtscfDataService {
   }
   getInWalletMintedTotalSupply(id) {
     return http.get(`/dtscf/getInWalletMintedTotalSupply?id=${id}`);
+  }
+  getMilestoneRealisedStatus(contractAddress, blockchain, milestoneIds) {
+    const ids = milestoneIds.join(',');
+    return http.get(`/dtscf/getmilestonerealisedstatus?contractAddress=${contractAddress}&blockchain=${blockchain}&milestoneIds=${ids}`);
+  }
+  decryptMetadata(data) {
+    return http.post('/dtscf/decryptmetadata', data, { headers: authHeader() });
+  }
+  refreshTokenMetadata(data) {
+    return http.post('/dtscf/refreshtokenmeta', data, { headers: authHeader() });
   }
 }
 

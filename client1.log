@@ -1,0 +1,23 @@
+Processing...
+
+Deploying smart contract to the blockchain. This may take a while...
+
+Deployment successful, address: 0x985c8f036e1C33E41501df1F9Ff346d9A3DAf177
+
+Wrapping Tokenised Deposits into Tokenised Payable(TP) tokens
+
+Splitting TP #1 (SGD50000) → new TP #2 (SGD200) for 'Cement' to 'Goh Swee Heng Construction'. Source TP #1 will be SGD49800 after split.
+
+TP #2 (SGD200) created for 'Goh Swee Heng Construction'. Source TP #1 updated to SGD49800.
+
+Transferring TP from Anchor to contractor 'Goh Swee Heng Construction'
+
+Splitting TP #1 (SGD49800) → new TP #3 (SGD500) for 'Ventilation fans' to 'Lee Bee Seng Construction'. Source TP #1 will be SGD49300 after split.
+
+TP #3 (SGD500) created for 'Lee Bee Seng Construction'. Source TP #1 updated to SGD49300.
+
+Transferring TP from Anchor to contractor 'Lee Bee Seng Construction'
+
+TP has been created successfully, draft id #82 is updated.
+
+View contract on blockchain explorer ↗

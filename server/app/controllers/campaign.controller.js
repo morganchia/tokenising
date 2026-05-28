@@ -1041,7 +1041,7 @@ exports.getAllbyOrgId = async (req, res) => {
     });
 
     if (!recipient) {
-      return res.status(404).send({ message: "Organisation not found." });
+      return res.send([]); // org not in recipients table — return empty list
     }
   
     const w1 = recipient.walletaddress;

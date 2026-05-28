@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const pkg = require\\('c:/Users/Chia/Documents/REACTJS_dev/ReactExpress/Tokenising/node_modules/web3/package.json'\\); console.log\\('web3:', pkg.version\\);\")",
+      "Bash(npm install *)",
+      "WebSearch",
+      "WebFetch(domain:spark.litprotocol.com)",
+      "WebFetch(domain:docs.taco.build)",
+      "WebFetch(domain:ethereum-magicians.org)",
+      "WebFetch(domain:metamask.io)",
+      "WebFetch(domain:developer.litprotocol.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}

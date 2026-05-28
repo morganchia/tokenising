@@ -65,6 +65,7 @@ db.dtscf_purchases         = require("./dtscf_purchases.model.js")(sequelize, Se
 db.dtscf_purchases_draft   = require("./dtscf_purchases_draft.model.js")(sequelize, Sequelize);
 db.dtscf_milestones        = require("./dtscf_milestones.model.js")(sequelize, Sequelize);
 db.dtscf_milestones_draft  = require("./dtscf_milestones_draft.model.js")(sequelize, Sequelize);
+db.dtscf_organisations     = require("./dtscf_organisations.model.js")(sequelize, Sequelize);
 
 
 db.role.belongsToMany(db.user, {
@@ -516,6 +517,19 @@ db.dtscf_contractors_draft.hasMany(db.dtscf_contractors_draft, {
   foreignKey: 'dtscf_parent_contractor_id'
 });
 
+db.dtscf_organisations.hasMany(db.dtscf_contractors_draft, {
+  foreignKey: 'organisation_id'
+});
+db.dtscf_contractors_draft.belongsTo(db.dtscf_organisations, {
+  foreignKey: 'organisation_id'
+});
+db.dtscf_organisations.hasMany(db.dtscf_contractors, {
+  foreignKey: 'organisation_id'
+});
+db.dtscf_contractors.belongsTo(db.dtscf_organisations, {
+  foreignKey: 'organisation_id'
+});
+
 db.dtscfs.hasMany(db.dtscf_purchases, {
   foreignKey: "dtscf_project_id"
 });
@@ -582,7 +596,7 @@ db.dtscf_drafts.belongsTo(db.recipients, {
   as: "anchor"
 });
 
-db.user.belongsTo(db.recipients, {
+db.user.belongsTo(db.dtscf_organisations, {
   foreignKey: "organisation_id",
   targetKey: "id",
   as: "organisation"

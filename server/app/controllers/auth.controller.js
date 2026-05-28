@@ -110,6 +110,7 @@ exports.signin = async (req, res) => {
       username: user.username,
       email: user.email,
       organisation_id: user.organisation_id,
+      organisation_name: recipients[0] ? recipients[0].name : '',
       walletaddress: recipients[0] ? recipients[0].walletaddress : recipients.walletaddress,
       lastlogin: user.lastlogin,
       opsrole: opsRoles,

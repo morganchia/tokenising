@@ -1,4 +1,5 @@
 import React, { Component } from "react";
+import { flushSync } from 'react-dom';
 import CampaignDataService from "../services/campaign.service.js";
 import DtscfDataService from "../services/dtscf.service.js";
 import RecipientDataService from "../services/recipient.service.js";
@@ -14,6 +15,37 @@ import moment from 'moment';
 //import { recipients } from "../../../server/app/models/index.js";
 // Requires js-sha3 library: npm install js-sha3
 import { keccak256 } from 'js-sha3';
+import Web3 from 'web3';
+
+const UNWRAP_READ_ABI = [
+  {
+    "inputs": [{"internalType": "uint256", "name": "milestoneId", "type": "uint256"}],
+    "name": "getTokensForMilestone",
+    "outputs": [{"internalType": "uint256[]", "name": "", "type": "uint256[]"}],
+    "stateMutability": "view", "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "name": "payables",
+    "outputs": [
+      {"internalType": "bytes32",  "name": "escrowCommitment", "type": "bytes32"},
+      {"internalType": "uint256",  "name": "maturityDate",     "type": "uint256"},
+      {"internalType": "bool",     "name": "realized",         "type": "bool"},
+      {"internalType": "address",  "name": "issuer",           "type": "address"},
+      {"internalType": "uint256",  "name": "milestoneId",      "type": "uint256"}
+    ],
+    "stateMutability": "view", "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "address", "name": "account", "type": "address"},
+      {"internalType": "uint256", "name": "id", "type": "uint256"}
+    ],
+    "name": "balanceOf",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "view", "type": "function"
+  }
+];
 
 (function disableMetaMask() {
   if (typeof document !== 'undefined') {
@@ -79,7 +111,7 @@ class DTSCFProjectCreation extends Component {
 
     this.createUnwrapDraft = this.createUnwrapDraft.bind(this);
     this.updateProject = this.updateProject.bind(this);
-    this.submitDtscf = this.submitDtscf.bind(this);
+    this.submitUnwrapDtscf = this.submitUnwrapDtscf.bind(this);
     this.approveUnwrap = this.approveUnwrap.bind(this);
     this.rejectDtscf = this.rejectDtscf.bind(this);
     this.deleteDtscf = this.deleteDtscf.bind(this);
@@ -125,7 +157,10 @@ class DTSCFProjectCreation extends Component {
       datachanged: false,
       message: "",
       isLoading: false,
-      logs: [], // New state for streaming logs
+      logs: [],
+      txHashUrl: null,
+      milestonesWithUserTokens: null, // Set of milestone IDs where user holds ≥1 NFT; null = not yet checked
+      milestoneRealisedStatuses: {}, // milestoneId → 'realised'|'partial'|'not_realised'|'no_tokens'|'error'
       modal: {
         showm: false,
         modalmsg: "",
@@ -156,11 +191,6 @@ class DTSCFProjectCreation extends Component {
   }
 
   componentDidMount() {
-    // Tell MetaMask this page is not for them
-    if (window.ethereum) {
-      window.ethereum.autoRefreshOnNetworkChange = false; // Prevents some auto-connect errors
-    }
-    
     const user = AuthService.getCurrentUser();
     this.setState({ currentUser: user });
     console.log("Current user:", user); 
@@ -182,11 +212,21 @@ class DTSCFProjectCreation extends Component {
 //      console.log("isChecker:", (ischecker === undefined? false: true));
 //      this.setState({ isChecker: (ischecker === undefined? false: true),});
 
-      let isapprover= user.opsrole.find((el) => 
+      let isapprover= user.opsrole.find((el) =>
       el.opsrole.name.toUpperCase() === "APPROVER"
       );
       console.log("isApprover:", (isapprover === undefined? false: true));
       this.setState({ isApprover: (isapprover === undefined? false: true),});
+
+      let isanchor = user.opsrole.find((el) =>
+        el.opsrole.name.toUpperCase() === "ANCHOR"
+      );
+      console.log("isAnchor:", (isanchor === undefined? false: true));
+      this.setState({ isAnchor: (isanchor === undefined? false: true),});
+
+      const isContractor = user.roles && user.roles[0] && user.roles[0].toUpperCase() === "ROLE_CONTRACTOR";
+      console.log("isContractor:", isContractor);
+      this.setState({ isContractor });
 
       this.getAllUnderlyingAssets();
       this.getProject(user, typeof this.props.router.params.id === "string" ? parseInt(this.props.router.params.id) : this.props.router.params.id);
@@ -245,27 +285,33 @@ class DTSCFProjectCreation extends Component {
                 startdate: moment(ms.startdate).format('YYYY-MM-DD'),
                 enddate: moment(ms.enddate).format('YYYY-MM-DD'),
               })),
-              contractors: (data.dtscf_contractors || []).map(con => ({
-                ...con,
-                id: con.id,
-                name: con.name || "",
-                budget: con.budget || 0,
-                walletaddress: con.walletaddress || "",
-                purchases: (con.dtscf_purchases || []).map(pur => {
-                  const matchedMilestone = (data.dtscf_milestones || []).find(m => m.id === pur.dtscf_milestone_id);
-                  return {
-                    ...pur,
-                    id: pur.id,
-                    description: pur.description || "",
-                    amount: pur.amount || 0,
-                    milestone: matchedMilestone ? matchedMilestone.name : (pur.milestone || ""),
-                    invoices: [] // Initialize as empty array for new uploads
-                  };
-                }),
-                subcontractors: con.subcontractors || []
-              }))            
+              contractors: (() => {
+                const mapContractorTree = (con) => ({
+                  ...con,
+                  id: con.id,
+                  name: con.name || "",
+                  budget: con.budget || 0,
+                  walletaddress: con.walletaddress || "",
+                  purchases: (con.dtscf_purchases || con.purchases || []).map(pur => {
+                    const matchedMilestone = (data.dtscf_milestones || []).find(m => m.id === pur.dtscf_milestone_id);
+                    return {
+                      ...pur,
+                      id: pur.id,
+                      description: pur.description || "",
+                      amount: pur.amount || 0,
+                      milestone: matchedMilestone ? matchedMilestone.name : (pur.milestone || ""),
+                      invoices: []
+                    };
+                  }),
+                  subcontractors: (con.subcontractors || []).map(sub => mapContractorTree(sub))
+                });
+                return (data.dtscf_contractors || []).map(con => mapContractorTree(con));
+              })()
             },
             isLoading: false
+          }, () => {
+            this.loadAllMilestoneRealisedStatuses();
+            this.loadUserTokenMilestones();
           });
 
           RecipientDataService.findOne(data.anchor_id)
@@ -595,28 +641,147 @@ class DTSCFProjectCreation extends Component {
   }
 
   handleMilestoneChange(e) {
-    this.setState({
-      datachanged: true
-    });
-
-    const [selectedMilestoneId, selectedMilestone] = e.target.value.split('|'); // Assuming value is in format "id|name"
-    console.log("Selected Milestone ID:", selectedMilestoneId);
-    console.log("Selected Milestone Name:", selectedMilestone);
-    console.log("value:'"+e.target.value+"'");
-
+    const value = e.target.value;
+    if (!value) {
+      this.setState(prevState => ({
+        currentProject: { ...prevState.currentProject, selectedMilestone: "", selectedMilestoneId: null },
+        datachanged: true
+      }));
+      return;
+    }
+    const [selectedMilestoneId, selectedMilestone] = value.split('|');
+    console.log("Selected Milestone ID:", selectedMilestoneId, "Name:", selectedMilestone);
     this.setState(prevState => ({
       currentProject: {
         ...prevState.currentProject,
         selectedMilestone: selectedMilestone,
         selectedMilestoneId: selectedMilestoneId
-      }
+      },
+      datachanged: true
     }));
+  }
+
+  getRpcUrl(chainId) {
+    const rpcMap = {
+      80002:    'https://rpc-amoy.polygon.technology',
+      11155111: 'https://rpc2.sepolia.org',
+      80001:    'https://rpc-mumbai.maticvigil.com',
+    };
+    return rpcMap[parseInt(chainId)] || null;
+  }
+
+  async loadUserTokenMilestones() {
+    const { currentProject, currentUser } = this.state;
+    if (!currentProject.smartcontractaddress || !currentProject.blockchain) return;
+    const walletAddress = currentUser && currentUser.walletaddress;
+    if (!walletAddress || !window.ethereum) return;
+
+    try {
+      const web3 = new Web3(window.ethereum);
+      const contract = new web3.eth.Contract(UNWRAP_READ_ABI, currentProject.smartcontractaddress);
+      const milestoneIds = new Set();
+
+      await Promise.all((currentProject.milestones || []).map(async ms => {
+        try {
+          const tokenIds = await contract.methods.getTokensForMilestone(ms.id).call();
+          if (!tokenIds || tokenIds.length === 0) return;
+          const balances = await Promise.all(
+            tokenIds.map(id => contract.methods.balanceOf(walletAddress, id).call())
+          );
+          if (balances.some(b => parseInt(b) > 0)) {
+            milestoneIds.add(parseInt(ms.id));
+          }
+        } catch (e) {
+          console.error("Balance check failed for milestone", ms.id, e);
+          milestoneIds.add(parseInt(ms.id)); // fail-open: include if check errors
+        }
+      }));
+
+      this.setState({ milestonesWithUserTokens: milestoneIds });
+    } catch (e) {
+      console.error("loadUserTokenMilestones failed:", e);
+      // fail-open: leave null so all milestones remain visible
+    }
+  }
+
+  async loadAllMilestoneRealisedStatuses() {
+    const { currentProject } = this.state;
+    if (!currentProject.smartcontractaddress || !currentProject.blockchain) return;
+
+    const today = moment();
+    const statuses = {};
+    const needsChainCheck = [];
+
+    // If maturity date is reached, it is automatically realised — no blockchain call needed.
+    // Only milestones whose maturity date is still in the future may have been force-realised
+    // by the Anchor via forceRealizeMilestone(), so those need a blockchain query.
+    (currentProject.milestones || []).forEach(ms => {
+      if (today.isSameOrAfter(moment(ms.enddate), 'day')) {
+        statuses[ms.id] = 'realised';
+      } else {
+        needsChainCheck.push(ms);
+      }
+    });
+
+    if (needsChainCheck.length > 0) {
+      const queryViaMetaMask = async () => {
+        const web3 = new Web3(window.ethereum);
+        const contract = new web3.eth.Contract(UNWRAP_READ_ABI, currentProject.smartcontractaddress);
+        await Promise.all(needsChainCheck.map(async ms => {
+          try {
+            const tokenIds = await contract.methods.getTokensForMilestone(ms.id).call();
+            if (!tokenIds || tokenIds.length === 0) { statuses[ms.id] = 'no_tokens'; return; }
+            const results = await Promise.all(tokenIds.map(id => contract.methods.payables(id).call()));
+            const realizedCount = results.filter(p => p.realized).length;
+            if (realizedCount === 0)                    statuses[ms.id] = 'not_realised';
+            else if (realizedCount === tokenIds.length) statuses[ms.id] = 'realised';
+            else                                        statuses[ms.id] = 'partial';
+          } catch (e) {
+            console.error("MetaMask chain query failed for milestone", ms.id, e);
+            statuses[ms.id] = 'not_realised';
+          }
+        }));
+      };
+
+      const queryViaServer = async () => {
+        const ids = needsChainCheck.map(ms => ms.id);
+        const response = await DtscfDataService.getMilestoneRealisedStatus(
+          currentProject.smartcontractaddress,
+          currentProject.blockchain,
+          ids
+        );
+        const serverStatuses = response.data.statuses || {};
+        needsChainCheck.forEach(ms => {
+          statuses[ms.id] = serverStatuses[ms.id] || 'not_realised';
+        });
+      };
+
+      try {
+        if (window.ethereum) {
+          await queryViaMetaMask();
+        } else {
+          await queryViaServer();
+        }
+      } catch (error) {
+        console.error("Blockchain query failed, falling back to server:", error);
+        try {
+          await queryViaServer();
+        } catch (serverError) {
+          console.error("Server fallback also failed:", serverError);
+          needsChainCheck.forEach(ms => { if (!statuses[ms.id]) statuses[ms.id] = 'not_realised'; });
+        }
+      }
+    }
+
+    this.setState({ milestoneRealisedStatuses: statuses });
   }
 
   async validateForm() {    
     var err = "";
-console.log("Validating form with currentProject:", this.state.currentProject);
-console.log("Selected Milestone for Purchase:", this.state.currentProject.selectedMilestone);
+
+    console.log("Validating form with currentProject:", this.state.currentProject);
+    console.log("Selected Milestone for Purchase:", this.state.currentProject.selectedMilestone);
+
     if (this.state.currentProject.selectedMilestone === "" || this.state.currentProject.selectedMilestone === null || this.state.currentProject.selectedMilestone === undefined) {
       err += "- Please select a Milestone for the Purchase\n";
     }
@@ -665,15 +830,15 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
     console.log("end date:'"+this.state.currentProject.enddate+"'");
     console.log("Start > End? "+ (this.state.currentProject.startdate > this.state.currentProject.enddate));
 
-    console.log("Approver:'"+this.state.currentProject.approver+"'");
+    //console.log("Approver:'"+this.state.currentProject.approver+"'");
 
-    if (this.state.currentProject.approver === "" || this.state.currentProject.approver === null || this.state.currentProject.approver === undefined) err += "- Approver cannot be empty\n";
-    if (
-        this.state.currentProject.approver === this.state.currentUser.id.toString()) {
-      err += "- Maker and Approver cannot be the same person\n";
-    } else {
-      if (this.state.currentProject.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
-    }
+    //if (this.state.currentProject.approver === "" || this.state.currentProject.approver === null || this.state.currentProject.approver === undefined) err += "- Approver cannot be empty\n";
+    //if (
+    //    this.state.currentProject.approver === this.state.currentUser.id.toString()) {
+    //  err += "- Maker and Approver cannot be the same person\n";
+    //} else {
+    //  if (this.state.currentProject.approver === this.state.currentUser.id.toString()) err += "- Maker and Approver cannot be the same person (yourself)\n";
+    //}
 
     if (err !=="" ) {
       err = "Form validation issues found:\n"+err;
@@ -687,7 +852,7 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
 
   //////////////////////////////////////////////////////////////////////
   
-  async submitDtscf() {
+  async submitUnwrapDtscf() {
     this.setState({ // show loading modal with logs
       isLoading: true,
       logs: [] ,
@@ -784,7 +949,7 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
       });
     }
     this.setState({ isLoading: false });
-  } // submitDtscf()
+  } // submitUnwrapDtscf()
 
   async createUnwrapDraft() {
     console.log("IsLoad=true");
@@ -835,6 +1000,230 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
     this.hide_loading();
   } //  createUnwrapDraft()
 
+  getExplorerUrl(chainId, hash) {
+    const explorers = {
+      1: 'https://etherscan.io/tx/',
+      11155111: 'https://sepolia.etherscan.io/tx/',
+      80002: 'https://amoy.polygonscan.com/tx/',
+      137: 'https://polygonscan.com/tx/',
+    };
+    const base = explorers[parseInt(chainId)] || 'https://etherscan.io/tx/';
+    return base + hash;
+  }
+
+  async approveUnwrap() {
+    const abiFile = [
+      {
+        "inputs": [{ "internalType": "uint256", "name": "milestoneId", "type": "uint256" }],
+        "name": "getTokensForMilestone",
+        "outputs": [{ "internalType": "uint256[]", "name": "", "type": "uint256[]" }],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          { "internalType": "uint256[]", "name": "ids",     "type": "uint256[]" },
+          { "internalType": "uint256[]", "name": "amounts", "type": "uint256[]" },
+          { "internalType": "bytes32[]", "name": "salts",   "type": "bytes32[]" }
+        ],
+        "name": "batchUnwrapToDeposit",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "name": "payables",
+        "outputs": [
+          { "internalType": "bytes32",  "name": "escrowCommitment", "type": "bytes32" },
+          { "internalType": "uint256",  "name": "maturityDate",     "type": "uint256" },
+          { "internalType": "bool",     "name": "realized",         "type": "bool" },
+          { "internalType": "address",  "name": "issuer",           "type": "address" },
+          { "internalType": "uint256",  "name": "milestoneId",      "type": "uint256" }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          { "internalType": "address", "name": "account", "type": "address" },
+          { "internalType": "uint256", "name": "id",      "type": "uint256" }
+        ],
+        "name": "balanceOf",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
+
+    // 1. Validate form fields before proceeding
+
+    
+    if (!(await this.validateForm())) return;
+
+    const { currentProject, currentUser, milestoneRealisedStatuses } = this.state;
+    
+    // 2. Check for MetaMask/Web3 provider
+    if (!window.ethereum) {
+      this.displayModal("MetaMask is not detected. Please install the extension to proceed.", null, null, null, "OK");
+      return;
+    }
+
+    flushSync(() => {
+      this.setState({
+        isLoading: true,
+        modalmsg: "Connecting to MetaMask...\n",
+        showm: true,
+        button0text: null,
+        txHashUrl: null,
+      });
+    });
+
+    try {
+      // 3. Initialize Web3 and request account access
+      const web3 = new Web3(window.ethereum);
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      
+      // DEBUG LOGS
+      console.log("Active Account:", accounts[0]);
+      console.log("Contract Address:", currentProject.smartcontractaddress);
+      console.log("Raw Milestone ID from State:", currentProject.selectedMilestoneId);
+
+      // Validate the connected wallet matches the logged-in contractor's wallet
+      if (currentUser.walletaddress &&
+          accounts[0].toLowerCase() !== currentUser.walletaddress.toLowerCase()) {
+        throw new Error(
+          `Wrong wallet connected. MetaMask is using ${accounts[0]}, ` +
+          `but your account wallet is ${currentUser.walletaddress}. ` +
+          `Please switch to the correct wallet in MetaMask and try again.`
+        );
+      }
+
+      // 1. Check the Connected Blockchain ID
+      const connectedChainId = await web3.eth.getChainId();
+      const expectedChainId = parseInt(currentProject.blockchain);
+
+      console.log("Connected Chain ID:", connectedChainId);
+      console.log("Expected Chain ID from Project:", expectedChainId);
+
+      this.setState(prevState => ({ 
+        modalmsg: prevState.modalmsg + `Connected to Chain ID: ${connectedChainId}\n` 
+      }));
+
+      // 2. Validate Network Match
+      if (connectedChainId !== expectedChainId) {
+        throw new Error(`Network Mismatch! MetaMask is on Chain ${connectedChainId}, but project is on Chain ${expectedChainId}. Please switch networks in MetaMask.`);
+      }
+
+      const contract = new web3.eth.Contract(
+        abiFile, 
+        currentProject.smartcontractaddress
+      );
+
+      // 4. Retrieve token IDs for the selected milestone, then filter to only those in this user's wallet
+      const mId = parseInt(currentProject.selectedMilestoneId);
+      this.setState(prevState => ({ modalmsg: prevState.modalmsg + "Querying blockchain for tokens...\n" }));
+      const allMilestoneTokenIds = await contract.methods.getTokensForMilestone(mId).call();
+      console.log("Blockchain Response (Token IDs):", allMilestoneTokenIds);
+
+      if (!allMilestoneTokenIds || allMilestoneTokenIds.length === 0) {
+        throw new Error(`Contract returned 0 tokens for Milestone ID: ${mId}. Check if MetaMask is on the correct network.`);
+      }
+
+      // Filter to tokens owned by the current wallet — only unwrap tokens that belong to this user
+      const balances = await Promise.all(
+        allMilestoneTokenIds.map(id => contract.methods.balanceOf(accounts[0], id).call())
+      );
+      const tokenIds = allMilestoneTokenIds.filter((_, i) => balances[i] === '1' || balances[i] === 1);
+
+      if (tokenIds.length === 0) {
+        throw new Error(
+          `None of the ${allMilestoneTokenIds.length} token(s) in this milestone are in your wallet (${accounts[0]}). ` +
+          `Unwrap can only be done by the token holder.`
+        );
+      }
+
+      this.setState(prevState => ({ modalmsg: prevState.modalmsg + `Found ${tokenIds.length} token(s) in your wallet for this milestone. Checking realisation status...\n` }));
+
+      // Pre-flight: block unwrap only if the milestone is definitely not yet realised.
+      // Use milestoneRealisedStatuses (day-level local-time comparison) as the primary gate to
+      // avoid false blocks caused by timezone offsets between client clock and on-chain maturity timestamp.
+      const milestoneStatus = milestoneRealisedStatuses && milestoneRealisedStatuses[mId];
+      if (milestoneStatus !== 'realised') {
+        const tokenData = await Promise.all(tokenIds.map(id => contract.methods.payables(id).call()));
+        const nowSec = Math.floor(Date.now() / 1000);
+        const unrealizedCount = tokenData.filter(p => !p.realized && Number(p.maturityDate) > nowSec).length;
+        if (unrealizedCount > 0) {
+          throw new Error(
+            `${unrealizedCount} of ${tokenIds.length} token(s) in this milestone are not yet realised. ` +
+            `Unwrap is only allowed if all your tokens for this milestone are realised or their maturity date has passed.`
+          );
+        }
+      }
+
+      this.setState(prevState => ({
+        modalmsg: prevState.modalmsg + `All ${tokenIds.length} token(s) are realised. Fetching unwrap parameters...\n`
+      }));
+
+      // 5. Fetch amounts + salts from server for only the user's tokens
+      const unwrapParamsRes = await DtscfDataService.getUnwrapParams(
+        currentProject.smartcontractaddress,
+        mId,
+        currentProject.blockchain,
+        tokenIds,
+        currentProject.id
+      );
+      const { amounts, salts } = unwrapParamsRes.data;
+
+      this.setState(prevState => ({
+        modalmsg: prevState.modalmsg + `Got unwrap parameters. Please sign the transaction in MetaMask...\n`
+      }));
+
+      // 6. Execute batchUnwrapToDeposit with only this user's tokens
+      await contract.methods.batchUnwrapToDeposit(tokenIds, amounts, salts)
+        .send({ from: accounts[0] })
+        .on('transactionHash', (hash) => {
+          this.setState({
+            txHashUrl: this.getExplorerUrl(connectedChainId, hash),
+          });
+        });
+/*
+      // 6. Record the request in the backend once the blockchain transaction is confirmed
+      await DtscfDataService.approveUnwrapDraftById(
+        currentUser.walletaddress,
+        currentProject
+      );
+*/
+      this.setState(prevState => ({
+        modalmsg: prevState.modalmsg +
+          "Success! Tokens unwrapped and deposit released.\n\n" +
+          "Please verify in your wallet:\n" +
+          "  • The NFT token(s) should no longer appear in your wallet.\n" +
+          `  • The underlying cash token (${currentProject.underlyingDSGDsmartcontractaddress}) should have been credited to your wallet.\n`,
+        button0text: "Close",
+        datachanged: false,
+        afterModalClose: () => this.props.router.navigate("/dtscf")
+      }));
+
+      // Refresh milestone dropdown — NFTs are gone, remove this milestone from the list
+      this.loadUserTokenMilestones();
+
+    } catch (error) {
+      console.error("Unwrap Error:", error);
+      let errorMsg = error.message || "Transaction failed or was rejected by user.";
+      // Strip any trailing JSON object that MetaMask appends to the message
+      errorMsg = errorMsg.replace(/\s*[\n\r]+\s*\{[\s\S]*\}\s*$/, '').trim();
+
+      this.setState(prevState => ({
+        modalmsg: prevState.modalmsg + "Error: " + errorMsg + "\n",
+        button0text: "Close",
+        isLoading: false
+      }));
+    } finally {
+      this.setState({ isLoading: false });
+    }
+  }
+/*
   async approveUnwrap() {
     this.setState({ // show loading modal with logs
       isLoading: true,
@@ -886,7 +1275,7 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
     });
 
   } // approveUnwrap()
-
+*/
   async updateProject() {
     this.setState({ isLoading: true });
     const formData = new FormData();
@@ -1044,6 +1433,7 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
     this.setState({
       showm: false,
       modalmsg: "",
+      txHashUrl: null,
       button1text: null,
       button2text: null,
       button3text: null,
@@ -1111,17 +1501,139 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
       return <Navigate to={this.state.redirect} replace />;
     }
 
-    const { underlyingDSGDList, currentProject, approverList } = this.state;
+    if ((this.state.isLoading || !this.state.userReady) && !this.state.showm) {
+      return (
+        <div className="container mt-4">
+          <div className="d-flex align-items-center gap-2">
+            <div className="spinner-border spinner-border-sm text-secondary" role="status" />
+            &nbsp;<span>Loading ...</span>
+          </div>
+        </div>
+      );
+    }
+
+    const { underlyingDSGDList, currentProject, approverList, milestoneRealisedStatuses } = this.state;
     console.log("currentProject: ", currentProject);
 
-    // Filter logic: Find contractors who have at least one purchase in the selected milestone
-    const filteredDisplay = currentProject.contractors.map(con => {
-      const relevantPurchases = con.purchases.filter(pur => pur.milestone === currentProject.selectedMilestone);
-      if (relevantPurchases.length > 0) {
-        return { ...con, relevantPurchases };
+    // Recursively filter a contractor tree to entries that have purchases in the selected milestone
+    const filterContractorTree = (contractors, selectedMilestone) =>
+      contractors.map(con => {
+        const relevantPurchases = (con.purchases || []).filter(pur => pur.milestone === selectedMilestone);
+        const filteredSubs = filterContractorTree(con.subcontractors || [], selectedMilestone);
+        if (relevantPurchases.length > 0 || filteredSubs.length > 0) {
+          return { ...con, relevantPurchases, filteredSubcontractors: filteredSubs };
+        }
+        return null;
+      }).filter(c => c !== null);
+
+    // Role-based visibility:
+    //  Anchor org / Approver → all tier-1 contractors + their purchases, no sub-contractors shown
+    //  Contractor (Maker)    → only their own contractor entry + their sub-tree
+    const userOrgId = this.state.currentUser && parseInt(this.state.currentUser.organisation_id);
+    const anchorOrgId = parseInt(currentProject.anchor_id);
+    const isAnchorOrg = userOrgId && anchorOrgId && userOrgId === anchorOrgId;
+
+    const findInTree = (contractors) => {
+      for (const con of contractors) {
+        if (parseInt(con.organisation_id) === userOrgId) return true;
+        if (findInTree(con.subcontractors || [])) return true;
       }
-      return null;
-    }).filter(con => con !== null);
+      return false;
+    };
+    const isContractorInProject = !this.state.isContractor || findInTree(currentProject.contractors);
+
+    let filteredDisplay = [];
+    if (currentProject.selectedMilestone) {
+      if (isAnchorOrg || this.state.isApprover) {
+        // Anchor sees all tier-1 contractors, purchases only — no sub-contractors
+        filteredDisplay = currentProject.contractors
+          .map(con => {
+            const relevantPurchases = (con.purchases || []).filter(pur => pur.milestone === currentProject.selectedMilestone);
+            return relevantPurchases.length > 0
+              ? { ...con, relevantPurchases, filteredSubcontractors: [] }
+              : null;
+          })
+          .filter(c => c !== null);
+      } else {
+        // Contractor: find their own entry anywhere in the tree by organisation_id, show their sub-tree
+        const findUserEntry = (contractors) => {
+          for (const con of contractors) {
+            if (parseInt(con.organisation_id) === userOrgId) return con;
+            const found = findUserEntry(con.subcontractors || []);
+            if (found) return found;
+          }
+          return null;
+        };
+        const userCon = userOrgId ? findUserEntry(currentProject.contractors) : null;
+        filteredDisplay = userCon ? filterContractorTree([userCon], currentProject.selectedMilestone) : [];
+      }
+    }
+
+    // For contractors, limit the dropdown to milestones they have purchases in.
+    // Anchor org and Approvers see all milestones.
+    const milestonesForUser = (() => {
+      let result;
+      if (isAnchorOrg || this.state.isApprover || !this.state.isContractor) {
+        result = currentProject.milestones;
+      } else {
+        const userMilestoneIds = new Set();
+        const collectFromNode = (con) => {
+          (con.purchases || []).forEach(p => {
+            if (p.dtscf_milestone_id != null) userMilestoneIds.add(parseInt(p.dtscf_milestone_id));
+          });
+          (con.subcontractors || []).forEach(sub => collectFromNode(sub));
+        };
+        const findAndCollect = (contractors) => {
+          for (const con of contractors) {
+            if (parseInt(con.organisation_id) === userOrgId) { collectFromNode(con); return; }
+            findAndCollect(con.subcontractors || []);
+          }
+        };
+        if (userOrgId) findAndCollect(currentProject.contractors);
+        result = currentProject.milestones.filter(ms => userMilestoneIds.has(parseInt(ms.id)));
+      }
+      // Further filter to only milestones where the user currently holds NFTs in their wallet
+      if (this.state.milestonesWithUserTokens !== null) {
+        result = result.filter(ms => this.state.milestonesWithUserTokens.has(parseInt(ms.id)));
+      }
+      return result;
+    })();
+
+    // Helper to render realised status badge
+    const realisedBadge = (milestoneId) => {
+      const s = milestoneRealisedStatuses[milestoneId];
+      const config = {
+        realised:     { bg: '#28a745', color: 'white',  label: 'Realised' },
+        partial:      { bg: '#fd7e14', color: 'white',  label: 'Partially Realised' },
+        not_realised: { bg: '#ffc107', color: '#333',   label: 'Not Yet Realised' },
+        no_tokens:    { bg: '#6c757d', color: 'white',  label: 'No Tokens' },
+        error:        { bg: '#dc3545', color: 'white',  label: 'Query Error' },
+      };
+      if (!s) return null;
+      const { bg, color, label } = config[s] || {};
+      if (!label) return null;
+      return (
+        <span style={{ backgroundColor: bg, color, padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: '600', marginLeft: '6px' }}>
+          {label}
+        </span>
+      );
+    };
+
+    // Recursively render a contractor row with its purchases and sub-contractors
+    const renderContractorRow = (con, tier = 1) => (
+      <div key={con.id || con.name} style={{ marginLeft: tier > 1 ? `${(tier - 1) * 20}px` : '0', marginBottom: '6px' }}>
+        <strong>{tier > 1 ? `Tier-${tier} Sub-Contractor` : 'Contractor'}: {con.name}</strong>
+        <div style={{ fontSize: '0.85rem', color: '#555' }}>Wallet: {con.walletaddress}</div>
+        {(con.relevantPurchases || []).length > 0 && (
+          <ul style={{ paddingLeft: '0', listStylePosition: 'inside' }}>
+            {con.relevantPurchases.map((pur, pIdx) => (
+              <li key={pIdx}>Purchase: {pur.description} - Amount: {pur.amount}</li>
+            ))}
+          </ul>
+        )}
+        {(con.filteredSubcontractors || []).map(sub => renderContractorRow(sub, tier + 1))}
+      </div>
+    );
     
     return (
         <div className="container">
@@ -1150,11 +1662,17 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
 
           <div className="edit-form list-row">
             <h4></h4>
+            { !isContractorInProject ? (
+              <div className="col-md-8">
+                <p className="text-danger">You do not have access to this project.</p>
+                <a href="/dashboard"><button type="button" className="btn btn-sm btn-secondary">Back to Dashboard</button></a>
+              </div>
+            ) :
             <div className="col-md-8">
 
           <form autoComplete="off">
           <div className="form-group">
-            { this.state.recipients.id !== null && 
+            { this.state.recipients.id !== null &&
             <>
               <label htmlFor="description">Organisation</label>
               <input 
@@ -1199,18 +1717,20 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
               disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
             />
           </div>
+          {this.state.isAnchor && (
           <div className="form-group">
             <label htmlFor="totalBudget">Total Budget</label>
-            <input 
-              type="number" 
-              className="form-control" 
-              id="totalBudget" 
+            <input
+              type="number"
+              className="form-control"
+              id="totalBudget"
               max="1000000000000"
-              value={currentProject.totalBudget} 
-              onChange={this.onChangeTotalBudget} 
+              value={currentProject.totalBudget}
+              onChange={this.onChangeTotalBudget}
               disabled={!(this.state.currentUser.id === this.state.currentProject.maker && currentProject.status<=0) && this.state.currentProject.id!==0}
             />
           </div>
+          )}
           { (currentProject && currentProject.smartcontractaddress !== "" && currentProject.smartcontractaddress !== null && currentProject.smartcontractaddress !=='undefined') && 
           <div className="form-group">
             <label htmlFor="smartcontractaddress">Tokenised Payable Address</label>
@@ -1287,49 +1807,59 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
           </div>
           <br />
 
-      <div className="mt-4 card p-3">
-        <h5>Select Milestone to unwrap all the tokenised payables in that milestone</h5>
-        <div className="form-group">
-          <select 
-            id="milestoneSelect"
-            className="form-control" 
-            value={currentProject.selectedMilestone} 
-            onChange={this.handleMilestoneChange}
-          >
-            <option value="">-- Select a Milestone --</option>
-            {currentProject.milestones.map((ms, index) => (
-              <option key={index} value={ms.id + "|" + ms.name}>{ms.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {currentProject.selectedMilestone && (
-          <div className="mt-3">
-            <h6>Contractors & Purchases for: {currentProject.selectedMilestone}</h6>
-            <table className="table table-bordered">
-              <tr><td>
-                {filteredDisplay.length > 0 ? (
-                  filteredDisplay.map((con, cIdx) => (
-                    <div key={cIdx}>
-                      <strong>Contractor: {con.name}</strong> (Wallet: {con.walletaddress})
-                      <ul>
-                        {con.relevantPurchases.map((pur, pIdx) => (
-                          <li key={pIdx}>
-                            Purchase: {pur.description} - Amount: {pur.amount}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))
-                  
-                ) : (
-                  <p className="text-muted">No associated contractors or purchases found for this milestone.</p>
-                )}
-            </td></tr>
-            </table>
+      <div className="mt-4 card p-3" style={{ border: '2px solid green' }}>
+        {this.state.milestonesWithUserTokens !== null && milestonesForUser.length === 0 ? (
+          <p className="text-muted mb-0">You do not have tokens in this project to unwrap.</p>
+        ) : (
+        <>
+          <h5>Select Milestone to unwrap all Tokenised Payables in your wallet for that milestone</h5>
+          <div className="form-group">
+            <select
+              id="milestoneSelect"
+              className="form-control"
+              value={currentProject.selectedMilestoneId && currentProject.selectedMilestone ? currentProject.selectedMilestoneId + "|" + currentProject.selectedMilestone : ""}
+              onChange={this.handleMilestoneChange}
+            >
+              <option value="">-- Select a Milestone --</option>
+              {milestonesForUser.map((ms, index) => {
+                const s = milestoneRealisedStatuses[ms.id];
+                const statusLabel = s === 'realised' ? ' [Realised]' : s === 'partial' ? ' [Partially Realised]' : s === 'not_realised' ? ' [Not Yet Realised]' : s === 'no_tokens' ? ' [No Tokens]' : '';
+                return (
+                  <option key={index} value={ms.id + "|" + ms.name}>
+                    {ms.name} (Maturity: {moment(ms.enddate).format('DD MMM YYYY')}){statusLabel}
+                  </option>
+                );
+              })}
+            </select>
           </div>
+        </>
         )}
+
+        {currentProject.selectedMilestone && (() => {
+          const selectedMilestoneObj = currentProject.milestones.find(ms => String(ms.id) === String(currentProject.selectedMilestoneId));
+          return (
+            <div className="mt-3">
+              <h6>Contractors & Purchases for: {currentProject.selectedMilestone}</h6>
+              {selectedMilestoneObj && (
+                <div style={{ color: '#555', marginBottom: '8px', fontSize: '0.9rem' }}>
+                  Maturity Date: {moment(selectedMilestoneObj.enddate).format('DD MMM YYYY')}
+                  {realisedBadge(selectedMilestoneObj.id)}
+                </div>
+              )}
+              <table className="table table-bordered">
+                <tr><td>
+                  {filteredDisplay.length > 0 ? (
+                    filteredDisplay.map((con, cIdx) => renderContractorRow(con, 1))
+                  ) : (
+                    <p className="text-muted">No associated contractors or purchases found for this milestone.</p>
+                  )}
+                </td></tr>
+              </table>
+            </div>
+          );
+        })()}
       </div>
+{/*
           <div className="form-group">
             <label htmlFor="approver">Approver *</label>
             <select
@@ -1349,7 +1879,6 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
               }
             </select>
           </div>
-
           { 
           (currentProject.id !== 0 ? // add new project
           <div className="form-group">
@@ -1370,20 +1899,22 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
           : null
           )
           }
+*/}
 
           </form>
 
 
               {  //// buttons!
 
-
+                  this.state.milestonesWithUserTokens !== null && milestonesForUser.length !== 0 &&
                   this.state.isMaker && (currentProject.status === null || currentProject.status <= 0) &&  // creating new draft
-                        <button 
-                        onClick={this.createUnwrapDraft} 
+                        <button
+                        onClick={this.approveUnwrap}
                         type="submit"
                         className="m-3 btn btn-sm btn-primary"
+                        disabled={!currentProject.selectedMilestone}
                         >
-                          Submit Unwrap Request
+                          Unwrap Tokens for Selected Milestone
                         </button>
               }
 
@@ -1393,7 +1924,7 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
                             <button
                             type="submit"
                             className="m-3 btn btn-sm btn-primary"
-                            onClick={this.submitDtscf}
+                            onClick={this.submitUnwrapDtscf}
                             >
                               Resubmit Unwrap Request
                             </button> 
@@ -1471,11 +2002,25 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
                 </button>
                 </Link>
               }  
+              <br />
+              <br />
 
               {this.state.isLoading ? <LoadingSpinner /> : null}
 
               <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/dtscf'} handleProceed2={this.deleteDtscf} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
-                {this.state.modalmsg}
+                {this.state.txHashUrl ? (
+                  <>
+                    {this.state.modalmsg.split('\n').filter(line => line.trim()).map((line, i) => (
+                      <p key={i} style={{ fontSize: '1rem', marginBottom: '4px' }}>{line}</p>
+                    ))}
+                    <p style={{ fontSize: '1rem', marginBottom: '4px' }}>
+                      Transaction submitted:{' '}
+                      <a href={this.state.txHashUrl} target="_blank" rel="noopener noreferrer">
+                        View on Blockchain Explorer ↗
+                      </a>
+                    </p>
+                  </>
+                ) : this.state.modalmsg}
               </Modal>
               {this.state.logs.length > 0 && (
                 <div className="progress-logs">
@@ -1488,6 +2033,7 @@ console.log("Selected Milestone for Purchase:", this.state.currentProject.select
                 </div>
               )}
             </div>
+            }
           </div>
         </div>
     );

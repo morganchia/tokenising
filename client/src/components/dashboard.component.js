@@ -21,33 +21,41 @@ export default class Dashboard extends Component {
       currentDtscf: null,
       campaigns: [],
       currentCampaign: null,
+
+      isAnchor: false,
+      isContractor: false,
+      isMaker: false,
+      isChecker: false,
+      isApprover: false,
+
+      dtscfLoading: true,
+      campaignsLoading: true,
     };
   }
 
   async retrieveDtscf(Org_id) {
-    //const id = this.state.currentUser.organisation_id;
+    this.setState({ dtscfLoading: true });
     return await DtscfDataService.getTPbyOrgId(Org_id)
     .then(response => {
-      this.setState({
-        dtscf: response.data
-      });
+      this.setState({ dtscf: response.data, dtscfLoading: false });
       console.log("Response data from retrieveDtscf() DtscfDataService.getTPbyOrgId:", response.data);
     })
     .catch(e => {
       console.log(e);
+      this.setState({ dtscfLoading: false });
     });
   }
 
   async retrieveCampaigns(id) {
+    this.setState({ campaignsLoading: true });
     return await CampaignDataService.getAllbyOrgId(id)
       .then(response => {
-        this.setState({
-          campaigns: response.data
-        });
+        this.setState({ campaigns: response.data, campaignsLoading: false });
         console.log("Response data from retrieveCampaigns() CampaignDataService.getAll:", response.data);
       })
       .catch(e => {
         console.log(e);
+        this.setState({ campaignsLoading: false });
       });
   }
   
@@ -75,15 +83,41 @@ export default class Dashboard extends Component {
     if (!currentUser) this.setState({ redirect: "/login" });
     this.setState({ currentUser: currentUser, userReady: true })
 
+    console.log("currentUser.roles[0]:", currentUser.roles[0]?.toUpperCase());
+
+    //let is_anchor= (currentUser.roles[0].toUpperCase() === "ROLE_ANCHOR");
+    console.log("isAnchor:", (currentUser.roles[0]?.toUpperCase() === "ROLE_ANCHOR"));
+    this.setState({ isAnchor: (currentUser.roles[0]?.toUpperCase() === "ROLE_ANCHOR") });
+
+    //let is_contractor= (currentUser.roles[0].toUpperCase() === "ROLE_CONTRACTOR");
+    console.log("isContractor:", (currentUser.roles[0]?.toUpperCase() === "ROLE_CONTRACTOR"));
+    this.setState({ isContractor: (currentUser.roles[0]?.toUpperCase() === "ROLE_CONTRACTOR") });
+
+    let ismaker= currentUser.opsrole.find((el) => 
+      el.opsrole.name?.toUpperCase() === "MAKER" && el.transactionType?.toUpperCase() === "DTSCF"
+    );
+    console.log("isMaker:", (ismaker === undefined? false: true));
+    this.setState({ isMaker: (ismaker === undefined? false: true),});
+
+    let ischecker= currentUser.opsrole.find((el) => 
+      el.opsrole.name?.toUpperCase() === "CHECKER" && el.transactionType?.toUpperCase() === "DTSCF"
+    );
+    console.log("isChecker:", (ischecker === undefined? false: true));
+    this.setState({ isChecker: (ischecker === undefined? false: true),});
+
+    let isapprover= currentUser.opsrole.find((el) => 
+      el.opsrole.name?.toUpperCase() === "APPROVER" && el.transactionType?.toUpperCase() === "DTSCF"
+    );
+    console.log("isApprover:", (isapprover === undefined? false: true));
+    this.setState({ isApprover: (isapprover === undefined? false: true),});
+
     if (currentUser.organisation_id !== undefined && currentUser.organisation_id !== null) {
       this.retrieveDtscf(currentUser.organisation_id);
       this.retrieveCampaigns(currentUser.organisation_id);
     }
   }
 
-  shorten(s) {
-    return(s.substring(0,6) + "..." + s.slice(-3));
-  }
+  shorten(s) { return(s.substring(0,6) + "..." + s.slice(-3)); }
 
   render() {
     if (this.state.redirect) {
@@ -146,9 +180,15 @@ export default class Dashboard extends Component {
                         <h4>Tokenised Payables</h4>
                       </div>
                       <div className="col-md-12">
-          
+                        {this.state.dtscfLoading ? (
+                          <div className="d-flex align-items-center gap-2">
+                            <div className="spinner-border spinner-border-sm text-secondary" role="status" />&nbsp;
+                            <span>Loading ...</span>
+                          </div>
+                        ) : dtscf.length === 0 ? (
+                          <p>No records available</p>
+                        ) : (
                         <table style={{ border:"1px solid"}}>
-                          {(dtscf.length > 0)?
                           <tr>
                             <th>ID</th>
                             <th>Project Name</th>
@@ -172,12 +212,18 @@ export default class Dashboard extends Component {
 {/*
                             <th>Add Sub-Contractors and Purchases</th>
 */}
-                            <th>View Token Details</th>
-                            <th>Unwrap TP to Cash token</th>
+                            <th>View NFT</th>
+                            {(this.state.isMaker || !this.state.isApprover) &&
+                              <th>Add/Edit Contractors</th>
+                            }
+                            {this.state.isMaker && this.state.isAnchor &&
+                              <th>Set Milestone Completion</th>
+                            }
+                            {this.state.isMaker && (this.state.isAnchor || this.state.isContractor) &&
+                              <th>Unwrap TP to Cash token</th>
+                            }
                           </tr>
-                          : null}
-                          {dtscf && dtscf.length > 0 &&
-                            dtscf.map((dtscf1, index) => (
+                          {dtscf.map((dtscf1, index) => (
                               <tr>
                                 <td>{dtscf1.id}</td>
                                 <td>{dtscf1.name}</td>
@@ -190,7 +236,7 @@ export default class Dashboard extends Component {
                                         dtscf1 &&
                                           dtscf1.tokenName !== undefined)
                                         ? dtscf1.tokenName  :null
-                                  
+
                                     }
                                 </td>
                                 <td>{
@@ -277,26 +323,47 @@ export default class Dashboard extends Component {
                                 </td>
                                 <td>
                                   <Link
-                                    to={"/dtscfview/1/" + dtscf1.smartcontractaddress}
+                                    to={"/dtscfview/" + dtscf1.smartcontractaddress + "/" + (dtscf1.allTokenIds ? dtscf1.allTokenIds : dtscf1.tokenId) }
                                   >
                                     <button
                                       className="m-3 btn btn-sm btn-primary"
                                     >
-                                      View
+                                      View NFT
                                     </button>
                                   </Link>
                                 </td>
-                                <td>
-                                  <Link
-                                    to={"/dtscfunwrap/" + dtscf1.id}
-                                      className="badge badge-warning"
-                                    >
-                                      Unwrap
-                                  </Link>
-                                </td>
+                                {(this.state.isMaker || !this.state.isApprover) &&
+                                  <td>
+                                    {this.state.isMaker
+                                      ? <Link to={"/dtscfcheckapprove2/" + dtscf1.id} className="badge badge-warning">Add Contractors</Link>
+                                      : <Link to={"/dtscfcheckapprove2/" + dtscf1.id} className="badge badge-info">Edit My Section</Link>
+                                    }
+                                  </td>
+                                }
+                                {this.state.isMaker && this.state.isAnchor &&
+                                  <td>
+                                      <Link
+                                        to={"/dtscfrealisemilestone/" + dtscf1.id}
+                                        className="badge badge-warning"
+                                      >
+                                        {this.state.isMaker? "Set Milestone Completion" : null}
+                                      </Link>
+                                  </td>
+                                }
+                                {this.state.isMaker && (this.state.isAnchor || this.state.isContractor) &&
+                                  <td>
+                                    <Link
+                                      to={"/dtscfunwrap/" + dtscf1.id}
+                                        className="badge badge-warning"
+                                      >
+                                        Unwrap
+                                    </Link>
+                                  </td>
+                                }
                               </tr>
                             ))}
                         </table>
+                        )}
                       </div>
                     </div>
 <br />
@@ -338,8 +405,15 @@ export default class Dashboard extends Component {
                       </div>
 
                       <div className="col-md-12">
+                        {this.state.campaignsLoading ? (
+                          <div className="d-flex align-items-center gap-2">
+                            <div className="spinner-border spinner-border-sm text-secondary" role="status" />
+                            &nbsp;<span>Loading ...</span>
+                          </div>
+                        ) : campaigns.filter(c => (typeof c.balance === "number" && c.balance > 0) || (typeof c.balance === "string" && parseFloat(c.balance) > 0)).length === 0 ? (
+                          <p>No records available</p>
+                        ) : (
                         <table style={{ border:"1px solid"}}>
-                          {(campaigns.length > 0)?
                           <tr>
                             <th>ID</th>
 {/*
@@ -358,13 +432,11 @@ export default class Dashboard extends Component {
                             <th>View Blockchain</th>
                             <th>Action</th>
                           </tr>
-                          : null}
-                          {campaigns && campaigns.length > 0 &&
-                            campaigns.map((campaign1, index) => (
-                              ((typeof campaign1.balance === "number" && campaign1.balance > 0) || (typeof campaign1.balance === "string" && parseFloat(campaign1.balance) > 0))&&
+                          {campaigns.map((campaign1, index) => (
+                              ((typeof campaign1.balance === "number" && campaign1.balance > 0) || (typeof campaign1.balance === "string" && parseFloat(campaign1.balance) > 0)) &&
                               <tr>
                                 <td>{campaign1.id}</td>
-{/*                                
+{/*
                                 <td>{campaign1.name}</td>
 */}
                                 <td>{campaign1.tokenname}</td>
@@ -417,12 +489,8 @@ export default class Dashboard extends Component {
                                         View
                                       </button>
                                     </Link>
-                                  
                                 </td>
                                 <td>
-                                  {
-                                    
-                                  }
                                   <a href={"https://"+
                                   (() => {
                                     switch (campaign1.blockchain) {
@@ -458,6 +526,7 @@ export default class Dashboard extends Component {
                               </tr>
                             ))}
                         </table>
+                        )}
                       </div>
                     </div>
             </>

@@ -66,6 +66,14 @@ module.exports = (sequelize, Sequelize) => {
     dtscf_milestone_id_original: {  
       type: Sequelize.INTEGER,  
     },
+    token_id: {
+      type: Sequelize.INTEGER,  // on-chain token ID minted for this purchase
+      allowNull: true
+    },
+    escrow_salt: {
+      type: Sequelize.STRING,  // hex-encoded 32-byte salt for commitment reveal
+      allowNull: true
+    },
     createdAt: {
       type: Sequelize.DATE,
       defaultValue: Sequelize.literal('NOW()'),

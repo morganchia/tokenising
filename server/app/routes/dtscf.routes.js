@@ -34,6 +34,19 @@ module.exports = app => {
   router.get("/findByName", dtscf.findByName);     // Retrieve all Dtscf with LIKE condition
 
   router.get("/gettpbyorgid", dtscf.getTPbyOrgId);
+  router.get("/getunwrapparams", dtscf.getUnwrapParams);
+  router.post("/decryptmetadata", dtscf.decryptMetadata);
+  router.post("/refreshtokenmeta", dtscf.refreshTokenMetadata);
+  router.get("/getcontractororgs", dtscf.getContractorOrganisations);
+  router.put("/updatecontractorpurchases", dtscf.updateContractorPurchases);
+  router.get("/getapproversbyorg", dtscf.getApproversByOrg);
+  router.get("/getcontractoramendmentdrafts", dtscf.getContractorAmendmentDrafts);
+  router.get("/getcontractoramendmentstatus", dtscf.getContractorAmendmentStatus);
+  router.get("/getmyrejectedcontractoramendmentdraft", dtscf.getMyRejectedContractorAmendmentDraft);
+  router.post("/submitcontractoramendment", dtscf.submitContractorAmendment);
+  router.put("/approvecontractoramendment/:id", dtscf.approveContractorAmendment);
+  router.post("/revertcontractorsplit", dtscf.revertContractorSplit);
+  router.post("/confirmcontractorsplit", dtscf.confirmContractorSplit);
 
   router.get("/getallbydtscfid", dtscf.getAllByDtscfId);
 
@@ -56,6 +69,8 @@ module.exports = app => {
   router.get("/finddraftbynameexact", dtscf.findDraftByNameExact);
   router.get("/finddraftbyapprovedid", dtscf.findDraftByApprovedId);
   
+  router.get("/getmilestonerealisedstatus", dtscf.getMilestoneRealisedStatus);
+
   // Retrieve a single Dtscf with id
   router.get("/:id", dtscf.findOne);
 
@@ -81,6 +96,8 @@ module.exports = app => {
 //  router.put("/rejectwrapmintdraftbyid/:id", dtscf.rejectWrapMintDraftById);
 //  router.put("/approvedeletewrapmintdraftbyid/:id", dtscf.approveDeleteWrapMintDraftById); 
 //  router.put("/dropwrapmintrequestbyid/:id", dtscf.dropWrapMintRequestById);
+
+  router.post("/testmetadata", dtscf.testMetadata);
 
   // Update a Dtscf with id
   router.put("/:id", dtscf.update);

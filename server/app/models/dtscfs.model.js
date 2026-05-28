@@ -98,6 +98,10 @@ module.exports = (sequelize, Sequelize) => {
     enddate_original: {
       type: Sequelize.DATE
     },
+    anchor_token_salt: {
+      type: Sequelize.STRING,  // hex-encoded 32-byte salt for the anchor's initial wrap token commitment
+      allowNull: true
+    },
     actionby: {
       type: Sequelize.STRING  // username
     },

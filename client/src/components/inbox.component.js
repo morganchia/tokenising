@@ -360,7 +360,7 @@ export default class Inbox extends Component {
                         <strong>Bonds</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
-                        {(bond.length > 0)?
+                        <thead>
                         <tr>
                           <th>Operation</th>
                           <th>Name</th>
@@ -370,18 +370,13 @@ export default class Inbox extends Component {
                           <th>Maturity Date</th>
                           <th>Issuer</th>
                           <th>Amt</th>
-                          {
-                          /*
-                          <th>Smart Contract</th>
-                          */
-                          }
                           <th>Status</th>
                           <th>Action</th>
                         </tr>
-                        : null}
-                        {bond && bond.length > 0 &&
-                          bond.map((bond1, index) => (
-                            <tr>
+                        </thead>
+                        <tbody>
+                        {bond.map((bond1, index) => (
+                            <tr key={bond1.id}>
                               <td>{bond1.txntype===0?"Create":bond1.txntype===1?"Update":"Delete"}</td>
                               <td>{bond1.name}</td>
                               <td>{bond1.tokenname}</td>
@@ -456,12 +451,13 @@ export default class Inbox extends Component {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
                       </table>
                       <br/>
                       <br/>
                     </>
                   :
-                    null                  
+                    null
                   }
 
                   {(repo && repo.length > 0)?
@@ -470,7 +466,7 @@ export default class Inbox extends Component {
                         <strong>Repo smart contracts</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
-                        {(repo.length > 0)?
+                        <thead>
                         <tr>
                           <th>Operation</th>
                           <th>Name</th>
@@ -481,18 +477,13 @@ export default class Inbox extends Component {
                           <th>Amt 2</th>
                           <th>Start Date</th>
                           <th>End Date</th>
-                          {
-                          /*
-                          <th>Smart Contract</th>
-                          */
-                          }
                           <th>Status</th>
                           <th>Action</th>
                         </tr>
-                        : null}
-                        {repo && repo.length > 0 &&
-                          repo.map((repo1, index) => (
-                            <tr>
+                        </thead>
+                        <tbody>
+                        {repo.map((repo1, index) => (
+                            <tr key={repo1.id}>
                               <td>{repo1.txntype===0?"Create":repo1.txntype===1?"Update":"Delete"}</td>
                               <td>{repo1.name}</td>
                               <td>{(() => {
@@ -575,6 +566,7 @@ export default class Inbox extends Component {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
                       </table>
                       <br/>
                       <br/>
@@ -588,9 +580,8 @@ export default class Inbox extends Component {
                       <h5>
                         <strong>Campaigns for Digital Cash</strong>
                       </h5> 
-                      <table sty
-                      le={{ border:"1px solid"}}>
-                        {(campaigns.length > 0)?
+                      <table style={{ border:"1px solid"}}>
+                        <thead>
                         <tr>
                           <th>Operation</th>
                           <th>Name</th>
@@ -600,18 +591,13 @@ export default class Inbox extends Component {
                           <th>End Date</th>
                           <th>Sponsor</th>
                           <th>Amt</th>
-                          {
-                          /*
-                          <th>Smart Contract</th>
-                          */
-                          }
                           <th>Status</th>
                           <th>Action</th>
                         </tr>
-                        : null}
-                        {campaigns && campaigns.length > 0 &&
-                          campaigns.map((campaign1, index) => (
-                            <tr>
+                        </thead>
+                        <tbody>
+                        {campaigns.map((campaign1, index) => (
+                            <tr key={campaign1.id}>
                               <td>{campaign1.txntype===0?"Create":campaign1.txntype===1?"Update":"Delete"}</td>
                               <td>{campaign1.name}</td>
                               <td>{campaign1.tokenname}</td>
@@ -687,11 +673,12 @@ export default class Inbox extends Component {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
                       </table>
                       <br/>
                       <br/>
                     </>
-                  : 
+                  :
                     null
                   }
 
@@ -701,25 +688,20 @@ export default class Inbox extends Component {
                         <strong>Mints</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
-                        {(mints.length > 0)?
+                        <thead>
                         <tr>
                           <th>Operation</th>
                           <th>Campaign</th>
                           <th>Token</th>
                           <th>Blockchain</th>
                           <th>Mint Amt</th>
-                          {
-                          /*
-                          <th>Smart Contract</th>
-                          */
-                          }
                           <th>Status</th>
                           <th>Action</th>
                         </tr>
-                        : null}
-                        {mints && mints.length > 0 &&
-                          mints.map((mint1, index) => (
-                            <tr>
+                        </thead>
+                        <tbody>
+                        {mints.map((mint1, index) => (
+                            <tr key={mint1.id}>
                               <td>{mint1.txntype===0?"Create":mint1.txntype===1?"Update":"Delete"}</td>
                               <td>{mint1.campaign.name}</td>
                               <td>{mint1.campaign.tokenname}</td>
@@ -784,14 +766,14 @@ export default class Inbox extends Component {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
                       </table>
                       <br/>
                       <br/>
                     </>
-                  : 
+                  :
                     null
                   }
-
 
                   {(transfers && transfers.length > 0)? 
                     <>
@@ -799,7 +781,7 @@ export default class Inbox extends Component {
                         <strong>Transfers</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
-                        {(transfers.length > 0)?
+                        <thead>
                         <tr>
                           <th>Operation</th>
                           <th>Asset</th>
@@ -807,18 +789,13 @@ export default class Inbox extends Component {
                           <th>Token Name</th>
                           <th>Blockchain</th>
                           <th>Transfer Amt</th>
-                          {
-                          /*
-                          <th>Smart Contract</th>
-                          */
-                          }
                           <th>Status</th>
                           <th>Action</th>
                         </tr>
-                        : null}
-                        {transfers && transfers.length > 0 &&
-                          transfers.map((transfer1, index) => (
-                            <tr>
+                        </thead>
+                        <tbody>
+                        {transfers.map((transfer1, index) => (
+                            <tr key={transfer1.id}>
                               <td>{transfer1.txntype===0?"Create":transfer1.txntype===1?"Update":"Delete"}</td>
                               <td>{transfer1.campaign ? "Cash" : (transfer1.bond? "Bond": (transfer1.pbm? "PBM": ""))}</td>
                               <td>{transfer1.campaign ? transfer1.campaign.name : (transfer1.bond? transfer1.bond.name : (transfer1.pbm? transfer1.pbm.name : ""))}</td>
@@ -884,21 +861,22 @@ export default class Inbox extends Component {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
                       </table>
                       <br/>
                       <br/>
                     </>
-                  : 
+                  :
                     null
                   }
 
-                  {(bridge &&bridge.length > 0)? 
+                  {(bridge && bridge.length > 0)? 
                     <>
                       <h5>
                         <strong>Bridge smart contracts</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
-                        {(bridge.length > 0)?
+                        <thead>
                         <tr>
                           <th>Draft ID</th>
                           <th>Operation</th>
@@ -914,10 +892,10 @@ export default class Inbox extends Component {
                           <th>Status</th>
                           <th>Action</th>
                         </tr>
-                        : null}
-                        {bridge && bridge.length > 0 &&
-                          bridge.map((bridge1, index) => (
-                            <tr>
+                        </thead>
+                        <tbody>
+                        {bridge.map((bridge1, index) => (
+                            <tr key={bridge1.id}>
                               <td>{bridge1.id}</td>
                               <td>{bridge1.txntype===0?"Create":bridge1.txntype===1?"Update":"Delete"}</td>
                               <td>{bridge1.name}</td>
@@ -1043,11 +1021,12 @@ export default class Inbox extends Component {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
                       </table>
                       <br/>
                       <br/>
                     </>
-                  : 
+                  :
                     null
                   }
 
@@ -1057,7 +1036,7 @@ export default class Inbox extends Component {
                         <strong>DvP smart contracts</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
-                        {(dvp.length > 0)?
+                        <thead>
                         <tr>
                           <th>Operation</th>
                           <th>Name</th>
@@ -1068,18 +1047,13 @@ export default class Inbox extends Component {
                           <th>Amt 2</th>
                           <th>Start Date</th>
                           <th>End Date</th>
-                          {
-                          /*
-                          <th>Smart Contract</th>
-                          */
-                          }
                           <th>Status</th>
                           <th>Action</th>
                         </tr>
-                        : null}
-                        {dvp && dvp.length > 0 &&
-                          dvp.map((dvp1, index) => (
-                            <tr>
+                        </thead>
+                        <tbody>
+                        {dvp.map((dvp1, index) => (
+                            <tr key={dvp1.id}>
                               <td>{dvp1.txntype===0?"Create":dvp1.txntype===1?"Update":"Delete"}</td>
                               <td>{dvp1.name}</td>
                               <td>{(() => {
@@ -1162,11 +1136,12 @@ export default class Inbox extends Component {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
                       </table>
                       <br/>
                       <br/>
                     </>
-                  : 
+                  :
                     null
                   }
 
@@ -1176,7 +1151,7 @@ export default class Inbox extends Component {
                         <strong>PBMs</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
-                        {(pbm.length > 0)?
+                        <thead>
                         <tr>
                           <th>Operation</th>
                           <th>Name</th>
@@ -1186,18 +1161,13 @@ export default class Inbox extends Component {
                           <th>End Date</th>
                           <th>Sponsor</th>
                           <th>Amt</th>
-                          {
-                          /*
-                          <th>Smart Contract</th>
-                          */
-                          }
                           <th>Status</th>
                           <th>Action</th>
                         </tr>
-                        : null}
-                        {pbm && pbm.length > 0 &&
-                          pbm.map((pbm1, index) => (
-                            <tr>
+                        </thead>
+                        <tbody>
+                        {pbm.map((pbm1, index) => (
+                            <tr key={pbm1.id}>
                               <td>{pbm1.txntype===0?"Create":pbm1.txntype===1?"Update":"Delete"}</td>
                               <td>{pbm1.name}</td>
                               <td>{pbm1.tokenname}</td>
@@ -1272,11 +1242,12 @@ export default class Inbox extends Component {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
                       </table>
                       <br/>
                       <br/>
                     </>
-                  : 
+                  :
                     null
                   }
 
@@ -1286,28 +1257,20 @@ export default class Inbox extends Component {
                         <strong>Wrap DSGD with PBM</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
-                        {(wrapmint.length > 0)?
+                        <thead>
                         <tr>
                           <th>Operation</th>
                           <th>Name</th>
                           <th>Token</th>
                           <th>Blockchain</th>
-          {/*
-                          <th>Start Date</th>
-                          <th>End Date</th>
-                          <th>Sponsor</th>
-          */}
                           <th>Amt</th>
-          {/*
-                          <th>Smart Contract</th>
-          */}
                           <th>Status</th>
                           <th>Action</th>
                         </tr>
-                        : null}
-                        {wrapmint && wrapmint.length > 0 &&
-                          wrapmint.map((wrapmint1, index) => (
-                            <tr>
+                        </thead>
+                        <tbody>
+                        {wrapmint.map((wrapmint1, index) => (
+                            <tr key={wrapmint1.id}>
                               <td>{wrapmint1.txntype===0?"Create":wrapmint1.txntype===1?"Update":"Delete"}</td>
                               <td>{wrapmint1.campaign.name}</td>
                               <td>{wrapmint1.campaign.tokenname}</td>
@@ -1384,11 +1347,12 @@ export default class Inbox extends Component {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
                       </table>
                       <br/>
                       <br/>
                     </>
-                  : 
+                  :
                     null
                   }
 
@@ -1398,7 +1362,7 @@ export default class Inbox extends Component {
                         <strong>Recipients maintenance</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
-                        {(recipients.length > 0)?
+                        <thead>
                         <tr>
                           <th>Operation</th>
                           <th>Name</th>
@@ -1408,10 +1372,10 @@ export default class Inbox extends Component {
                           <th>Status</th>
                           <th>Action</th>
                         </tr>
-                        : null}
-                        {recipients && recipients.length > 0 &&
-                          recipients.map((recipient1, index) => (
-                            <tr>
+                        </thead>
+                        <tbody>
+                        {recipients.map((recipient1, index) => (
+                            <tr key={recipient1.id}>
                               <td>{recipient1.txntype===0?"Create":recipient1.txntype===1?"Update":"Delete"}</td>
                               <td>{recipient1.name}</td>
                               <td>{recipient1.walletaddress}</td>
@@ -1447,11 +1411,12 @@ export default class Inbox extends Component {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
                       </table>
                       <br/>
                       <br/>
                     </>
-                  : 
+                  :
                     null
                   }
 
@@ -1461,7 +1426,7 @@ export default class Inbox extends Component {
                         <strong>Tokenised Payables</strong>
                       </h5>
                       <table style={{ border:"1px solid"}}>
-                        {(dtscf.length > 0)?
+                        <thead>
                         <tr>
                           <th>Draft ID</th>
                           <th>Operation</th>
@@ -1473,10 +1438,10 @@ export default class Inbox extends Component {
                           <th>Status</th>
                           <th>Action</th>
                         </tr>
-                        : null}
-                        {dtscf && dtscf.length > 0 &&
-                          dtscf.map((dtscf1, index) => (
-                            <tr>
+                        </thead>
+                        <tbody>
+                        {dtscf.map((dtscf1, index) => (
+                            <tr key={dtscf1.id}>
                               <td>{dtscf1.id}</td>
                               <td>{dtscf1.txntype===0?"Create":dtscf1.txntype===1?"Update":"Delete"}</td>
                               <td>{dtscf1.name}</td>
@@ -1498,7 +1463,9 @@ export default class Inbox extends Component {
                               </td>
                               <td>
                                 <Link
-                                  to={"/dtscfcheckapprove/" + dtscf1.id}
+                                  to={dtscf1.txntype === 1 && dtscf1.approveddtscfid
+                                    ? "/dtscfcheckapprove2/" + dtscf1.approveddtscfid
+                                    : "/dtscfcheckapprove/" + dtscf1.id}
                                   className="badge badge-warning"
                                 >
                                   {
@@ -1514,14 +1481,15 @@ export default class Inbox extends Component {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
                       </table>
                       <br/>
                       <br/>
                     </>
-                  : 
+                  :
                     null
                   }
-            </> 
+            </>
             : 
             <>
               You have no pending actions.

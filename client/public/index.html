@@ -25,6 +25,52 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>React App</title>
+    <script>
+      // MetaMask's Chrome MV3 service worker can die when idle and throw
+      // "Failed to connect to MetaMask" internally. Suppress it before the
+      // React dev overlay (react-error-overlay) ever sees it by:
+      // 1. Patching EventTarget.prototype.addEventListener so every future
+      //    error/unhandledrejection listener (including CRA's) silently drops
+      //    the MetaMask-internal error before doing anything.
+      // 2. Setting window.onerror to return true (handled) for the same error.
+      (function () {
+        function isMetaMaskInternalError(msg) {
+          return typeof msg === 'string' && msg.indexOf('Failed to connect to MetaMask') !== -1;
+        }
+
+        // Wrap every addEventListener so CRA's own error listener skips this error.
+        var _origAEL = EventTarget.prototype.addEventListener;
+        EventTarget.prototype.addEventListener = function (type, listener, options) {
+          if ((type === 'error' || type === 'unhandledrejection') && this === window) {
+            var _orig = listener;
+            listener = function (event) {
+              var msg = type === 'error'
+                ? event.message
+                : (event.reason && event.reason.message);
+              if (isMetaMaskInternalError(msg)) {
+                event.preventDefault && event.preventDefault();
+                return;
+              }
+              return _orig.call(this, event);
+            };
+          }
+          return _origAEL.call(this, type, listener, options);
+        };
+
+        // Also cover window.onerror for synchronous throws.
+        window.onerror = function (message) {
+          if (isMetaMaskInternalError(message)) return true;
+        };
+
+        // Cover unhandled promise rejections that reach window directly.
+        window.onunhandledrejection = function (event) {
+          if (event && event.reason && isMetaMaskInternalError(event.reason.message)) {
+            event.preventDefault && event.preventDefault();
+            return true;
+          }
+        };
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

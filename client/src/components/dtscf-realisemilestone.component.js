@@ -356,8 +356,7 @@ class DTSCFProjectCreation extends Component {
   //////////////////////////////////////////////////////////////////////
 
   async approveMilestoneCompleted() {
-    this.setState({ // show loading modal with logs
-      isLoading: true,
+    this.setState({
       logs: [] ,
       message: "",
       showm: true,
@@ -368,9 +367,6 @@ class DTSCFProjectCreation extends Component {
       button0text: null,
       afterModalClose: null,
     });
-    
-    console.log("IsLoad=true");
-    this.show_loading();
 
     const selectedMilestone_id = this.state.currentProject.milestones.find((mm) => mm.name === this.state.selectedMilestone);
 
@@ -387,12 +383,19 @@ class DTSCFProjectCreation extends Component {
       this.hide_loading();
 
       console.log("Response: ", response);
-      console.log("IsLoad=false");
-      this.hide_loading();
 
-      this.setState({  
+      const completedId = parseInt(this.state.currentProject.selectedMilestoneId);
+      this.setState(prevState => ({
         datachanged: false,
-      });
+        currentProject: {
+          ...prevState.currentProject,
+          milestones: prevState.currentProject.milestones.map(ms =>
+            ms.id === completedId ? { ...ms, milestone_completed: true } : ms
+          ),
+          selectedMilestone: "",
+          selectedMilestoneId: null,
+        }
+      }));
       this.displayModal("Milestone has been set to completed.", "OK", null, null, null);
     })
     .catch(e => {
@@ -497,8 +500,28 @@ class DTSCFProjectCreation extends Component {
       return <Navigate to={this.state.redirect} replace />;
     }
 
+    if (this.state.isLoading || !this.state.userReady) {
+      return (
+        <div className="container mt-4">
+          <div className="d-flex align-items-center gap-2">
+            <div className="spinner-border spinner-border-sm text-secondary" role="status" />
+            &nbsp;<span>Loading ...</span>
+          </div>
+        </div>
+      );
+    }
+
     const { underlyingDSGDList, currentProject, selectedMilestone, approverList } = this.state;
     console.log("currentProject: ", currentProject);
+
+    const availableMilestones = currentProject.milestones.filter(
+      ms => !ms.milestone_completed && moment(ms.enddate).isAfter(getToday(), 'day')
+    );
+
+    const currentUserWallet = (this.state.currentUser.walletaddress || '').toLowerCase();
+    const isContractorInProject = !this.state.isContractor || currentProject.contractors.some(
+      con => con.walletaddress && con.walletaddress.toLowerCase() === currentUserWallet
+    );
 
     // Filter logic: Find contractors who have at least one purchase in the selected milestone
     const filteredDisplay = currentProject.contractors.map(con => {
@@ -536,6 +559,12 @@ class DTSCFProjectCreation extends Component {
 
           <div className="edit-form list-row">
             <h4></h4>
+            { !isContractorInProject ? (
+              <div className="col-md-8">
+                <p className="text-danger">You do not have access to this project.</p>
+                <a href="/dashboard"><button type="button" className="btn btn-sm btn-secondary">Back to Dashboard</button></a>
+              </div>
+            ) :
             <div className="col-md-8">
 
           <form autoComplete="off">
@@ -585,18 +614,20 @@ class DTSCFProjectCreation extends Component {
               disabled="true"
             />
           </div>
+          { this.state.isAnchor &&
           <div className="form-group">
             <label htmlFor="totalBudget">Total Budget</label>
-            <input 
-              type="number" 
-              className="form-control" 
-              id="totalBudget" 
+            <input
+              type="number"
+              className="form-control"
+              id="totalBudget"
               max="1000000000000"
-              value={currentProject.totalBudget} 
-              onChange={this.onChangeTotalBudget} 
+              value={currentProject.totalBudget}
+              onChange={this.onChangeTotalBudget}
               disabled="true"
             />
           </div>
+          }
           { (currentProject && currentProject.smartcontractaddress !== "" && currentProject.smartcontractaddress !== null && currentProject.smartcontractaddress !=='undefined') && 
           <div className="form-group">
             <label htmlFor="smartcontractaddress">Tokenised Payable Address</label>
@@ -675,21 +706,25 @@ class DTSCFProjectCreation extends Component {
 
       <div className="mt-4 card p-3">
         <h5>Set Milestone Completion</h5>
+        {availableMilestones.length === 0 ? (
+          <p className="text-muted">There is no milestone left that can be set to completed in this project.</p>
+        ) : (
         <div className="form-group">
           <label htmlFor="milestoneSelect">Select Milestone:</label>
-          <select 
+          <select
             id="milestoneSelect"
-            className="form-control" 
-            value={selectedMilestone} 
+            className="form-control"
+            value={selectedMilestone}
             onChange={this.handleMilestoneChange}
             disabled={!(this.state.isAnchor && this.state.isMaker && currentProject.status === null) }
           >
             <option value="">-- Select a Milestone --</option>
-            {currentProject.milestones.map((ms, index) => (
-              <option key={index} value={ms.id + "|" + ms.name} disabled={ms.milestone_completed}>{ms.name} (Completion Date: {ms.enddate})</option>
+            {availableMilestones.map((ms, index) => (
+              <option key={index} value={ms.id + "|" + ms.name}>{ms.name} (Completion Date: {ms.enddate})</option>
             ))}
           </select>
         </div>
+        )}
 
         {selectedMilestone && (
           <div className="mt-3">
@@ -821,11 +856,12 @@ class DTSCFProjectCreation extends Component {
 */
               }
               {
-                    this.state.isAnchor && this.state.isMaker && currentProject.status === null &&
+                    this.state.isAnchor && this.state.isMaker && currentProject.status === null && availableMilestones.length > 0 &&
                     <button
                     type="submit"
                     className="m-3 btn btn-sm btn-primary"
                     onClick={this.approveMilestoneCompleted}
+                    disabled={!this.state.currentProject.selectedMilestone}
                     >
                       Set Milestone Completed
                     </button> 
@@ -867,6 +903,10 @@ class DTSCFProjectCreation extends Component {
                 </Link>
               }  
 
+              <br />
+              <br />
+              <br />
+
               {this.state.isLoading ? <LoadingSpinner /> : null}
 
               <Modal showm={this.state.showm} handleProceed1={event =>  window.location.href='/dtscf'} handleProceed2={this.deleteDtscf} handleProceed3={this.dropRequest} button1text={this.state.button1text} button2text={this.state.button2text} button3text={this.state.button3text} button0text={this.state.button0text} handleCancel={this.hideModal}>
@@ -883,6 +923,7 @@ class DTSCFProjectCreation extends Component {
                 </div>
               )}
             </div>
+            }
           </div>
         </div>
     );

@@ -81,6 +81,7 @@ import DTSCFCheckApprove2 from "./components/dtscf-checkapprove2.component";
 import DTSCFView from "./components/dtscf-view.component";
 import DTSCFRealiseMilestone from "./components/dtscf-realisemilestone.component";
 import DTSCFUNWRAP from "./components/dtscf-unwrap.component";
+import DTSCFTestMetadata from "./components/dtscf-testmetadata.component";
 
 //import PayableList from "./components/payable-list.component";
 //import PayableCheckApprove from "./components/payable-checkapprove.component";
@@ -88,6 +89,8 @@ import DTSCFUNWRAP from "./components/dtscf-unwrap.component";
 import AuthVerify from "./common/auth-verify";
 import EventBus from "./common/EventBus";
 import moment from "moment-timezone";
+
+import ModalTest from "./components/ModalTest";
 
 class App extends Component {
   constructor(props) {
@@ -154,7 +157,7 @@ class App extends Component {
           rel="stylesheet"
           href="//unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
         />
-        <nav className="navbar navbar-expand navbar-dark bg-dark">
+        <nav className="navbar navbar-expand navbar-dark bg-dark fixed-top">
           <Link to={"/"} className="navbar-brand">
             BCDA
           </Link>
@@ -194,7 +197,7 @@ class App extends Component {
             <div className="navbar-nav ml-auto">
               <li className="nav-item">
                 <span className="nav-link">
-                  {currentUser.username}
+                  Logged in as: <b>{currentUser.username}</b>{currentUser.organisation_name ? <span style={{ fontWeight: 'normal', opacity: 0.8 }}> ({currentUser.organisation_name})</span> : null}
                 </span>
               </li>
               <li className="nav-item">
@@ -212,7 +215,7 @@ class App extends Component {
               <div className="sidebar open">
                 <div className="logo-details">
                   <i className='bx bxl-graphql'></i>
-                    <div className="logo_name">BCDA DSGD and PBM Portal</div>
+                    <div className="logo_name">BCDA Tokenising Portal</div>
                 </div>
                 <ul className="nav-list">
                   <li>
@@ -419,10 +422,12 @@ class App extends Component {
         </nav>
         <div>
           <Routes>
+            <Route path="/modaltest" element={<ModalTest />} />
             <Route path="/dsgd2pbm" element={<DSGD2PBM />} />
             <Route path="/dvpaddallowance" element={<DvPAddAllowance />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="*" element={null} />
           </Routes>
         </div>
 
@@ -482,9 +487,10 @@ class App extends Component {
             <Route path="/dtscf" element={<DTSCFProjectList/>} />
             <Route path="/dtscfcheckapprove/:id" element={<DTSCFCheckApprove/>} />
             <Route path="/dtscfcheckapprove2/:id" element={<DTSCFCheckApprove2/>} />
-            <Route path="/dtscfview/:id/:smartcontractaddress" element={<DTSCFView/>} />
+            <Route path="/dtscfview/:smartcontractaddress/:allTokenIds" element={<DTSCFView/>} />
             <Route path="/dtscfrealisemilestone/:id" element={<DTSCFRealiseMilestone/>} />
             <Route path="/dtscfunwrap/:id" element={<DTSCFUNWRAP/>} />
+            <Route path="/dtscftestmetadata" element={<DTSCFTestMetadata/>} />
 
 {
 /*
