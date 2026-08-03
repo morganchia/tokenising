@@ -3,6 +3,7 @@ const AuditTrail = db.audittrail;
 const DvP = db.dvp;
 const DvP_Draft = db.dvp_draft;
 const Op = db.Sequelize.Op;
+const { deployUUPSProxy } = require('../utils/proxyDeploy');
 var newcontractaddress = null;
 const adjustdecimals = 18;
 
@@ -220,105 +221,14 @@ exports.approveDraftById = async (req, res) => {  //
 
   console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
 
-  async function compileSmartContract() {
-    // solc compiler
-    solc = require("solc");
-
-    // file reader
-    fs = require("fs");
-
-    console.log("Reading smart contract file... ");
-
-    // Reading the file
-    file = fs.readFileSync("./server/app/contracts/ERCTokenDvP.sol").toString();
-    // console.log(file);
-
-    // input structure for solidity compiler
-    var input = {
-      language: "Solidity",
-      sources: {
-        "ERCTokenDvP.sol": {
-          content: file,
-        },
-      },
-      settings: {
-        outputSelection: {
-          "*": {
-            "*": ["*"],
-          },
-        },
-      },
-    };
-
-    const path = require('path');
-    // https://stackoverflow.com/questions/67321111/file-import-callback-not-supported/68459731#68459731
-    function findImports(relativePath) {
-      //my imported sources are stored under the node_modules folder!
-      const absolutePath = path.resolve(__dirname, '../../../node_modules', relativePath);
-      const source = fs.readFileSync(absolutePath, 'utf8');
-      console.log("reading file: ", absolutePath);
-
-      return { contents: source };
-    }
-      
-    console.log("Compiling smart contract file... ");
-    var output = JSON.parse(solc.compile(JSON.stringify(input), { import: findImports }));
-    console.log("Compilation done... ");
-    console.log("Result of compilation: ", output);
-
-    console.log("Generating bytecode from smart contract file ");
-    ABI = output.contracts["ERCTokenDvP.sol"]["ERCTokenDVP"].abi;
-    bytecode = output.contracts["ERCTokenDvP.sol"]["ERCTokenDVP"].evm.bytecode.object;
-    // console.log("solc.compile output: ", output);
-    // console.log("ABI: ", ABI);
-    // console.log("Bytecode: ", bytecode);
-    await fs.writeFile("./server/app/abis/ERCTokenDvP.abi.json", JSON.stringify(ABI) , 'utf8', function (err) {
-      if (err) {
-        console.log("An error occured while writing DvP ABI JSON Object to File.");
-        return console.log(err);
-      }
-      console.log("DvP ABI JSON file has been saved.");
-    });
-    await fs.writeFile("./server/app/abis/ERCTokenDvP.bytecode.json", JSON.stringify(bytecode) , 'utf8', function (err) {
-      if (err) {
-        console.log("An error occured while writing DvP bytecode JSON Object to File.");
-        return console.log(err);
-      }
-      console.log("DvP Bytecode JSON file has been saved.");
-    });
-
-  }
-
   async function dAppCreate() {  // create and deploy new smart contract
     var errorSent = false;
     updatestatus = false;
 
     fs = require("fs");
 
-    try {
-      if (! (fs.existsSync("./server/app/abis/ERCTokenDvP.abi.json") && fs.existsSync("./server/app/abis/ERCTokenDvP.bytecode.json"))) {
-        console.log("Compiling smart contract...");
-        await compileSmartContract();
-      } else{
-        // Just read the ABI file
-        console.log("DvP ABI and Bytecode files are present, just read them, no need to recompile...");
-        console.log("Read DvP ABI JSON file.");
-        ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenDvP.abi.json").toString());
-        console.log("Read DvP Bytecode JSON file.");
-        bytecode = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenDvP.bytecode.json").toString());
-      }
-    } catch(err) {
-      console.error("Err7: ",err)
-      if (!errorSent) {
-        console.log("Sending error 400 back to client");
-        res.status(400).send({ 
-          message: err
-        });
-        errorSent = true;
-      }
-      return false;
-    }
-    
+    ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERCTokenDvP.abi.json").toString());
+
     // Creation of Web3 class
     Web3 = require("web3");
 
@@ -351,107 +261,38 @@ const this_amount2 = new BN(req.body.amount2).mul(new BN("1000000000000000000"))
       // Deploy contract
       const deployContract = async () => {
         console.log('Attempting to deploy from account:', signer.address);
-        const ERCTokenDvPcontract = new web3.eth.Contract(ABI);
-        const contractTx = await ERCTokenDvPcontract.deploy({
-          data: bytecode,
-          arguments:  [ 
-            req.body.name, 
-            req.body.counterparty1, 
-            req.body.counterparty2, 
-            req.body.smartcontractaddress1, 
-            req.body.smartcontractaddress2, 
-            this_amount1.toString(), 
-            this_amount2.toString(), 
-            Number(new Date(req.body.startdate)),
-            Number(new Date(req.body.enddate))
-          ],
-        });
 
-        // https://github.com/web3/web3.js/issues/1001
-        web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
-
-        const createTransaction = await web3.eth.accounts.signTransaction(
-          {
-            from: signer.address,
-            data: contractTx.encodeABI(),
-            gas: 8700000, // 4700000,
-          },
-          signer.privateKey
-        );
-        console.log('Sending signed txn...');
-        //console.log('Sending signed txn:', createTransaction);
-
-
-        const createReceipt = await web3.eth.sendSignedTransaction(
-          createTransaction.rawTransaction, 
-        
-          function (error1, hash) {
-            if (error1) {
-                console.log("Error11a  when submitting your signed transaction:", error1);
-                if (!errorSent) {
-                  console.log("Sending error 400 back to client");
-                  res.status(400).send({ 
-                    message: error1.toString().replace('*', ''),
-                  });
-                  errorSent = true;
-                }
-                return false;
-          } else {
-              console.log("Txn sent!, hash: ", hash);
-              var timer = 1;
-              // retry every second to chk for receipt
-              const interval = setInterval(function() {
-                console.log("Attempting to get transaction receipt...");
-
-                // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
-                web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
-                  if (receipt) {
-                    console.log('>> GOT RECEIPT!!!!!!!!!!!!!!!!!!!!!!!');
-                    clearInterval(interval);
-                    console.log('Receipt -->>: ', receipt);
-
-                    const trx = await web3.eth.getTransaction(hash);
-                    console.log('trx.status -->>: ',trx);
-
-                    return(receipt.status);
-                  }
-                  if (error3) {
-                    console.log("!! getTransactionReceipt error: ", error3)
-                    clearInterval(interval);
-                    if (!errorSent) {
-                      console.log("Sending error 400 back to client");
-                      res.status(400).send({ 
-                        message: error3.toString().replace('*', ''),
-                      });
-                      errorSent = true;
-                    }
-                    return false;
-                      }
-                });
-                timer++;
-              }, 1000);
-            } // function
-          })
-          .on("error", err => {
-              console.log("Err22 sentSignedTxn error: ", err)
-              if (!errorSent) {
-                console.log("Sending error 400 back to client");
-                res.status(400).send({ 
-                  message: err.toString().replace('*', ''),
-                });
-                errorSent = true;
-              }
-              return false;
-        // do something on transaction error
-          }); // sendSignedTransaction
-
-        console.log('**** Txn executed:', createReceipt);
-
-        console.log('New Contract deployed at address', createReceipt.contractAddress);
-        newcontractaddress = createReceipt.contractAddress;
-
-        return true;
-
+        try {
+          newcontractaddress = await deployUUPSProxy({
+            web3,
+            signer,
+            implAddressEnvVar: `DVP_IMPLEMENTATION_ADDRESS_${req.body.blockchain}`,
+            targetAbi: ABI,
+            initArgs: [
+              req.body.name,
+              req.body.counterparty1,
+              req.body.counterparty2,
+              req.body.smartcontractaddress1,
+              req.body.smartcontractaddress2,
+              this_amount1.toString(),
+              this_amount2.toString(),
+              Number(new Date(req.body.startdate)),
+              Number(new Date(req.body.enddate)),
+            ],
+          });
+          console.log('New Contract deployed at address', newcontractaddress);
+          return true;
+        } catch (err) {
+          console.error("Err22 deploying DvP proxy: ", err);
+          if (!errorSent) {
+            console.log("Sending error 400 back to client");
+            res.status(400).send({
+              message: err.toString().replace('*', ''),
+            });
+            errorSent = true;
+          }
+          return false;
+        }
       };
 
       return(await deployContract());

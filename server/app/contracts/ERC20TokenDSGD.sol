@@ -2,37 +2,48 @@
 // https://github.com/samc621/TokenFactory/blob/master/contracts/ERC20Token.sol
 pragma solidity >=0.8.9;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-contract ERC20TokenDSGD is ERC20Pausable {
-    address public immutable owner;
+contract ERC20TokenDSGD is Initializable, ERC20PausableUpgradeable, UUPSUpgradeable {
+    address public owner;
     uint256 private _totalSupply;
-    uint256 public _incirculation = 0;
+    uint256 public _incirculation;
     uint8 public constant DECIMALS = 18;
 
 //  uint256 private MAXIMUMSUPPLY; // N*10**18;
     mapping(address => uint256) private tokenBalances;
-	mapping(address => mapping(address => uint256 ) ) allowed;  
+	mapping(address => mapping(address => uint256 ) ) allowed;
+
+    uint256[50] private __gap;
 
     event Update(address sender, uint256 newTotalSupply);
     event Burn(address sender, uint256 _amount);
     event BurnFrom(address sender, address account, uint256 _amount);
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         string memory name,
         string memory symbol,
         uint256 total_Supply
 //      uint8 decimals,
 //      address _owner
-    ) ERC20(name, symbol) {
+    ) public initializer {
+        __ERC20_init(name, symbol);
+        __Pausable_init();
         owner = msg.sender;
         _totalSupply = total_Supply;
         tokenBalances[msg.sender] = 0;
 
        // _mint(_owner, initialSupply * 10**uint256(decimals));
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function balanceOf(address tokenOwner) public override view returns (uint256) {
         return tokenBalances[tokenOwner];

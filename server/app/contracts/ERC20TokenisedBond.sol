@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 interface IERC20Like {
     function transferFrom(
@@ -29,7 +31,7 @@ interface IERC20Like {
  *         and if coupons are paid in 5 periods per year (each 20% of a year),
  *         then each coupon payment will be 1% of 250,000 (i.e. $2,500).
  */
-contract BondToken is ERC20, Ownable {
+contract BondToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     // Scaling factor to simulate fixed‑point arithmetic (18 decimals)
@@ -57,6 +59,8 @@ contract BondToken is ERC20, Ownable {
     // Track bond holders for coupon distribution.
     EnumerableSet.AddressSet private _holders;
 
+    uint256[50] private __gap;
+
     // Events
     event CouponPaid(address indexed holder, uint256 amount);
     event Redeemed(address indexed holder, uint256 amount);
@@ -79,7 +83,12 @@ contract BondToken is ERC20, Ownable {
      * @param _cashToken     Address of the ERC20 token used for coupons/redemption.
      * @param _issuer        The address designated as the issuer (can deposit coupons).
      */
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         string memory _name,
         string memory _symbol,
         uint256 _couponRate,
@@ -89,7 +98,10 @@ contract BondToken is ERC20, Ownable {
         uint256 _totalSupply,
         address _cashToken,
         address _issuer
-    ) ERC20(_name, _symbol) {
+    ) public initializer {
+        __ERC20_init(_name, _symbol);
+        __Ownable_init(msg.sender);
+
         require(_maturityDate > block.timestamp, "Maturity must be in the future");
         require(_couponRate > 0, "Coupon rate must be > 0");
         require(_faceValue > 0, "Face value must be > 0");
@@ -126,6 +138,8 @@ contract BondToken is ERC20, Ownable {
         // Track the deployer as the initial holder.
         _holders.add(msg.sender);
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     // ---------------------------
     // MODIFIERS & ROLE FUNCTIONS
@@ -342,12 +356,12 @@ contract BondToken is ERC20, Ownable {
     /**
      * @dev Overridden ERC20 hook to update the holders set.
      */
-    function _afterTokenTransfer(
+    function _update(
         address from,
         address to,
         uint256 amount
     ) internal override {
-        super._afterTokenTransfer(from, to, amount);
+        super._update(from, to, amount);
 
         if (from != address(0) && balanceOf(from) == 0) {
             _holders.remove(from);

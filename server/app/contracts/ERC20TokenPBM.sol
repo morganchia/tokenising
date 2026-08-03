@@ -2,11 +2,12 @@
 // https://github.com/opengovsg/cbdc-smart-contracts/blob/master/contracts/PBMToken.sol
 pragma solidity ^0.8.8;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import "./interfaces/IPBM.sol";
 
@@ -15,17 +16,19 @@ import "./interfaces/IPBM.sol";
 /// @author Open Government Products
 /// @notice Implementation of the IPBM interface
 
-contract PBMToken is ERC20Pausable, AccessControl, IPBM {
+contract PBMToken is Initializable, ERC20PausableUpgradeable, AccessControlUpgradeable, UUPSUpgradeable, IPBM {
     using SafeERC20 for IERC20Metadata;
 
-    IERC20Metadata public immutable underlyingToken;
-    address public immutable owner;
+    IERC20Metadata public underlyingToken;
+    address public owner;
 
     uint256 public contractExpiry;
 
     // RBAC related constants
     bytes32 public constant MERCHANT_ROLE = keccak256("MERCHANT_ROLE");
     bytes32 public constant MERCHANT_ADMIN_ROLE = keccak256("MERCHANT_ADMIN_ROLE");
+
+    uint256[50] private __gap;
 
     modifier onlyOwner() {
         require(_msgSender() == owner, "not owner");
@@ -42,12 +45,21 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
         _;
     }
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         address _underlyingAddress,
         string memory _name,
         string memory _symbol,
         uint256 _contractExpiry
-    ) ERC20(_name, _symbol) {
+    ) public initializer {
+        __ERC20_init(_name, _symbol);
+        __Pausable_init();
+        __AccessControl_init();
+
         owner = _msgSender();
         // Initialises the base DSGD token
         underlyingToken = IERC20Metadata(_underlyingAddress);
@@ -59,6 +71,8 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
         // Sets the contract expiry
         contractExpiry = _contractExpiry;
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
 
     event wMint(address msgsender, address toUser, address currentAddress, uint256 amount);
@@ -199,7 +213,7 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
         return overBalance;
     }
 
-    /// @inheritdoc ERC20
+    /// @inheritdoc ERC20Upgradeable
     function decimals() public view override returns (uint8) {
         try underlyingToken.decimals() returns (uint8 value) {
             return value;
@@ -221,18 +235,18 @@ contract PBMToken is ERC20Pausable, AccessControl, IPBM {
     /**
      * @dev Implements additional contract expiry checks before any token transfer
      *
-     * NOTE: _beforeTokenTransfer is a hook provided from {ERC20Pausable}. This hook is called before any
-     * token transfers/mints.
+     * NOTE: _update is the OZ v5 hook that replaces _beforeTokenTransfer. This hook is
+     * called before any token transfers/mints/burns.
      *
-     * @inheritdoc ERC20Pausable
+     * @inheritdoc ERC20PausableUpgradeable
      */
-     
-    function _beforeTokenTransfer(
+
+    function _update(
         address from,
         address to,
-        uint256 tokenId
-    ) internal virtual override(ERC20Pausable) whenNotExpired {
-        super._beforeTokenTransfer(from, to, tokenId);
+        uint256 value
+    ) internal virtual override(ERC20PausableUpgradeable) whenNotExpired {
+        super._update(from, to, value);
     }
-    
+
 }

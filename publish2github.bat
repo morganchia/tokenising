@@ -1,3 +1,3 @@
 git add .
-git commit -m "Added cross-chain repo - testing in progress"
+git commit -m "Upgraded smart contracts to upgradeable contracts"
 git push github master

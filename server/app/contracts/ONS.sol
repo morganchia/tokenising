@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.8;
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 interface ONSRegistry {
     function resolver(bytes32 node) external view returns (address);
@@ -13,14 +15,23 @@ interface ONSResolver {
 // ENS registry address: 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
 // https://docs.chain.link/data-feeds/ens#:~:text=ENS%20registry%20address%3A%200x00000000000C2E074eC69A0dFb2997BA6C7d2e1e.,bytes32%20hash%20IDs%20for%20names.
 
-contract ONSManager is Ownable {
+contract ONSManager is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ONSRegistry private onsRegistry;
     mapping(string => address) private customEntries;
 
-//    constructor(address _onsRegistryAddress) Ownable(msg.sender)  {
-    constructor(address _onsRegistryAddress)  {
+    uint256[50] private __gap;
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _onsRegistryAddress) public initializer {
+        __Ownable_init(msg.sender);
         onsRegistry = ONSRegistry(_onsRegistryAddress);
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function resolveONS(string memory onsName) public view returns (address) {
         bytes32 node = namehash(onsName);

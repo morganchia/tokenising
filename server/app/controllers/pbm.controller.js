@@ -6,6 +6,7 @@ const PBM_Draft = db.pbm_draft;
 const wrapMints_Draft = db.wrapmints_draft;
 const Op = db.Sequelize.Op;
 const { logDataValues } = require('../utils/logDataValues');
+const { deployUUPSProxy } = require('../utils/proxyDeploy');
 
 var newcontractaddress = null;
 const adjustdecimals = 18;
@@ -447,103 +448,13 @@ exports.approveDraftById = async (req, res) => {  //
     
       console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
 
-      async function compileSmartContract() {
-        // solc compiler
-        solc = require("solc");
-
-        // file reader
-        fs = require("fs");
-
-        console.log("Reading smart contract file... ");
-
-        // Reading the file
-        file = fs.readFileSync("./server/app/contracts/ERC20TokenPBM.sol").toString();
-        // console.log(file);
-
-        // input structure for solidity compiler
-        var input = {
-          language: "Solidity",
-          sources: {
-            "ERC20TokenPBM.sol": {
-              content: file,
-            },
-          },
-          settings: {
-            outputSelection: {
-              "*": {
-                "*": ["*"],
-              },
-            },
-          },
-        };
-
-        const path = require('path');
-        // https://stackoverflow.com/questions/67321111/file-import-callback-not-supported/68459731#68459731
-        function findImports(relativePath) {
-          //my imported sources are stored under the node_modules folder!
-          const absolutePath = path.resolve(__dirname, '../../../node_modules', relativePath);
-          const source = fs.readFileSync(absolutePath, 'utf8');
-          console.log("reading file: ", absolutePath);
-
-          return { contents: source };
-        }
-          
-        console.log("Compiling smart contract file... ");
-        var output = JSON.parse(solc.compile(JSON.stringify(input), { import: findImports }));
-        console.log("Compilation done... ");
-        console.log("Result of compilation: ", output);
-
-        console.log("Generating bytecode from smart contract file ");
-        ABI = output.contracts["ERC20TokenPBM.sol"]["PBMToken"].abi;
-        bytecode = output.contracts["ERC20TokenPBM.sol"]["PBMToken"].evm.bytecode.object;
-        // console.log("solc.compile output: ", output);
-        // console.log("ABI: ", ABI);
-        // console.log("Bytecode: ", bytecode);
-        await fs.writeFile("./server/app/abis/ERC20TokenPBM.abi.json", JSON.stringify(ABI) , 'utf8', function (err) {
-          if (err) {
-            console.log("An error occured while writing PBM ABI JSON Object to File.");
-            return console.log(err);
-          }
-          console.log("PBM ABI JSON file has been saved.");
-        });
-        await fs.writeFile("./server/app/abis/ERC20TokenPBM.bytecode.json", JSON.stringify(bytecode) , 'utf8', function (err) {
-          if (err) {
-            console.log("An error occured while writing PBM bytecode JSON Object to File.");
-            return console.log(err);
-          }
-          console.log("PBM Bytecode JSON file has been saved.");
-        });
-
-      }
-
       async function dAppCreate() {
         updatestatus = false;
 
         fs = require("fs");
 
-        try {
-          if (! (fs.existsSync("./server/app/abis/ERC20TokenPBM.abi.json") && fs.existsSync("./server/app/abis/ERC20TokenPBM.bytecode.json"))) {
-            await compileSmartContract();
-          } else{
-            // Just read the ABI file
-            console.log("PBM ABI and Bytecode files are present, just read them, no need to recompile...");
-            console.log("Read PBM ABI JSON file.");
-            ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenPBM.abi.json").toString());
-            console.log("Read PBM Bytecode JSON file.");
-            bytecode = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenPBM.bytecode.json").toString());
-          }
-        } catch(err) {
-          console.error("Err7: ",err)
-          if (!errorSent) {
-            console.log("Sending error 400 back to client");
-            res.status(400).send({ 
-              message: err
-            });
-            errorSent = true;
-          }
-          return false;
-        }
-        
+        ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenPBM.abi.json").toString());
+
         // Creation of Web3 class
         Web3 = require("web3");
 
@@ -570,111 +481,33 @@ exports.approveDraftById = async (req, res) => {  //
           // Deploy contract
           const deployContract = async () => {
             console.log('Attempting to deploy from account:', signer.address);
-            const ERC20TokenPBMcontract = new web3.eth.Contract(ABI);
-            const contractTx = await ERC20TokenPBMcontract.deploy({
-              data: bytecode,
-              arguments:  [req.body.underlyingDSGDsmartcontractaddress, req.body.name+' Token', req.body.tokenname, 
-                            Number(new Date(req.body.enddate))
-                          ],
-            });
 
-            // https://github.com/web3/web3.js/issues/1001
-            web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
-
-            const createTransaction = await web3.eth.accounts.signTransaction(
-              {
-                from: signer.address,
-                data: contractTx.encodeABI(),
-                gas: 8700000,  // 4700000,
-              },
-              signer.privateKey
-            );
-            console.log('Sending signed txn...');
-            //console.log('Sending signed txn:', createTransaction);
-
-
-            const createReceipt = await web3.eth.sendSignedTransaction( // deploying PBM contract
-              createTransaction.rawTransaction, 
-            
-              function (error1, hash) {
-                if (error1) {
-                    console.log("Error11a  when submitting your signed transaction:", error1);
-                    if (!errorSent) {
-                      console.log("Sending error 400 back to client");
-                      res.status(400).send({ 
-                        message: error1.toString().replace('*', ''),
-                      });
-                      errorSent = true;
-                    }
-                    return false;
-              } else {
-                  console.log("Txn sent!, hash: ", hash);
-                  var timer = 1;
-                  // retry every second to chk for receipt
-                  const interval = setInterval(function() {
-                    console.log("Attempting A to get transaction receipt... ("+timer+")");
-    
-                    // https://ethereum.stackexchange.com/questions/67232/how-to-wait-until-transaction-is-confirmed-web3-js
-                    web3.eth.getTransactionReceipt(hash, async function(error3, receipt) {
-                      if (receipt) {
-                        console.log('>> GOT RECEIPT!!!!!!!!!!!!!!!!!!!!!!!');
-                        clearInterval(interval);
-                        console.log('Receipt -->>: ', receipt);
-    
-                        const trx = await web3.eth.getTransaction(hash);
-                        console.log('trx.status -->>: ',trx);
-    
-                        return(receipt.status);
-                      }
-                      if (error3) {
-                        console.log("!! getTransactionReceipt error (1): ", error3)
-                        clearInterval(interval);
-                        if (!errorSent) {
-                          console.log("Sending error 400 back to client");
-                          res.status(400).send({ 
-                            message: error3.toString().replace('*', ''),
-                          });
-                          errorSent = true;
-                        }
-                        return false;
-                      }
-                      if (timer > 180) {
-                        console.log("!! getTransactionReceipt error (1): timeout after 180 seconds");
-                        clearInterval(interval);
-                        if (!errorSent) {
-                          console.log("Sending error 400 back to client");
-                          res.status(400).send({ 
-                            message: "Timeout after 180 seconds, please check the PBM status after 5 minutes and try again if the PBM isnt created.",
-                          });
-                          errorSent = true;
-                        }
-                        return false;
-                      }
-                    });
-                    timer++;
-                  }, 1000);
-                } // function
-              })
-              .on("error", err => {
-                  console.log("Err22 sentSignedTxn error: ", err)
-                  if (!errorSent) {
-                    console.log("Sending error 400 back to client");
-                    res.status(400).send({ 
-                      message: err.toString().replace('*', ''),
-                    });
-                    errorSent = true;
-                  }
-                  return false;
-            // do something on transaction error
-              }); // sendSignedTransaction
-    
-            console.log('**** Txn executed:', createReceipt);
-
-            console.log('New Contract deployed at address', createReceipt.contractAddress);
-            newcontractaddress = createReceipt.contractAddress;
-
-            return true;
-
+            try {
+              newcontractaddress = await deployUUPSProxy({
+                web3,
+                signer,
+                implAddressEnvVar: `PBM_IMPLEMENTATION_ADDRESS_${req.body.campaign.blockchain}`,
+                targetAbi: ABI,
+                initArgs: [
+                  req.body.underlyingDSGDsmartcontractaddress,
+                  req.body.name + ' Token',
+                  req.body.tokenname,
+                  Number(new Date(req.body.enddate)),
+                ],
+              });
+              console.log('New Contract deployed at address', newcontractaddress);
+              return true;
+            } catch (err) {
+              console.error("Err22 deploying PBM proxy: ", err);
+              if (!errorSent) {
+                console.log("Sending error 400 back to client");
+                res.status(400).send({
+                  message: err.toString().replace('*', ''),
+                });
+                errorSent = true;
+              }
+              return false;
+            }
           };
 
           return(await deployContract());

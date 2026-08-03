@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function transfer(address recipient, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
 }
 
-contract ERCTokenDVP {
+contract ERCTokenDVP is Initializable, UUPSUpgradeable {
     address public owner;
     string  public name;
     address public counterparty1;
@@ -18,6 +21,8 @@ contract ERCTokenDVP {
     uint256 public amount2;
     uint256 public startdate;
     uint256 public enddate;
+
+    uint256[50] private __gap;
 
     event TradeExecuted(address indexed counterparty1, address indexed counterparty2, uint256 amount1, uint256 amount2);
     event TradeFailed(string reason);
@@ -35,7 +40,12 @@ contract ERCTokenDVP {
         _;
     }
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         string memory _name,
         address _counterparty1,
         address _counterparty2,
@@ -45,7 +55,7 @@ contract ERCTokenDVP {
         uint256 _amount2,   // exchange rate between token1 and 2
         uint256 _startdate,
         uint256 _enddate
-    ) {
+    ) public initializer {
         require(_startdate <= _enddate, "Start date must be before or equal to end date");
 
         owner = msg.sender;
@@ -59,6 +69,8 @@ contract ERCTokenDVP {
         startdate = _startdate;
         enddate = _enddate;
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function updateExchangeRate(uint256 newAmount1, uint256 newAmount2) public onlyOwner {
         amount1 = newAmount1;

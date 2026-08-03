@@ -5,6 +5,7 @@ const Repo = db.repos;
 const Repo_Draft = db.repos_draft;
 const Op = db.Sequelize.Op;
 const { logDataValues } = require('../utils/logDataValues');
+const { deployUUPSProxy } = require('../utils/proxyDeploy');
 const moment = require('moment-timezone'); // Added for SGT-to-UTC conversion
 
 
@@ -336,81 +337,13 @@ exports.approveDraftById = async (req, res) => {
 
   console.log("!!!1 Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
 
-  async function compileSmartContract() {
-    solc = require("solc");
-    fs = require("fs");
-
-    console.log("Reading smart contract file... ");
-    file = fs.readFileSync("./server/app/contracts/ERC20TokenRepo.sol").toString();
-
-    // input structure for solidity compiler
-    var input = {
-      language: "Solidity",
-      sources: {
-        "ERC20TokenRepo.sol": {
-          content: file,
-        },
-      },
-      settings: {
-        optimizer: {     // to avoid "Stack too deep" error
-          enabled: true, // Enable optimizer to reduce stack depth
-          runs: 200,     // Optimize for 200 runs
-        },
-        viaIR: true,     // Enable IR-based compilation to avoid stack issues
-        outputSelection: {
-          "*": {
-            "*": ["*"],
-          },
-        },
-      },    
-    };
-
-    const path = require('path');
-    // https://stackoverflow.com/questions/67321111/file-import-callback-not-supported/68459731#68459731
-    function findImports(relativePath) {
-      const absolutePath = path.resolve(__dirname, '../../../node_modules', relativePath);
-      const source = fs.readFileSync(absolutePath, 'utf8');
-      console.log("Reading file: ", absolutePath);
-      return { contents: source };
-    }
-      
-    console.log("Compiling smart contract file... ");
-    var output = JSON.parse(solc.compile(JSON.stringify(input), { import: findImports }));
-    // Check for compilation errors
-    if (output.errors && output.errors.some(error => error.severity === 'error')) {
-      console.error("Compilation errors:", output.errors);
-      throw new Error("Smart contract compilation failed");
-    }
-    
-    console.log("Compilation done... ");
-    console.log("Generating bytecode from smart contract file ");
-    ABI = output.contracts["ERC20TokenRepo.sol"]["ERC20TokenRepo"].abi;
-    bytecode = output.contracts["ERC20TokenRepo.sol"]["ERC20TokenRepo"].evm.bytecode.object;
-
-    await fs.writeFile("./server/app/abis/ERC20TokenRepo.abi.json", JSON.stringify(ABI), 'utf8', function (err) {
-      if (err) {
-        console.log("An error occurred while writing Repo ABI JSON Object to File.");
-        throw err;
-      }
-      console.log("Repo ABI JSON file has been saved.");
-    });
-    await fs.writeFile("./server/app/abis/ERC20TokenRepo.bytecode.json", JSON.stringify(bytecode), 'utf8', function (err) {
-      if (err) {
-        console.log("An error occurred while writing Repo bytecode JSON Object to File.");
-        throw err;
-      }
-      console.log("Repo Bytecode JSON file has been saved.");
-    });
-  }
-
   async function dAppCreate() {
     var errorSent = false;
     updatestatus = false;
 
     fs = require("fs");
 
-    console.log("Compiling smart contract...");
-    await compileSmartContract();
+    ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenRepo.abi.json").toString());
 
     // Creation of Web3 class
     Web3 = require("web3");
@@ -466,8 +399,6 @@ exports.approveDraftById = async (req, res) => {
 
       console.log("this_amount1 (Wei): ", this_amount1);
       console.log("this_amount2 (Wei): ", this_amount2);
-
-      const ERC20TokenRepoContract = new web3.eth.Contract(ABI);
 
       // Deploy contract
       const deployContract = async () => {
@@ -528,83 +459,16 @@ exports.approveDraftById = async (req, res) => {
 
         console.log('Trade input array:', tradeInputArray);
         console.log('Attempting to deploy from account:', signer.address);
-        let nonce = await web3.eth.getTransactionCount(signer.address, "pending");
-        const deployTx = ERC20TokenRepoContract.deploy({ data: bytecode, arguments: [tradeInputArray] });
-        let gasFees;
-        try {
-          gasFees = await deployTx.estimateGas({ from: signer.address });
-        } catch (error2) {
-          console.error("Error while estimating Gas fee: ", error2);
-          gasFees = 2100000;
-        }
-        console.log("Estimated gas fee for deploy: ", gasFees);
 
-        let currentGas = Math.floor(gasFees * 1.1);
-        const maxGas = gasFees * 2;
-        let gasPrice = await web3.eth.getGasPrice();
-        gasPrice = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(12)).div(web3.utils.toBN(10)).toString(); // Increase gas price by 20%
-
-        const createTransaction = await web3.eth.accounts.signTransaction(
-          {
-            from: signer.address,
-            data: deployTx.encodeABI(),
-            gas: currentGas,
-            gasPrice: gasPrice,
-            nonce: nonce,
-          },
-          signer.privateKey
-        );
-        console.log('Sending signed Repo deploy txn...');
-
-        const maxRetries = 5;
-        let attempt = 0;
-
-        while (attempt < maxRetries) {
-          try {
-            const createReceipt = await web3.eth.sendSignedTransaction(createTransaction.rawTransaction);
-            console.log('**** Txn executed:', createReceipt);
-            console.log('New Contract deployed at address', createReceipt.contractAddress);
-            newcontractaddress = createReceipt.contractAddress;
-            ERC20TokenRepoContract.options.address = newcontractaddress;
-            return true;
-          } catch (error) {
-            console.log(`Attempt ${attempt + 1} failed:`, error.message);
-            if (error.message.includes("nonce too low") || error.message.includes("replacement transaction underpriced")) {
-              attempt++;
-              if (attempt >= maxRetries) {
-                console.log("Max retries reached, deployment failed.");
-                if (!errorSent) {
-                  res.status(400).send({ message: "Max retries reached for transaction deployment." });
-                  errorSent = true;
-                }
-                return false;
-              }
-              // Update nonce and increase gas price
-              nonce = await web3.eth.getTransactionCount(signer.address, "pending");
-              currentGas = Math.min(Math.floor(currentGas * 1.1), maxGas);
-              gasPrice = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(12)).div(web3.utils.toBN(10)).toString();
-              console.log(`Retrying with nonce: ${nonce}, gas: ${currentGas}, gasPrice: ${gasPrice}`);
-              const newTransaction = await web3.eth.accounts.signTransaction(
-                {
-                  from: signer.address,
-                  data: deployTx.encodeABI(),
-                  gas: currentGas,
-                  gasPrice: gasPrice,
-                  nonce: nonce,
-                },
-                signer.privateKey
-              );
-              createTransaction.rawTransaction = newTransaction.rawTransaction;
-            } else {
-              console.log("Unexpected error during deployment:", error);
-              if (!errorSent) {
-                res.status(400).send({ message: error.toString().replace('*', '') });
-                errorSent = true;
-              }
-              return false;
-            }
-          }
-        }
+        newcontractaddress = await deployUUPSProxy({
+          web3,
+          signer,
+          implAddressEnvVar: `REPO_IMPLEMENTATION_ADDRESS_${req.body.blockchain}`,
+          targetAbi: ABI,
+          initArgs: [tradeInputArray],
+        });
+        console.log('New Contract deployed at address', newcontractaddress);
+        return true;
       };
 
       if (await deployContract()) {

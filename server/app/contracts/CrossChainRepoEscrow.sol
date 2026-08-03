@@ -2,11 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 // Long-lived escrow contract deployed once per chain. Each cross-chain Repo leg
 // (start or maturity) is locked here, and released once a 2-of-3 relayer quorum
 // confirms the matching leg was also locked on the counterparty's chain.
-contract CrossChainRepoEscrow {
+contract CrossChainRepoEscrow is Initializable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     address public owner;
@@ -31,6 +33,8 @@ contract CrossChainRepoEscrow {
     }
 
     mapping(bytes32 => Leg) private legs;
+
+    uint256[50] private __gap;
 
     event Locked(bytes32 indexed legId, address indexed token, address indexed depositor, address beneficiary, uint256 amount, uint256 deadline);
     event Confirmed(bytes32 indexed legId, address indexed relayer, uint256 confirmCount);
@@ -61,7 +65,12 @@ contract CrossChainRepoEscrow {
         _;
     }
 
-    constructor(address[] memory _relayers, uint256 _threshold) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address[] memory _relayers, uint256 _threshold) public initializer {
         require(_threshold > 0 && _threshold <= _relayers.length, "Invalid threshold");
         owner = msg.sender;
         admins[msg.sender] = true;
@@ -74,6 +83,8 @@ contract CrossChainRepoEscrow {
         }
         relayerCount = _relayers.length;
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function manageAdmins(address _admin, bool _add) public onlyOwner {
         require(_admin != address(0), "Invalid admin address");

@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /*
 interface IERC20 {
@@ -13,7 +15,7 @@ interface IERC20 {
 }
 */
 
-contract ERC20TokenRepo {
+contract ERC20TokenRepo is Initializable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     function _safeTransferFrom(address token, address from, address to, uint256 amount) internal {
@@ -64,6 +66,8 @@ contract ERC20TokenRepo {
 
     mapping(uint256 => Trade) public trades;
 
+    uint256[50] private __gap;
+
     event TradeCreated(uint256 indexed tradeId, address indexed counterparty1, address indexed counterparty2);
     event TradeStarted(uint256 indexed tradeId);
     event TradeMatured(uint256 indexed tradeId);
@@ -94,8 +98,13 @@ contract ERC20TokenRepo {
         _;
     }
 
-    // Constructor accepts an optional TradeInput to create a trade during deployment; if invalid or empty, no trade is created
-    constructor(TradeInput memory input) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // initialize() accepts an optional TradeInput to create a trade at proxy-deploy time; if invalid or empty, no trade is created
+    function initialize(TradeInput memory input) public initializer {
         owner = msg.sender;
         tradeCount = 0;
         paused = false;
@@ -133,6 +142,8 @@ contract ERC20TokenRepo {
             emit TradeCreated(tradeCount, input.counterparty1, input.counterparty2);
         }
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     // Set the contract end date, after which most functions are disabled
     // _newEndDate: UTC timestamp; input as SGT (UTC+8) converted to UTC (subtract 28,800 seconds)

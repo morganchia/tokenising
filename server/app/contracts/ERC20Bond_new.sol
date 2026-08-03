@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"; 
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol"; 
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; 
+import "@openzeppelin/contracts/utils/math/Math.sol";
+// ReentrancyGuardTransient uses EIP-1153 transient storage (cleared every tx), so it
+// has no persistent storage of its own — no "Upgradeable" variant needed for proxies.
+import "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 //import "@openzeppelin/contracts@5.0.2/token/ERC20/ERC20.sol";
 //import "@openzeppelin/contracts@5.0.2/token/ERC20/IERC20.sol";
@@ -17,7 +21,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 //import "@openzeppelin/contracts@5.0.2/token/ERC20/extensions/ERC20Pausable.sol";
 //import "@openzeppelin/contracts@5.0.2/utils/Strings.sol";
 
-contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
+contract BondToken is Initializable, ERC20Upgradeable, ERC20PausableUpgradeable, OwnableUpgradeable, ReentrancyGuardTransient, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     // Bond configuration
@@ -42,6 +46,8 @@ contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
     mapping(uint256 => bool) private _couponPaid;
     uint256 public couponCount;
     bool public initialized; // Tracks whether bond has been initialized
+
+    uint256[50] private __gap;
 
     // Events
     event CouponPaid(address indexed to, uint256 couponpaid, uint256 timestamp, uint256 couponIndex);
@@ -87,8 +93,17 @@ contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
     uint256 private constant RATE_DENOMINATOR = 10_000_000; // couponRate in 0.00001% units; 100% = 10,000,000 
     uint256 private constant FUTURE_DATE = 4102444800; 
 
-    // Constructor accepts only BondConfig to initialize bond during deployment
-    constructor(BondConfig memory _config) ERC20(_config.tokenName, _config.tokenSymbol) Ownable(msg.sender) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // initialize() accepts only BondConfig to set up the bond at proxy-deploy time
+    function initialize(BondConfig memory _config) public initializer {
+        __ERC20_init(_config.tokenName, _config.tokenSymbol);
+        __Ownable_init(msg.sender);
+        __Pausable_init();
+
         // If valid bond parameters are provided, initialize the bond
         if (
             _config.totalSupply > 0 &&
@@ -122,6 +137,8 @@ contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
             );
         }
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     // Function to create/initialize bond with parameters, callable only if not initialized
     function createBond(BondConfig memory _config) public onlyAdminOrOwner {
@@ -407,8 +424,8 @@ contract BondToken is ERC20, ERC20Pausable, Ownable, ReentrancyGuard {
         IERC20(token).safeTransfer(to, amount);
     }
 
-    // Override _update to handle both ERC20 and ERC20Pausable
-    function _update(address from, address to, uint256 amount) internal override(ERC20, ERC20Pausable) ifActionAllowed(from) ifActionAllowed(to) {
+    // Override _update to handle both ERC20Upgradeable and ERC20PausableUpgradeable
+    function _update(address from, address to, uint256 amount) internal override(ERC20Upgradeable, ERC20PausableUpgradeable) ifActionAllowed(from) ifActionAllowed(to) {
         super._update(from, to, amount);
     }
 

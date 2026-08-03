@@ -26,6 +26,30 @@ const SYNC_ARTIFACTS = [
     artifactPath: "artifacts/server/app/contracts/CrossChainRepoEscrow.sol/CrossChainRepoEscrow.json",
     destStem: "CrossChainRepoEscrow",
   },
+  {
+    artifactPath: "artifacts/server/app/contracts/ERC20Bond_new.sol/BondToken.json",
+    destStem: "ERC20Bond_new",
+  },
+  {
+    artifactPath: "artifacts/server/app/contracts/ERC20TokenPBM.sol/PBMToken.json",
+    destStem: "ERC20TokenPBM",
+  },
+  {
+    artifactPath: "artifacts/server/app/contracts/ERC20TokenRepo.sol/ERC20TokenRepo.json",
+    destStem: "ERC20TokenRepo",
+  },
+  {
+    artifactPath: "artifacts/server/app/contracts/ERCTokenDvP.sol/ERCTokenDVP.json",
+    destStem: "ERCTokenDvP",
+  },
+  {
+    artifactPath: "artifacts/server/app/contracts/ONS.sol/ONSManager.json",
+    destStem: "ONS",
+  },
+  {
+    artifactPath: "artifacts/server/app/contracts/TokenizedBankDeposit.sol/TokenizedBankDeposit.json",
+    destStem: "TokenizedBankDeposit",
+  },
 ];
 
 const ABI_DIRS = [
@@ -61,13 +85,20 @@ task("compile", "Compiles contracts and syncs ABI/bytecode to server and client"
   });
 
 // Only compile the contracts needed for deployment scripts.
-// All other contracts in server/app/contracts/ are legacy (OZ v4 style) and
-// are not compiled by Hardhat — they are compiled by the server's solc at runtime.
+// ERC20TokenisedBond.sol is intentionally excluded: it declares a second, unused
+// contract also named "BondToken" (see ERC20Bond_new.sol), and compiling both would
+// make ethers.getContractFactory("BondToken") ambiguous for the real one.
 const COMPILE_ONLY = [
   "ERC1155Tokenised_Payable.sol",
   "ERC20TokenDSGD.sol",
   "ERC1967ProxyHelper.sol",  // forces ERC1967Proxy artifact generation for server deployment
   "CrossChainRepoEscrow.sol",
+  "ERC20Bond_new.sol",
+  "ERC20TokenPBM.sol",
+  "ERC20TokenRepo.sol",
+  "ERCTokenDvP.sol",
+  "ONS.sol",
+  "TokenizedBankDeposit.sol",
 ];
 
 subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS, async (_, __, runSuper) => {

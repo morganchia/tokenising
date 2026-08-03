@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 
 // These tests exercise the escrow contract in isolation on a single Hardhat network,
 // standing in for "one chain". Cross-chain coordination itself is the relayer's job
@@ -15,14 +15,19 @@ describe("CrossChainRepoEscrow", function () {
     const [owner, depositor, beneficiary, relayer1, relayer2, relayer3, stranger] = await ethers.getSigners();
 
     const Token = await ethers.getContractFactory("ERC20TokenDSGD");
-    const token = await Token.deploy("Test Token", "TST", ethers.parseEther("1000000"));
+    const token = await upgrades.deployProxy(
+      Token,
+      ["Test Token", "TST", ethers.parseEther("1000000")],
+      { kind: "uups" }
+    );
     await token.waitForDeployment();
     await token.mint(depositor.address, ethers.parseEther("1000"));
 
     const Escrow = await ethers.getContractFactory("CrossChainRepoEscrow");
-    const escrow = await Escrow.deploy(
-      [relayer1.address, relayer2.address, relayer3.address],
-      2
+    const escrow = await upgrades.deployProxy(
+      Escrow,
+      [[relayer1.address, relayer2.address, relayer3.address], 2],
+      { kind: "uups" }
     );
     await escrow.waitForDeployment();
 

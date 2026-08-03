@@ -5,6 +5,7 @@ const Bond = db.bonds;
 const Bond_Draft = db.bonds_draft;
 const Op = db.Sequelize.Op;
 const { logDataValues } = require('../utils/logDataValues');
+const { deployUUPSProxy } = require('../utils/proxyDeploy');
 
 var newcontractaddress = null;
 const adjustdecimals = 18;
@@ -299,124 +300,12 @@ exports.approveDraftById = async (req, res) => {  //
     
       console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
 
-      async function compileSmartContract() {
-        // solc compiler
-        solc = require("solc");
-
-        // file reader
-        fs = require("fs");
-
-        console.log("Reading smart contract file... ");
-
-        // Reading the file
-//        file = fs.readFileSync("./server/app/contracts/ERC20TokenisedBond.sol").toString();
-        file = fs.readFileSync("./server/app/contracts/ERC20Bond_new.sol").toString();
-        // console.log(file);
-
-        // input structure for solidity compiler
-/*
-        var input = {
-          language: "Solidity",
-          sources: {
-//          "ERC20TokenisedBond.sol": {
-            "ERC20Bond_new.sol": {
-              content: file,
-            },
-          },
-          settings: {
-            outputSelection: {
-              "*": {
-                "*": ["*"],
-              },
-            },
-          },
-        };
-*/
-
-        const input = {
-            language: 'Solidity',
-            sources: {
-                'ERC20Bond_new.sol': {
-                    content: file
-                }
-            },
-            settings: {
-                optimizer: {
-                    enabled: true,
-                    runs: 200 // Number of optimization runs
-                },
-                viaIR: true, // Enable Yul IR pipeline
-                outputSelection: {
-                    '*': {
-                        '*': ['*']
-                    }
-                }
-            }
-        };
-
-        const path = require('path');
-        // https://stackoverflow.com/questions/67321111/file-import-callback-not-supported/68459731#68459731
-
-        function findImports(relativePath) {
-          //my imported sources are stored under the node_modules folder!
-          const absolutePath = path.resolve(__dirname, '../../../node_modules', relativePath);
-          const source = fs.readFileSync(absolutePath, 'utf8');
-          console.log("reading file: ", absolutePath);
-          return { contents: source };
-        }
-          
-        console.log("Compiling smart contract file... ");
-        var output = JSON.parse(solc.compile(JSON.stringify(input), { import: findImports }));
-        console.log("Compilation done... ");
-        console.log("Result of compilation: ", output);
-
-        console.log("Generating bytecode from smart contract file ");
-//        ABI = output.contracts["ERC20TokenisedBond.sol"]["BondToken"].abi;
-//        bytecode = output.contracts["ERC20TokenisedBond.sol"]["BondToken"].evm.bytecode.object;
-        ABI = output.contracts["ERC20Bond_new.sol"]["BondToken"].abi;
-        bytecode = output.contracts["ERC20Bond_new.sol"]["BondToken"].evm.bytecode.object;
-        // console.log("solc.compile output: ", output);
-        // console.log("ABI: ", ABI);
-        // console.log("Bytecode: ", bytecode);
-
-                
-//        await fs.writeFile("./server/app/abis/ERC20TokenisedBond.abi.json", JSON.stringify(ABI) , 'utf8', function (err) {
-        await fs.writeFile("./server/app/abis/ERC20Bond_new.abi.json", JSON.stringify(ABI) , 'utf8', function (err) {
-          if (err) {
-            console.log("An error occured while writing Bond ABI JSON Object to File.");
-            return console.log(err);
-          }
-          console.log("Bond ABI JSON file has been saved.");
-        });
-//         await fs.writeFile("./server/app/abis/ERC20TokenisedBond.bytecode.json", JSON.stringify(bytecode) , 'utf8', function (err) {
-        await fs.writeFile("./server/app/abis/ERC20Bond_new.bytecode.json", JSON.stringify(bytecode) , 'utf8', function (err) {
-          if (err) {
-            console.log("An error occured while writing Bond bytecode JSON Object to File.");
-            return console.log(err);
-          }
-          console.log("Bond Bytecode JSON file has been saved.");
-        });
-
-      }
-
       async function dAppCreate() {
         updatestatus = false;
         fs = require("fs");
 
-        try {
-          await compileSmartContract();
-        } catch(err) {
-          console.error("Err7: ",err);
-          if (!errorSent) {
-            console.log("Sending error 400 back to client");
-            res.status(400).send({ 
-              message: "Error when compiling Bond smart contract. Please contact your tech support."
-            });
-            errorSent = true;
-          }
-          return false;
-        }
-            
+        ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20Bond_new.abi.json").toString());
+
         Web3 = require("web3");
         web3 = new Web3( 
           Web3.providers.HttpProvider(
@@ -434,7 +323,6 @@ exports.approveDraftById = async (req, res) => {  //
         try {
           const deployContract = async () => {
             console.log('Attempting to deploy from account:', signer.address);
-            const ERC20TokenisedBondcontract = new web3.eth.Contract(ABI);
 
             console.log("Extracting issuer name from id...");
             const recipient = await Recipients.findByPk(req.body.issuerId || req.body.issuer);
@@ -583,144 +471,17 @@ exports.approveDraftById = async (req, res) => {  //
 
             console.log('BondConfig:', bondConfig);
 
-
-
-            let gasFees = await retryWithBackoff(() => ERC20TokenisedBondcontract.deploy({
-              data: bytecode,
-              arguments: [bondConfig],
-            })
-            .estimateGas({ from: signer.address })
-            .then((gasAmount) => {
-              console.log("Estimated gas amount for signTransaction: ", gasAmount);
-              return gasAmount;
-            })
-            .catch((error2) => {
-              console.log("Error while estimating Gas fee: ", error2);
-              return 2100000;
-            }));
-
-            console.log("Initial estimated gas fee: ", gasFees);
-
-            const balance = await web3.eth.getBalance(signer.address);
-            console.log("Signer balance:", web3.utils.fromWei(balance, "ether"), "ETH");
-            if (web3.utils.toBN(balance).lt(web3.utils.toBN(gasFees).mul(web3.utils.toBN("1000000000")))) {
-              res.status(400).send({ message: "Insufficient funds for gas." });
-              return false;
-            }
-
-            const contractTx = await retryWithBackoff(() => ERC20TokenisedBondcontract.deploy({
-              data: bytecode,
-              arguments: [bondConfig],
-            }));
-
-            const nonce = await web3.eth.getTransactionCount(signer.address, "pending");
-            console.log("Using nonce:", nonce);
-
-            let gasMultiplier = 1.1; // Initial 10% increase
-            const gasIncreaseInterval = 30000; // 30 seconds in milliseconds
-            const maxWaitTime = TIMEOUT * 1000; // 700 seconds in milliseconds
-            let startTime = Date.now();
-
-            const attemptTransaction = async () => {
-              const currentGas = Math.floor(gasFees * gasMultiplier);
-              console.log(`Attempting transaction with gas: ${currentGas} (multiplier: ${gasMultiplier})`);
-
-              const createTransaction = await retryWithBackoff(() => web3.eth.accounts.signTransaction(
-                {
-                  from: signer.address,
-                  data: contractTx.encodeABI(),
-                  gas: currentGas,
-                  nonce: nonce
-                },
-                signer.privateKey
-              ));
-
-              console.log('Sending signed txn...');
-              return new Promise((resolve, reject) => {
-                let timer = 0;
-                const interval = setInterval(async () => {
-                  if (Date.now() - startTime > maxWaitTime) {
-                    clearInterval(interval);
-                    reject(new Error(`Timeout after ${TIMEOUT} seconds`));
-                    return;
-                  }
-
-                  if (timer % gasIncreaseInterval === 0 && timer > 0) {
-                    gasMultiplier += 0.15; // Increase gas by 15%, lower than 10% may get "replace transaction underpriced" error
-                    console.log(`Increasing gas multiplier to ${gasMultiplier}`);
-                    const newGas = Math.floor(gasFees * gasMultiplier);
-                    const newTransaction = await retryWithBackoff(() => web3.eth.accounts.signTransaction(
-                      {
-                        from: signer.address,
-                        data: contractTx.encodeABI(),
-                        gas: newGas,
-                        nonce: nonce
-                      },
-                      signer.privateKey
-                    ));
-                    web3.eth.sendSignedTransaction(newTransaction.rawTransaction, (error1, hash) => {
-                      if (error1 && error1.message.includes("replacement transaction underpriced")) {
-                        console.log("Transaction replacement failed: replacement transaction underpriced!");
-                      } else {
-                        if (error1) {
-                          console.log("Error when submitting signed transaction:", error1);
-                          clearInterval(interval);
-                          reject(error1);
-                        } else {
-                          console.log("Txn sent!, hash: ", hash);
-                          handleReceipt(hash, interval, resolve, reject);
-                        }
-                      }
-                    });
-                  }
-
-                  timer += 1000;
-                }, 1000);
-
-                web3.eth.sendSignedTransaction(createTransaction.rawTransaction, (error1, hash) => {
-                  if (error1) {
-                    console.log("Error when submitting initial signed transaction:", error1);
-                    if (timer >= gasIncreaseInterval) {
-                      return; // Let interval handle retry
-                    }
-                    clearInterval(interval);
-                    reject(error1);
-                  } else {
-                    console.log("Txn sent!, hash: ", hash);
-                    handleReceipt(hash, interval, resolve, reject);
-                  }
-                });
-              });
-            };
-
-            const handleReceipt = (hash, interval, resolve, reject) => {
-              let receiptTimer = 0;
-              const receiptInterval = setInterval(async () => {
-                if (Date.now() - startTime > maxWaitTime) {
-                  clearInterval(interval);
-                  clearInterval(receiptInterval);
-                  reject(new Error(`Timeout after ${TIMEOUT} seconds`));
-                  return;
-                }
-
-                const receipt = await web3.eth.getTransactionReceipt(hash);
-                if (receipt) {
-                  console.log('>> GOT RECEIPT!!!!!!!!!!!!!!!!!!!!!!!');
-                  clearInterval(interval);
-                  clearInterval(receiptInterval);
-                  console.log('Receipt -->>: ', receipt);
-                  const trx = await web3.eth.getTransaction(hash);
-                  console.log('trx.status -->>: ', trx);
-                  newcontractaddress = receipt.contractAddress;
-                  resolve(receipt.status);
-                }
-                receiptTimer += 1000;
-              }, 1000);
-            };
+            const chainId = req.body.campaign.blockchain;
 
             try {
-              const status = await attemptTransaction();
-              console.log('**** Txn executed:', status);
+              newcontractaddress = await deployUUPSProxy({
+                web3,
+                signer,
+                implAddressEnvVar: `BOND_IMPLEMENTATION_ADDRESS_${chainId}`,
+                targetAbi: ABI,
+                initArgs: [bondConfig],
+                timeoutSeconds: TIMEOUT,
+              });
               console.log('New Contract deployed at address', newcontractaddress);
               return true;
             } catch (err) {
