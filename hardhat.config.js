@@ -22,6 +22,10 @@ const SYNC_ARTIFACTS = [
     artifactPath: "artifacts/@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol/ERC1967Proxy.json",
     destStem: "ERC1967Proxy",
   },
+  {
+    artifactPath: "artifacts/server/app/contracts/CrossChainRepoEscrow.sol/CrossChainRepoEscrow.json",
+    destStem: "CrossChainRepoEscrow",
+  },
 ];
 
 const ABI_DIRS = [
@@ -63,6 +67,7 @@ const COMPILE_ONLY = [
   "ERC1155Tokenised_Payable.sol",
   "ERC20TokenDSGD.sol",
   "ERC1967ProxyHelper.sol",  // forces ERC1967Proxy artifact generation for server deployment
+  "CrossChainRepoEscrow.sol",
 ];
 
 subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS, async (_, __, runSuper) => {
@@ -98,6 +103,14 @@ module.exports = {
     },
     amoy: {
       url: process.env.AMOY_RPC_URL || "https://rpc-amoy.polygon.technology",
+      accounts: process.env.REACT_APP_SIGNER_PRIVATE_KEY
+        ? [process.env.REACT_APP_SIGNER_PRIVATE_KEY.startsWith("0x")
+            ? process.env.REACT_APP_SIGNER_PRIVATE_KEY
+            : "0x" + process.env.REACT_APP_SIGNER_PRIVATE_KEY]
+        : [],
+    },
+    fuji: {
+      url: process.env.FUJI_RPC_URL || "https://api.avax-test.network/ext/bc/C/rpc",
       accounts: process.env.REACT_APP_SIGNER_PRIVATE_KEY
         ? [process.env.REACT_APP_SIGNER_PRIVATE_KEY.startsWith("0x")
             ? process.env.REACT_APP_SIGNER_PRIVATE_KEY

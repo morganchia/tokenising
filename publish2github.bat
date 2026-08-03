@@ -1,3 +1,3 @@
 git add .
-git commit -m "Changed ERC1155 to server side AES encryption"
+git commit -m "Added cross-chain repo - testing in progress"
 git push github master

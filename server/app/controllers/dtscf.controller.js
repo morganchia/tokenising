@@ -653,26 +653,17 @@ exports.getTPbyOrgId = async (req, res) => {  // make it work for Anchor and con
       if (dtscfs.length === 0) {
         isAnchor = false;
 
-        // For contractors/sub-contractors: find only the projects they belong to via the
-        // dtscf_contractors table (avoids loading every project in the system).
-        const contractorEntries = await Contractor.findAll({
-          where: { organisation_id: orgId },
-          attributes: ['dtscf_project_id']
-        });
-        const projectIds = [...new Set(contractorEntries.map(c => c.dtscf_project_id).filter(Boolean))];
-        if (projectIds.length === 0) {
-          console.log(`[getTPbyOrgId] No contractor entries for org ${orgId}, returning []`);
-          res.send([]);
-          return;
-        }
+        // For contractors/sub-contractors: scan ALL projects and rely on the blockchain
+        // balance check to filter. This correctly handles NFTs transferred directly via
+        // MetaMask (outside the app), where the receiving contractor has no dtscf_contractors
+        // row for the project but does hold the token on-chain.
         dtscfs = await Dtscfs.findAll({
           include: [
             { model: Recipients, as: 'anchor', attributes: ['name'] },
             { model: Campaigns, as: 'underlyingToken', attributes: ['tokenname'] }
-          ],
-          where: { id: projectIds }
+          ]
         });
-        console.log(`Found ${dtscfs.length} projects for contractor org ${orgId}: [${projectIds.join(',')}]`);
+        console.log(`[getTPbyOrgId] Scanning all ${dtscfs.length} projects for contractor wallet ${w1}`);
       }
 
       const results = await Promise.all(dtscfs.map(async dtscf => {  // loop thru all the TP smart contract tokens

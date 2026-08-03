@@ -52,6 +52,7 @@ require("./app/routes/dvp.routes")(app);
 require("./app/routes/bond.routes")(app);
 require("./app/routes/bridge.routes")(app);
 require("./app/routes/repo.routes")(app);
+require("./app/routes/crosschaindvp.routes")(app);
 require("./app/routes/dtscf.routes")(app);
 
 app.use((err, req, res, next) => {

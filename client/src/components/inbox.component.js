@@ -9,10 +9,14 @@ import MintDataService from "../services/mint.service";
 import TransferDataService from "../services/transfer.service";
 import RecipientDataService from "../services/recipient.service";
 import DtscfDataService from "../services/dtscf.service";
+import CrossChainDvPDataService from "../services/crosschaindvp.service";
 import UserOpsRoleDataService from "../services/user_opsrole.service";
+import { blockchainName } from "../common/crosschaindvp-constants";
 import { Link, Navigate } from "react-router-dom";
 import AuthService from "../services/auth.service";
 import Modal from '../Modal.js';
+import LoadingSpinner from "../LoadingSpinner.js";
+import "../LoadingSpinner.css";
 
 export default class Inbox extends Component {
   constructor(props) {
@@ -30,6 +34,7 @@ export default class Inbox extends Component {
     this.retrieveTransfers = this.retrieveTransfers.bind(this);
     this.retrieveRecipients = this.retrieveRecipients.bind(this);
     this.retrieveDtscf = this.retrieveDtscf.bind(this);
+    this.retrieveCrossChainDvP = this.retrieveCrossChainDvP.bind(this);
 
     this.refreshList = this.refreshList.bind(this);
 //    this.removeAllCampaigns = this.removeAllCampaigns.bind(this);
@@ -45,6 +50,7 @@ export default class Inbox extends Component {
       mints: [],
       transfers: [],
       recipients: [],
+      crosschaindvp: [],
       opsRoles: [],
       currentCampaign: null,
       isMaker: false,
@@ -53,6 +59,7 @@ export default class Inbox extends Component {
 
       currentIndex: -1,
       searchName: "",
+      isLoading: true,
       modal: {
         showm: false,
         modalmsg: "",
@@ -74,7 +81,7 @@ export default class Inbox extends Component {
 
   retrieveBond(userid) {
     if (userid !== undefined) {
-      BondDataService.getAllDraftsByUserId(userid)
+      return BondDataService.getAllDraftsByUserId(userid)
       .then(response => {
         this.setState({
           bond: response.data
@@ -89,7 +96,7 @@ export default class Inbox extends Component {
 
   retrieveBridge(userid) {
     if (userid !== undefined) {
-      BridgeDataService.getAllDraftsByUserId(userid)
+      return BridgeDataService.getAllDraftsByUserId(userid)
       .then(response => {
         this.setState({
           bridge: response.data
@@ -104,7 +111,7 @@ export default class Inbox extends Component {
 
   retrieveDvP(userid) {
     if (userid !== undefined) {
-      DvPDataService.getAllDraftsByUserId(userid)
+      return DvPDataService.getAllDraftsByUserId(userid)
       .then(response => {
         this.setState({
           dvp: response.data
@@ -119,7 +126,7 @@ export default class Inbox extends Component {
 
   retrieveRepo(userid) {
     if (userid !== undefined) {
-      RepoDataService.getAllRepoDraftsByUserId(userid)
+      return RepoDataService.getAllRepoDraftsByUserId(userid)
       .then(response => {
         this.setState({
           repo: response.data
@@ -134,7 +141,7 @@ export default class Inbox extends Component {
 
   retrievePBM(userid) {
     if (userid !== undefined) {
-      PBMDataService.getAllDraftsByUserId(userid)
+      return PBMDataService.getAllDraftsByUserId(userid)
       .then(response => {
         this.setState({
           pbm: response.data
@@ -149,7 +156,7 @@ export default class Inbox extends Component {
 
   retrieveWrapMint(userid) {
     if (userid !== undefined) {
-      PBMDataService.getAllWrapMintDraftsByUserId(userid)
+      return PBMDataService.getAllWrapMintDraftsByUserId(userid)
       .then(response => {
         this.setState({
           wrapmint: response.data
@@ -164,7 +171,7 @@ export default class Inbox extends Component {
 
   retrieveCampaigns(userid) {
     if (userid !== undefined) {
-      CampaignDataService.getAllDraftsByUserId(userid)
+      return CampaignDataService.getAllDraftsByUserId(userid)
       .then(response => {
         this.setState({
           campaigns: response.data
@@ -179,7 +186,7 @@ export default class Inbox extends Component {
 
   retrieveMints(userid) {
     if (userid !== undefined) {
-      MintDataService.getAllDraftsByUserId(userid)
+      return MintDataService.getAllDraftsByUserId(userid)
       .then(response => {
         this.setState({
           mints: response.data
@@ -194,7 +201,7 @@ export default class Inbox extends Component {
 
   retrieveTransfers(userid) {
     if (userid !== undefined) {
-      TransferDataService.getAllDraftsByUserId(userid)
+      return TransferDataService.getAllDraftsByUserId(userid)
       .then(response => {
         this.setState({
           transfers: response.data
@@ -209,7 +216,7 @@ export default class Inbox extends Component {
 
   retrieveRecipients(userid) {
     if (userid !== undefined) {
-      RecipientDataService.getAllDraftsByUserId(userid)
+      return RecipientDataService.getAllDraftsByUserId(userid)
       .then(response => {
         this.setState({
           recipients: response.data
@@ -224,12 +231,27 @@ export default class Inbox extends Component {
 
   retrieveDtscf(userid) {
     if (userid !== undefined) {
-      DtscfDataService.getAllDraftsByUserId(userid)
+      return DtscfDataService.getAllDraftsByUserId(userid)
       .then(response => {
         this.setState({
           dtscf: response.data
         });
         console.log("Response data from retrieveDtscf() DtscfDataService.getAllDraftsByUserId:", response.data);
+      })
+      .catch(e => {
+        console.log(e);
+      });
+    }
+  }
+
+  retrieveCrossChainDvP(userid) {
+    if (userid !== undefined) {
+      return CrossChainDvPDataService.getAllDraftsByUserId(userid)
+      .then(response => {
+        this.setState({
+          crosschaindvp: response.data
+        });
+        console.log("Response data from retrieveCrossChainDvP() CrossChainDvPDataService.getAllDraftsByUserId:", response.data);
       })
       .catch(e => {
         console.log(e);
@@ -252,6 +274,7 @@ export default class Inbox extends Component {
     this.retrieveTransfers();
     this.retrieveRecipients();
     this.retrieveDtscf();
+    this.retrieveCrossChainDvP();
   }
 /*
   removeAllCampaigns() {
@@ -301,17 +324,22 @@ export default class Inbox extends Component {
     console.log("isApprover:", (isapprover === undefined? false: true));
     this.setState({ isApprover: (isapprover === undefined? false: true),});
 
-    this.retrieveBond(user.id);
-    this.retrieveBridge(user.id);
-    this.retrieveDvP(user.id);
-    this.retrieveRepo(user.id);
-    this.retrievePBM(user.id);
-    this.retrieveWrapMint(user.id);
-    this.retrieveCampaigns(user.id);
-    this.retrieveMints(user.id);
-    this.retrieveTransfers(user.id);
-    this.retrieveRecipients(user.id);
-    this.retrieveDtscf(user.id);
+    await Promise.all([
+      this.retrieveBond(user.id),
+      this.retrieveBridge(user.id),
+      this.retrieveDvP(user.id),
+      this.retrieveRepo(user.id),
+      this.retrievePBM(user.id),
+      this.retrieveWrapMint(user.id),
+      this.retrieveCampaigns(user.id),
+      this.retrieveMints(user.id),
+      this.retrieveTransfers(user.id),
+      this.retrieveRecipients(user.id),
+      this.retrieveDtscf(user.id),
+      this.retrieveCrossChainDvP(user.id),
+    ]);
+
+    this.setState({ isLoading: false });
 }
 
   showModal = () => {
@@ -335,7 +363,7 @@ export default class Inbox extends Component {
       return <Navigate to={this.state.redirect} />
     }
 
-    const { searchName, bridge, bond, dvp, repo, pbm, wrapmint, campaigns, mints, transfers, recipients, dtscf, currentUser } = this.state;
+    const { searchName, bridge, bond, dvp, repo, pbm, wrapmint, campaigns, mints, transfers, recipients, dtscf, crosschaindvp, currentUser } = this.state;
 
     return (
       <div className="container">
@@ -352,7 +380,10 @@ export default class Inbox extends Component {
           <div className="col-md-8">
           </div>
           <div className="col-md-12">
-            { bond?.length > 0 || repo?.length > 0 || campaigns?.length > 0 || mints?.length > 0 || transfers?.length > 0 || dvp?.length > 0 || pbm?.length > 0 || wrapmint?.length > 0 || recipients?.length > 0 || dtscf?.length > 0 ? 
+            { this.state.isLoading ?
+            <LoadingSpinner />
+            :
+            bond?.length > 0 || repo?.length > 0 || campaigns?.length > 0 || mints?.length > 0 || transfers?.length > 0 || dvp?.length > 0 || pbm?.length > 0 || wrapmint?.length > 0 || recipients?.length > 0 || dtscf?.length > 0 || crosschaindvp?.length > 0 ?
             <>
                   {(bond && bond.length > 0)? 
                     <>
@@ -575,7 +606,91 @@ export default class Inbox extends Component {
                     null
                   }
 
-                  {(campaigns && campaigns.length > 0)? 
+                  {(crosschaindvp && crosschaindvp.length > 0)?
+                    <>
+                      <h5>
+                        <strong>Cross Chain DvP</strong>
+                      </h5>
+                      <table style={{ border:"1px solid"}}>
+                        <thead>
+                        <tr>
+                          <th>Operation</th>
+                          <th>Name</th>
+                          <th>Blockchain 1</th>
+                          <th>Blockchain 2</th>
+                          <th>Counter Party 1</th>
+                          <th>Counter Party 2</th>
+                          <th>Amt 1</th>
+                          <th>Amt 2</th>
+                          <th>Start Date</th>
+                          <th>End Date</th>
+                          <th>Status</th>
+                          <th>Action</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {crosschaindvp.map((crosschaindvp1, index) => (
+                            <tr key={crosschaindvp1.id}>
+                              <td>{crosschaindvp1.txntype===0?"Create":crosschaindvp1.txntype===1?"Update":"Delete"}</td>
+                              <td>{crosschaindvp1.name}</td>
+                              <td>{blockchainName(crosschaindvp1.blockchain)}</td>
+                              <td>{blockchainName(crosschaindvp1.blockchain2)}</td>
+                              <td>
+                                {
+                                    (
+                                      crosschaindvp1.counterparty1 &&
+                                        crosschaindvp1.counterparty1 !== undefined)
+                                      ? this.shorten(crosschaindvp1.counterparty1)  :null
+                                  }
+                              </td>
+                              <td>
+                                {
+                                    (
+                                      crosschaindvp1.counterparty2 &&
+                                        crosschaindvp1.counterparty2 !== undefined)
+                                      ? this.shorten(crosschaindvp1.counterparty2)  :null
+                                  }
+                              </td>
+                              <td>{crosschaindvp1.amount1.toLocaleString()}</td>
+                              <td>{crosschaindvp1.amount2.toLocaleString()}</td>
+                              <td>{crosschaindvp1.startdatetime.split("T")[0]}</td>
+                              <td>{crosschaindvp1.enddatetime.split("T")[0]}</td>
+                              <td>
+                              {
+                                  crosschaindvp1.status === -1? "Rejected pending correction" :
+                                    (crosschaindvp1.status === 0? "Created pending submission":
+                                      (crosschaindvp1.status === 1? "Submitted pending approval":
+                                        (crosschaindvp1.status === 3? "Approved": null)
+                                      )
+                                    )
+                              }
+                              </td>
+                              <td>
+                                <Link
+                                  to={"/xchaindvpcheckapprove/" + crosschaindvp1.id}
+                                  className="badge badge-warning"
+                                >
+                                  {
+                                    crosschaindvp1.status === -1? "View/Correct Task" : (
+                                      crosschaindvp1.status === 0? "View/Submit Task": (
+                                        crosschaindvp1.status === 1? "View/Approve Task": null
+                                      )
+                                    )
+                                  }
+                                </Link>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <br/>
+                      <br/>
+                    </>
+                  :
+                    null
+                  }
+
+                  {(campaigns && campaigns.length > 0)?
                     <>
                       <h5>
                         <strong>Campaigns for Digital Cash</strong>

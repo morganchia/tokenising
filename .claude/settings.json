@@ -10,7 +10,15 @@
       "WebFetch(domain:metamask.io)",
       "WebFetch(domain:developer.litprotocol.com)",
       "WebFetch(domain:www.npmjs.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(grep -v \"//\\\\|\\\\.message\\\\|errMsg\\\\|error\\\\|message ||\")",
+      "Bash(grep -v \"return\\\\|const\\\\|let\\\\|var\\\\|if\\\\|//\\\\|console\\\\|throw\\\\|new\\\\|await\\\\|resolve\\\\|reject\\\\|reader\\\\|fetch\\\\|http\\\\.\")",
+      "Bash(grep -v \"//\\\\|errMsg\\\\|response\\\\.message\\\\|console\\\\|e\\\\.message\\\\|modalmsg\\\\|log1\\\\|\\\\.message\\\\b\\\\|event\\\\|setMessage\\\\|getMessage\")",
+      "Bash(cat client/src/common/http.js)",
+      "Bash(cat client/src/http-common.js)",
+      "Bash(grep -v \"//\\\\|console\\\\|log\\\\|catch\\(e\\\\|catch \\(e\\\\|catch\\(err\\\\|catch \\(err\\\\|catch\\(error\")",
+      "Bash(xargs grep -l \"event.*Listen\\\\|Transfer.*event\\\\|watch\\\\|poll.*token\\\\|sync.*blockchain\")",
+      "Bash(xargs grep -n \"setInterval\\\\|while.*balance\\\\|await.*sleep\\\\|polling\\\\|sync.*transfer\")"
     ]
   }
 }

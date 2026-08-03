@@ -64,6 +64,11 @@ import RepoSetAllowance from "./components/repo-setallowance.component";
 import RepoTradeManager from "./components/RepoTradeManager.component";
 import RepoTransact from "./components/repo-transact.component";
 
+import CrossChainDvPList from "./components/crosschaindvp-list.component";
+import CrossChainDvPCheckApprove from "./components/crosschaindvp-checkapprove.component";
+import CrossChainDvPSetAllowance from "./components/crosschaindvp-setallowance.component";
+import CrossChainDvPTransact from "./components/crosschaindvp-transact.component";
+
 import PBMWrapCheckApprove from "./components/pbmwrap-checkapprove.component";
 import PBMWrapAdd from "./components/pbmwrap-add.component";
 import PBMWrapList from "./components/pbmwrap-list.component";
@@ -361,6 +366,13 @@ class App extends Component {
                           </Link>
                           <span className="tooltip">DvP</span>
                         </li>
+                        <li>
+                          <Link to={"/xchaindvp"} className="nav-link">
+                            <i className='bx bx-atom' ></i>
+                            <span className="links_name">Cross Chain DvP</span>
+                          </Link>
+                          <span className="tooltip">Cross Chain DvP</span>
+                        </li>
                       </ul>
                     )}
                   </li>
@@ -476,6 +488,10 @@ class App extends Component {
             <Route path="/reposetallowance/:address" element={<RepoSetAllowance />} />
             <Route path="/repotrademanager/:id" element={<RepoTradeManager />} />
             <Route path="/repotransact/:address" element={<RepoTransact/>} />
+            <Route path="/xchaindvp" element={<CrossChainDvPList/>} />
+            <Route path="/xchaindvpcheckapprove/:id" element={<CrossChainDvPCheckApprove/>} />
+            <Route path="/xchaindvpsetallowance/:id" element={<CrossChainDvPSetAllowance/>} />
+            <Route path="/xchaindvptransact/:id" element={<CrossChainDvPTransact/>} />
             <Route path="/pbm" element={<PBMList/>} />
             <Route path="/pbmadd" element={<PBMAdd/>} />
             <Route path="/pbmcheckapprove/:id" element={<PBMCheckApprove/>} />

@@ -57,6 +57,8 @@ db.bonds               = require("./bond.model.js")(sequelize, Sequelize);
 db.bonds_draft         = require("./bond_draft.model.js")(sequelize, Sequelize);
 db.repos               = require("./repo.model.js")(sequelize, Sequelize);
 db.repos_draft         = require("./repo_draft.model.js")(sequelize, Sequelize);
+db.crosschaindvps       = require("./crosschaindvp.model.js")(sequelize, Sequelize);
+db.crosschaindvps_draft = require("./crosschaindvp_draft.model.js")(sequelize, Sequelize);
 db.dtscfs              = require("./dtscfs.model.js")(sequelize, Sequelize);
 db.dtscf_drafts             = require("./dtscf_drafts.model.js")(sequelize, Sequelize);
 db.dtscf_contractors       = require("./dtscf_contractors.model.js")(sequelize, Sequelize);
@@ -300,6 +302,48 @@ db.repos_draft.belongsTo(db.campaigns, {
 db.repos_draft.belongsTo(db.campaigns, {
   foreignKey: "id",
   sourceKey: "underlyingTokenID2"
+});
+
+
+db.crosschaindvps.belongsTo(db.recipients, {
+  foreignKey: "counterparty1",
+  targetKey: "id",
+  constraints: false // counterparty1 stores a wallet address (STRING), not a recipients.id (INTEGER) - association is for query/include use only
+});
+db.crosschaindvps.belongsTo(db.recipients, {
+  foreignKey: "counterparty2",
+  targetKey: "id",
+  constraints: false // same as above
+});
+db.crosschaindvps_draft.belongsTo(db.recipients, {
+  foreignKey: "id",
+  sourceKey: "counterparty1",
+  constraints: false // this association's foreignKey is the draft's own PK, not a real FK - query/include use only
+});
+db.crosschaindvps_draft.belongsTo(db.recipients, {
+  foreignKey: "id",
+  sourceKey: "counterparty2",
+  constraints: false // same as above
+});
+db.crosschaindvps.belongsTo(db.campaigns, {
+  foreignKey: "underlyingTokenID1",
+  targetKey: "id",
+  constraints: false // underlyingTokenID1 may reference bonds.id instead of campaigns.id (securityLB determines which) - association is for query/include use only, same as repos which has no DB-level FK here either
+});
+db.crosschaindvps.belongsTo(db.campaigns, {
+  foreignKey: "underlyingTokenID2",
+  targetKey: "id",
+  constraints: false // same as above
+});
+db.crosschaindvps_draft.belongsTo(db.campaigns, {
+  foreignKey: "id",
+  sourceKey: "underlyingTokenID1",
+  constraints: false // same as the recipients associations above - not a real FK
+});
+db.crosschaindvps_draft.belongsTo(db.campaigns, {
+  foreignKey: "id",
+  sourceKey: "underlyingTokenID2",
+  constraints: false // same as above
 });
 
 
