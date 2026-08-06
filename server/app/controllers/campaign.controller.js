@@ -266,7 +266,8 @@ exports.approveDraftById = async (req, res) => {
       console.log("Using network:"+ ETHEREUM_NETWORK + "("+ req.body.blockchain+")");
 
 //      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
-      const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+      //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+      const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
       const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
       const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
     
@@ -276,8 +277,6 @@ exports.approveDraftById = async (req, res) => {
         updatestatus = false;
         var errorSent = false;
 
-        fs = require("fs");
-
         ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenDSGD.abi.json").toString());
 
         // Creation of Web3 class
@@ -286,7 +285,8 @@ exports.approveDraftById = async (req, res) => {
         // Setting up a HttpProvider
         web3 = new Web3( 
           Web3.providers.HttpProvider(
-            `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+            //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+            `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
           ) 
         );
         //console.log("web3: =========>", web3);
@@ -305,13 +305,25 @@ exports.approveDraftById = async (req, res) => {
           const deployContract = async () => {
             console.log('Attempting to deploy from account:', signer.address);
 
+            // TEMP DIAGNOSTIC: heartbeat to confirm whether the event loop is
+            // still ticking while deployUUPSProxy is in flight. Remove once
+            // the Polygon Amoy hang is root-caused.
+            const heartbeatStart = Date.now();
+            const heartbeat = setInterval(() => {
+              console.log(`[heartbeat] event loop alive at +${Date.now() - heartbeatStart}ms`);
+            }, 2000);
+
             try {
+              // https://github.com/web3/web3.js/issues/1001
+              web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`) );
+
               newcontractaddress = await deployUUPSProxy({
                 web3,
                 signer,
                 implAddressEnvVar: `DSGD_IMPLEMENTATION_ADDRESS_${req.body.blockchain}`,
                 targetAbi: ABI,
                 initArgs: [req.body.tokenname + ' Token', req.body.tokenname, web3.utils.toBN(setToTalSupply)],
+                sendLog: (msg) => console.log('[deployUUPSProxy]', msg),
               });
               console.log('New Contract deployed at address', newcontractaddress);
               return true;
@@ -325,6 +337,8 @@ exports.approveDraftById = async (req, res) => {
                 errorSent = true;
               }
               return false;
+            } finally {
+              clearInterval(heartbeat);
             }
           };
 
@@ -350,25 +364,25 @@ exports.approveDraftById = async (req, res) => {
         updatestatus = false;
     
         // Readng ABI from JSON file
-        fs = require("fs");
         ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenDSGD.abi.json").toString());
-    
+
         // Creation of Web3 class
         Web3 = require("web3");
-    
+
         // Setting up a HttpProvider
-        web3 = new Web3( 
+        web3 = new Web3(
           Web3.providers.HttpProvider(
-            `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
-          ) 
+            //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+            `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+          )
         );
         //console.log("web3: =========>", web3);
-    
+
         console.log("!!! Signer:", SIGNER_PRIVATE_KEY.substring(0,4)+"..." + SIGNER_PRIVATE_KEY.slice(-3));
         // Creating a signing account from a private key
         const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY)
         // console.log("signer:", signer);  // contains private key
-    
+
         // Update contract
         const UpdateContract = async () => {
           try {
@@ -376,7 +390,8 @@ exports.approveDraftById = async (req, res) => {
             const ERC20TokenDSGDcontract = new web3.eth.Contract(ABI);
     
             // https://github.com/web3/web3.js/issues/1001
-            web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+            //web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+            web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`) );
             
             let setToTalSupply = (isNaN(+req.body.amount)? req.body.amount: req.body.amount.toString())   
             + createStringWithZeros(adjustdecimals);  // pad zeros behind
@@ -719,7 +734,6 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
 
     /// Query blockchain
     // Readng ABI from JSON file
-    fs = require("fs");
     ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenDSGD.abi.json").toString());  // <-- dropdown menu
 
     // Creation of Web3 class
@@ -751,8 +765,10 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     console.log("Using network:"+ ETHEREUM_NETWORK + "("+ data[0].blockchain+")");
 
     //    const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
-    const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
-    const provider = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+    //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+    const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
+    //const provider = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+    const provider = `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
     const Web3Client = new Web3(new Web3.providers.HttpProvider(provider));
     const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
@@ -761,7 +777,8 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     // Setting up a HttpProvider
     web3 = new Web3( 
       Web3.providers.HttpProvider(
-        `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+        //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+        `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
       ) 
     );
 
@@ -903,7 +920,8 @@ exports.getAllbyOrgId = async (req, res) => {
       //            case 11155111: return `https://sepolia.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
       //            case 137: return `https://polygon-mainnet.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
       //            case 1: return `https://mainnet.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
-                  case 80001    : return `https://polygon-mumbai.infura.io/v3/${process.env.REACT_APP_PROVIDER_API_KEY}`;
+      //            case 80001: return `https://polygon-mumbai.infura.io/v3/${process.env.REACT_APP_PROVIDER_API_KEY}`;
+                  case 80001    : return `https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_PROVIDER_API_KEY}`;
                   case 80002    : return `https://polygon-amoy.g.alchemy.com/v2/${process.env.REACT_APP_PROVIDER_API_KEY}`;
                   case 11155111 : return `https://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_PROVIDER_API_KEY}`;
                   case 137      : return `https://polygon-mainnet.g.alchemy.com/v2/${process.env.REACT_APP_PROVIDER_API_KEY}`;
@@ -1353,7 +1371,8 @@ exports.update = async (req, res) => {
   console.log("Using network:"+ ETHEREUM_NETWORK + "("+ req.body.blockchain+")");
 
   //const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
-  const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
@@ -1364,16 +1383,16 @@ exports.update = async (req, res) => {
     updatestatus = false;
 
     // Readng ABI from JSON file
-    fs = require("fs");
     ABI = JSON.parse(fs.readFileSync("./server/app/abis/ERC20TokenDSGD.abi.json").toString());
 
     // Creation of Web3 class
     Web3 = require("web3");
 
     // Setting up a HttpProvider
-    web3 = new Web3( 
+    web3 = new Web3(
       Web3.providers.HttpProvider(
-        `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+        //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+        `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
       ) 
     );
     //console.log("web3: =========>", web3);
@@ -1390,7 +1409,8 @@ exports.update = async (req, res) => {
         const ERC20TokenDSGDcontract = new web3.eth.Contract(ABI);
 
         // https://github.com/web3/web3.js/issues/1001
-        web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+        //web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+        web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`) );
         
         let setToTalSupply = (isNaN(+req.body.amount)? req.body.amount: req.body.amount.toString())   
         + createStringWithZeros(adjustdecimals);  // pad zeros behind

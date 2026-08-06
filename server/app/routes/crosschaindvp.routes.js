@@ -31,6 +31,7 @@ module.exports = app => {
   router.put("/executestartlegbyid/:id", crosschaindvp.executeStartLegById);
   router.put("/executematuritylegbyid/:id", crosschaindvp.executeMaturityLegById);
   router.put("/refundlegbyid/:id", crosschaindvp.refundLegById);
+  router.post("/legreleased", crosschaindvp.legReleased);
 
   app.use('/api/crosschaindvp', router);
 };

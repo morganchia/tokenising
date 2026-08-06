@@ -4,7 +4,7 @@ require('dotenv').config();
 
 async function updateBondConfig() {
   // Validate environment variables
-  const requiredEnvVars = ['REACT_APP_SIGNER_PRIVATE_KEY', 'REACT_APP_INFURA_API_KEY'];
+  const requiredEnvVars = ['REACT_APP_SIGNER_PRIVATE_KEY', 'REACT_APP_ALCHEMY_API_KEY'];
   for (const envVar of requiredEnvVars) {
     if (!process.env[envVar]) {
       throw new Error(`Missing environment variable: ${envVar}`);
@@ -14,7 +14,8 @@ async function updateBondConfig() {
   // Validate private key format
   const privateKey = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
 
-  const providerUrl = `https://sepolia.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+  //const providerUrl = `https://sepolia.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`;
+  const providerUrl = `https://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
   const web3 = new Web3(providerUrl);
   const account = web3.eth.accounts.privateKeyToAccount(privateKey);
   web3.eth.accounts.wallet.add(account);

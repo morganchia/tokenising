@@ -6,10 +6,12 @@ import './uniswap.css';
 import DSGDContract_jsonData from '../abis/ERC20TokenDSGD.abi.json';
 import PBMContract_jsonData from '../abis/ERC20TokenPBM.abi.json';
 
-const INFURA_API_KEY = "9e5e7f94e05c4a7ea7bc11400626dc0b";
+//const INFURA_API_KEY = "9e5e7f94e05c4a7ea7bc11400626dc0b";
+const ALCHEMY_API_KEY = "CNOHnfdRQl84h31T1nocixqRw1w2brDI";
 const CONTRACT_OWNER_WALLET = "0x35f4b28D730398992525F0f6Cf5b6D1d94c98feA";
 // const ETHEREUM_NETWORK = "polygon-mumbai"; // decommed
-const ETHEREUM_NETWORK = "sepolia";
+//const ETHEREUM_NETWORK = "sepolia";
+const ETHEREUM_NETWORK = "eth-sepolia";
 const APP_SIGNER_PRIVATE_KEY = "7c791cb354549572b12691ac095f1e0c8e5509d2da07afd1b6bd0b999e39eb21";
 
 //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
@@ -243,7 +245,8 @@ export default class dsgd2pbm extends Component {
               const createInstance = () => {
                 const bscProvider = new Web3(
                   new Web3.providers.HttpProvider(
-                    `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+                    //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+                    `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
                   ),
                 );
                 console.log("PBM Contract Addr: "+ PBMContractAddr1);

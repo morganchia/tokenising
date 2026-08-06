@@ -120,7 +120,7 @@ async function setupWeb3(blockchain) {
 
   const providerUrl = (() => {
     switch (blockchain) {
-      case 80001    : NETWORK = process.env.REACT_APP_POLYGON_MUMBAI_NETWORK;   return `https://polygon-mumbai.infura.io/v3/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+      case 80001    : NETWORK = process.env.REACT_APP_POLYGON_MUMBAI_NETWORK;   return `https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
       case 80002    : NETWORK = process.env.REACT_APP_POLYGON_AMOY_NETWORK;     return `https://polygon-amoy.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
       case 11155111 : NETWORK = process.env.REACT_APP_ETHEREUM_SEPOLIA_NETWORK; return `https://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
       case 137      : NETWORK = process.env.REACT_APP_POLYGON_MAINNET_NETWORK;  return `https://polygon-mainnet.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
@@ -2441,10 +2441,10 @@ exports.approveDraftById = async (req, res) => {  //
     return;
   }
 
-  const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
   const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
 
-//  const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;   
+//  const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;
   const providerUrl = `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;   
 
   console.log(`Using HTTP provider: ${providerUrl.replace(ALCHEMY_API_KEY, '****')}`);
@@ -3864,7 +3864,7 @@ exports.triggerDtscfCouponPaymentById = async (req, res) => {
     return;
   }
 
-  const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
   const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
@@ -6481,7 +6481,7 @@ exports.update = async (req, res) => {
     return;
   }
 
-  const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
   const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;

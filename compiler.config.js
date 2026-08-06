@@ -8,7 +8,8 @@ module.exports = {
     },
     networks: {
         sepolia: {
-            url: `https://sepolia.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`,
+            //url: `https://sepolia.infura.io/v3/${process.env.REACT_APP_INFURA_API_KEY}`,
+            url: `https://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`,
             accounts: [process.env.REACT_APP_SIGNER_PRIVATE_KEY]
         }
     }

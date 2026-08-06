@@ -21,7 +21,8 @@ export default function App() {
 	const [dollar5Count, setDollar5Count] = useState(2);
 	const [pinCount, setPinCount] = useState(0);
 
-	const INFURA_API_KEY = "9e5e7f94e05c4a7ea7bc11400626dc0b";
+	//const INFURA_API_KEY = "9e5e7f94e05c4a7ea7bc11400626dc0b";
+	const ALCHEMY_API_KEY = "CNOHnfdRQl84h31T1nocixqRw1w2brDI";
 	//const CONTRACT_OWNER_WALLET = "0x35f4b28D730398992525F0f6Cf5b6D1d94c98feA";
 	const ETHEREUM_NETWORK = "polygon-mumbai";
     // Retail customer: 0x0b3C84364AE77D457FC70e28093F489799B029f3
@@ -51,7 +52,8 @@ export default function App() {
 		  const createInstance = () => {
 			const bscProvider = new Web3(
 			  new Web3.providers.HttpProvider(
-				`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+				//`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+				`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
 			  ),
 			);
 			console.log("PBM Contract Addr: "+ PBMContractAddr1);

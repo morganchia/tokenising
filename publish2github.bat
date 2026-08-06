@@ -1,3 +1,3 @@
 git add .
-git commit -m "Upgraded smart contracts to upgradeable contracts"
+git commit -m "Fixed cross chain Repo bugs"
 git push github master

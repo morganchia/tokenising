@@ -177,7 +177,8 @@ exports.approveDraftById = async (req, res) => {
       )();
 
   //    const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
-      const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+      //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+      const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
       const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
       const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
@@ -197,7 +198,8 @@ exports.approveDraftById = async (req, res) => {
         // Setting up a HttpProvider
         web3 = new Web3( 
           Web3.providers.HttpProvider(
-            `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+            //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+            `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
           ) 
         );
         //console.log("web3: =========>", web3);
@@ -214,7 +216,8 @@ exports.approveDraftById = async (req, res) => {
             const ERC20TokenDSGDcontract = new web3.eth.Contract(ABI);
 
             // https://github.com/web3/web3.js/issues/1001
-            web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+            //web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+            web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`) );
 
             console.log('**** Signing Mint txn('+CONTRACT_OWNER_WALLET+','+req.body.mintAmount +') ...');
             const nonce = await web3.eth.getTransactionCount(CONTRACT_OWNER_WALLET, "latest") //get latest nonce
@@ -874,7 +877,8 @@ exports.findAllByCampaignId = (req, res) => {
         // Setting up a HttpProvider
         web3 = new Web3( 
           Web3.providers.HttpProvider(
-            `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+            //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+            `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
           ) 
         );
 

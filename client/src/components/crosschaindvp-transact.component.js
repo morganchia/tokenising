@@ -21,6 +21,9 @@ class CrossChainDvPTransact extends Component {
       isLoading: false,
       showm: false,
       modalmsg: "",
+      logs: [],
+      lockResults: null,
+      button0text: "OK",
     };
   }
 
@@ -37,49 +40,87 @@ class CrossChainDvPTransact extends Component {
   hide_loading() { this.setState({ isLoading: false }); }
 
   displayModal(msg) {
-    this.setState({ showm: true, modalmsg: msg });
+    this.setState({ showm: true, modalmsg: msg, lockResults: null, button0text: "OK" });
   }
 
   hideModal = () => {
     this.setState({ showm: false });
   };
 
-  triggerStartLeg = async () => {
-    this.show_loading();
-    await CrossChainDvPDataService.executeStartLegById(this.state.trade.id, {})
+  renderLockResults(locks) {
+    return (
+      <>
+        {locks.map((lock, i) => (
+          <div key={i} style={{ marginTop: '8px' }}>
+            <p style={{ marginBottom: '2px' }}><strong>{blockchainName(lock.chainId)}</strong></p>
+            <p style={{ marginBottom: '2px' }}>Escrow contract: {lock.escrowAddress}</p>
+            <p style={{ marginBottom: '2px' }}>
+              <a href={lock.url} target="_blank" rel="noreferrer" style={{ color: '#4a90e2' }}>
+                View transaction on blockchain explorer ↗
+              </a>
+            </p>
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  // Opens the modal immediately (before the first LOG: line even arrives) and appends
+  // each streamed step into modalmsg live, so the user sees "Checking relayer
+  // quorum...", "Validating balances...", "Pulling tokens from..." etc as they happen
+  // instead of a blank modal that only appears once the request finally settles.
+  runLeg = async (execute, legLabel) => {
+    this.setState({ isLoading: true, logs: [], showm: true, modalmsg: "Processing...\n", lockResults: null, button0text: null });
+    await execute(this.state.trade.id, {}, log => {
+      this.setState(prevState => ({
+        logs: [...prevState.logs, log],
+        modalmsg: prevState.modalmsg + log + "\n",
+      }));
+    })
       .then(response => {
         this.hide_loading();
-        this.displayModal(response.data.message);
+        this.setState(prevState => ({
+          modalmsg: prevState.modalmsg + response.message + "\n",
+          lockResults: response.locks || null,
+          button0text: "Close",
+        }));
         CrossChainDvPDataService.findOne(this.state.trade.id).then(r => this.setState({ trade: r.data[0] }));
       })
       .catch(e => {
         this.hide_loading();
-        const msg = e.response && e.response.data && e.response.data.message ? e.response.data.message : e.message;
-        this.displayModal("Error triggering start leg: " + msg);
+        this.setState(prevState => ({
+          modalmsg: prevState.modalmsg + `Error triggering ${legLabel}: ` + e.message + "\n",
+          button0text: "Close",
+        }));
       });
   };
 
-  triggerMaturityLeg = async () => {
-    this.show_loading();
-    await CrossChainDvPDataService.executeMaturityLegById(this.state.trade.id, {})
-      .then(response => {
-        this.hide_loading();
-        this.displayModal(response.data.message);
-        CrossChainDvPDataService.findOne(this.state.trade.id).then(r => this.setState({ trade: r.data[0] }));
-      })
-      .catch(e => {
-        this.hide_loading();
-        const msg = e.response && e.response.data && e.response.data.message ? e.response.data.message : e.message;
-        this.displayModal("Error triggering maturity leg: " + msg);
-      });
-  };
+  triggerStartLeg = () => this.runLeg(
+    (id, data, onLog) => CrossChainDvPDataService.executeStartLegById(id, data, onLog),
+    "start leg"
+  );
+
+  triggerMaturityLeg = () => this.runLeg(
+    (id, data, onLog) => CrossChainDvPDataService.executeMaturityLegById(id, data, onLog),
+    "maturity leg"
+  );
 
   refundLeg = async (legType, blockchain) => {
     this.show_loading();
     await CrossChainDvPDataService.refundLegById(this.state.trade.id, { legType, blockchain })
       .then(response => {
         this.hide_loading();
-        this.displayModal(response.data.message);
+        this.displayModal(
+          <>
+            <p>{response.data.message}</p>
+            <p style={{ marginBottom: '2px' }}>Escrow contract: {response.data.escrowAddress}</p>
+            <p style={{ marginBottom: '2px' }}>
+              <a href={response.data.url} target="_blank" rel="noreferrer" style={{ color: '#4a90e2' }}>
+                View transaction on blockchain explorer ↗
+              </a>
+            </p>
+          </>
+        );
       })
       .catch(e => {
         this.hide_loading();
@@ -132,9 +173,26 @@ class CrossChainDvPTransact extends Component {
             <Link to="/xchaindvp"><button className="m-3 btn btn-sm btn-secondary">Back to list</button></Link>
 
             {this.state.isLoading ? <LoadingSpinner /> : null}
-            <Modal showm={this.state.showm} handleCancel={this.hideModal} button0text="OK">
-              {this.state.modalmsg}
+            <Modal showm={this.state.showm} handleCancel={this.hideModal} button0text={this.state.button0text}>
+              <>
+                {typeof this.state.modalmsg === 'string'
+                  ? this.state.modalmsg.split('\n').map((line, i) => (
+                      <p key={i} style={{ fontSize: '1rem', marginBottom: '4px' }}>{line}</p>
+                    ))
+                  : this.state.modalmsg}
+                {this.state.lockResults && this.renderLockResults(this.state.lockResults)}
+              </>
             </Modal>
+            {this.state.logs.length > 0 && (
+              <div className="progress-logs">
+                <h5>Processing Logs:</h5>
+                <ul>
+                  {this.state.logs.map((log, index) => (
+                    <li key={index}>{log}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </div>

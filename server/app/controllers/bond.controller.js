@@ -294,7 +294,8 @@ exports.approveDraftById = async (req, res) => {  //
       )()
 
 //      const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
-      const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+      //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+      const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
       const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
       const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
     
@@ -309,7 +310,8 @@ exports.approveDraftById = async (req, res) => {  //
         Web3 = require("web3");
         web3 = new Web3( 
           Web3.providers.HttpProvider(
-            `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+            //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+            `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
           ) 
         );
 
@@ -317,7 +319,8 @@ exports.approveDraftById = async (req, res) => {  //
         const signer = web3.eth.accounts.privateKeyToAccount(SIGNER_PRIVATE_KEY);
         const totalSupply = (typeof req.body.totalsupply === 'string' || req.body.totalsupply instanceof String) ? req.body.totalsupply : req.body.totalsupply.toString();
 
-        web3.setProvider(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
+        //web3.setProvider(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`));
+        web3.setProvider(new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`));
 
         console.log("Maturitydate (unix time) = ", Number(new Date(req.body.maturitydate)));
         try {
@@ -525,7 +528,8 @@ exports.approveDraftById = async (req, res) => {  //
         // Setting up a HttpProvider
         web3 = new Web3( 
           Web3.providers.HttpProvider(
-            `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+            //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+            `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
           ) 
         );
         //console.log("web3: =========>", web3);
@@ -542,7 +546,8 @@ exports.approveDraftById = async (req, res) => {  //
             const ERC20TokenisedBondcontract = new web3.eth.Contract(ABI);
     
             // https://github.com/web3/web3.js/issues/1001
-            web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+            //web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+            web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`) );
             
             let setToTalSupply = (isNaN(+req.body.totalsupply)? req.body.totalsupply: req.body.totalsupply.toString())   
             + createStringWithZeros(adjustdecimals);  // pad zeros behind
@@ -909,7 +914,8 @@ exports.triggerBondCouponPaymentById = async (req, res) => {
     return;
   }
 
-  const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
@@ -936,7 +942,8 @@ exports.triggerBondCouponPaymentById = async (req, res) => {
     // Initialize Web3
     const Web3 = require("web3");
     const web3 = new Web3(new Web3.providers.HttpProvider(
-      `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+      //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+      `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
     ));
 
     console.log("Signer:", SIGNER_PRIVATE_KEY.substring(0,4) + "..." + SIGNER_PRIVATE_KEY.slice(-3));
@@ -1186,6 +1193,7 @@ exports.findExact = (req, res) => {
 
 exports.getInWalletMintedTotalSupply = (req, res) => {
   
+  console.log("Inside bond.controller: getInWalletMintedTotalSupply() called with query params:", req.query);
   // get token address from BondId
   const Id = req.query.id;
   var condition = Id ? { id: Id } : null;
@@ -1234,8 +1242,10 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     )()
 
     //    const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
-    const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
-    const provider = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+    //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+    const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
+    //const provider = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+    const provider = `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
     const Web3Client = new Web3(new Web3.providers.HttpProvider(provider));
     const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
@@ -1244,7 +1254,8 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
     // Setting up a HttpProvider
     web3 = new Web3( 
       Web3.providers.HttpProvider(
-        `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+        //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+        `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
       ) 
     );
 
@@ -1255,30 +1266,23 @@ exports.getInWalletMintedTotalSupply = (req, res) => {
   
     var inWallet = 0;
     try {
-      const _inWallet = await contract1.methods.balanceOf(1, CONTRACT_OWNER_WALLET).call(); 
+      const _inWallet = await contract1.methods.balanceOf(CONTRACT_OWNER_WALLET).call();
       inWallet = await Web3Client.utils.fromWei(_inWallet)
       console.log("In Wallet: ", inWallet);
     } catch (err) {
       console.log("Error while retreiving inWallet: "+err.message);
     }
 
-    var totalMinted = 0
-    try {
-      const _totalMinted = await contract1.methods._incirculation(1).call(); 
-      totalMinted = await Web3Client.utils.fromWei(_totalMinted)
-      console.log("total Minted: ", totalMinted);
-    } catch (err) {
-      console.log("Error while retreiving _incirculation: "+err.message);
-    }
-
     var totalSupply = 0
     try {
-      const _totalSupply = await contract1.methods.totalSupply(1).call(); 
-      totalSupply = await Web3Client.utils.fromWei(_totalSupply) 
+      const _totalSupply = await contract1.methods.totalSupply().call();
+      totalSupply = await Web3Client.utils.fromWei(_totalSupply)
       console.log("total Supply: ", totalSupply);
     } catch (err) {
       console.log("Error while retreiving totalSupply: "+err.message);
-    }  
+    }
+
+    var totalMinted = totalSupply - inWallet
   
     res.send(
       {
@@ -1662,10 +1666,12 @@ exports.getAllInvestorsById = (req, res) => {
       }
     })();
 
-    const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+    //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+    const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
     const ETHERSCAN_API_KEY = process.env.REACT_APP_ETHERSCAN_API_KEY;
-    const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;
-    console.log("Provider URL:", providerUrl.replace(INFURA_API_KEY, "****"));
+    //const providerUrl = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`;
+    const providerUrl = `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+    console.log("Provider URL:", providerUrl.replace(ALCHEMY_API_KEY, "****"));
 
     let web3;
     try {
@@ -2188,7 +2194,8 @@ exports.update = async (req, res) => {
   )()
 
 //  const ETHEREUM_NETWORK = process.env.REACT_APP_ETHEREUM_NETWORK;
-  const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  //const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+  const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
   const SIGNER_PRIVATE_KEY = process.env.REACT_APP_SIGNER_PRIVATE_KEY;
   const CONTRACT_OWNER_WALLET = process.env.REACT_APP_CONTRACT_OWNER_WALLET;
 
@@ -2209,7 +2216,8 @@ exports.update = async (req, res) => {
     // Setting up a HttpProvider
     web3 = new Web3( 
       Web3.providers.HttpProvider(
-        `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+        //`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+        `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
       ) 
     );
     //console.log("web3: =========>", web3);
@@ -2226,7 +2234,8 @@ exports.update = async (req, res) => {
         const ERC20TokenisedBondcontract = new web3.eth.Contract(ABI);
 
         // https://github.com/web3/web3.js/issues/1001
-        web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+        //web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`) );
+        web3.setProvider( new Web3.providers.HttpProvider(`https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`) );
         
         let setToTalSupply = (isNaN(+req.body.totalsupply)? req.body.totalsupply: req.body.totalsupply.toString())   
         + createStringWithZeros(adjustdecimals);  // pad zeros behind

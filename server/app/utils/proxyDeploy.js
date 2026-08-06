@@ -14,6 +14,13 @@ const path = require('path');
 const PROXY_ABI_FILE = path.join(__dirname, '../abis/ERC1967Proxy.abi.json');
 const PROXY_BYTECODE_FILE = path.join(__dirname, '../abis/ERC1967Proxy.bytecode.json');
 
+const withTimeout = (promise, ms, label) => {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} TIMEOUT after ${ms}ms`)), ms)),
+  ]);
+};
+
 const retryWithBackoff = async (fn, maxRetries = 5, baseDelay = 15000, shouldRetry = () => true) => {
   let gasMultiplier = 1.0;
   let priorityMultiplier = 1.0;
@@ -74,15 +81,28 @@ async function deployUUPSProxy(opts) {
     arguments: [implAddress, initData],
   });
 
-  let gasEstimate = await deployTx.estimateGas({ from: signer.address }).catch((error) => {
-    console.error('Error while estimating gas fee:', error);
+  console.log('[deployUUPSProxy] DIAG: about to call estimateGas()');
+  const estimateGasPromise = deployTx.estimateGas({ from: signer.address });
+  console.log('[deployUUPSProxy] DIAG: estimateGas() call returned (promise created), racing against timeout');
+  let gasEstimate = await withTimeout(estimateGasPromise, 15000, 'estimateGas').catch((error) => {
+    console.error('[deployUUPSProxy] DIAG: Error while estimating gas fee:', error);
     return 4000000;
   });
+  console.log('[deployUUPSProxy] DIAG: past estimateGas, gasEstimate =', gasEstimate);
 
-  const balance = await web3.eth.getBalance(signer.address);
+  console.log('[deployUUPSProxy] DIAG: about to call getBalance()');
+  const balance = await retryWithBackoff(
+    () => withTimeout(web3.eth.getBalance(signer.address), 15000, 'getBalance'),
+    3, 5000, (err) => err.message.includes('TIMEOUT')
+  );
+  console.log('[deployUUPSProxy] DIAG: past getBalance, balance =', balance);
   if (web3.utils.toBN(balance).lt(web3.utils.toBN(gasEstimate).mul(web3.utils.toBN('1000000000')))) {
     throw new Error('Insufficient funds for gas. Please ensure the system wallet has enough balance to cover deployment fees.');
   }
+
+  console.log('[deployUUPSProxy] DIAG: about to call getChainId()');
+  const chainId = await withTimeout(web3.eth.getChainId(), 15000, 'getChainId');
+  console.log('[deployUUPSProxy] DIAG: past getChainId, chainId =', chainId);
 
   const startTime = Date.now();
   const maxWaitTime = timeoutSeconds * 1000;
@@ -92,13 +112,30 @@ async function deployUUPSProxy(opts) {
     try {
       return await retryWithBackoff(async (innerGasMultiplier, innerPriorityMultiplier, innerGasLimitMultiplier) => {
         let currentGas = Math.floor(gasEstimate * innerGasLimitMultiplier);
-        let baseFee = BigInt((await web3.eth.getBlock('latest')).baseFeePerGas || await web3.eth.getGasPrice());
-        let maxPriorityFee = BigInt(2000000000); // 2 gwei
+        console.log('[deployUUPSProxy] DIAG: about to call getBlock(latest)');
+        let latestBlock = await withTimeout(web3.eth.getBlock('latest'), 15000, 'getBlock');
+        console.log('[deployUUPSProxy] DIAG: past getBlock, baseFeePerGas =', latestBlock.baseFeePerGas);
+        let baseFee = BigInt(latestBlock.baseFeePerGas || await withTimeout(web3.eth.getGasPrice(), 15000, 'getGasPrice'));
+        console.log('[deployUUPSProxy] DIAG: past baseFee resolution, baseFee =', baseFee.toString());
+        // 30 gwei: comfortably clears Polygon Amoy's ~25 gwei minimum tip cap
+        // (2 gwei was rejected outright with "gas price below minimum").
+        let maxPriorityFee = BigInt(30000000000);
         let maxFeePerGas = (baseFee * BigInt(Math.floor(innerGasMultiplier * 100)) / BigInt(100)) +
                            (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100));
         let maxPriorityFeePerGas = (maxPriorityFee * BigInt(Math.floor(innerPriorityMultiplier * 100)) / BigInt(100)).toString();
+        // Pass nonce/chainId explicitly so signTransaction() takes its synchronous
+        // fast path instead of internally fetching them over the network with no timeout.
+        console.log('[deployUUPSProxy] DIAG: about to call getTransactionCount()');
+        // 'pending' so a retry advances the nonce instead of resending an
+        // identical already-submitted tx (which the node rejects as
+        // "already known" - an error retryWithBackoff didn't treat as
+        // retryable, causing a silent infinite loop).
+        let nonce = await withTimeout(web3.eth.getTransactionCount(signer.address, 'pending'), 15000, 'getTransactionCount');
+        console.log('[deployUUPSProxy] DIAG: past getTransactionCount, nonce =', nonce);
 
         const tx = {
+          chainId,
+          nonce,
           from: signer.address,
           data: deployTx.encodeABI(),
           gas: currentGas,
@@ -106,15 +143,18 @@ async function deployUUPSProxy(opts) {
           maxPriorityFeePerGas,
         };
 
-        const signedTx = await web3.eth.accounts.signTransaction(tx, signer.privateKey);
+        console.log('[deployUUPSProxy] DIAG: about to call signTransaction()');
+        const signedTx = await withTimeout(web3.eth.accounts.signTransaction(tx, signer.privateKey), 15000, 'signTransaction');
+        console.log('[deployUUPSProxy] DIAG: past signTransaction');
 
         let hash;
         try {
-          hash = await new Promise((resolve, reject) => {
+          console.log('[deployUUPSProxy] DIAG: about to call sendSignedTransaction()');
+          hash = await withTimeout(new Promise((resolve, reject) => {
             web3.eth.sendSignedTransaction(signedTx.rawTransaction)
               .once('transactionHash', resolve)
               .once('error', reject);
-          });
+          }), 15000, 'sendSignedTransaction');
         } catch (err) {
           throw new Error(`Send failed: ${err.message}`);
         }
@@ -125,7 +165,7 @@ async function deployUUPSProxy(opts) {
         const maxPollAttempts = 18; // ~3 minute timeout
         while (!receipt && pollAttempts < maxPollAttempts) {
           await new Promise(resolve => setTimeout(resolve, 10000));
-          receipt = await web3.eth.getTransactionReceipt(hash);
+          receipt = await withTimeout(web3.eth.getTransactionReceipt(hash), 15000, 'getTransactionReceipt');
           pollAttempts++;
         }
 
@@ -134,8 +174,9 @@ async function deployUUPSProxy(opts) {
 
         deployedAddress = receipt.contractAddress;
         return receipt.contractAddress;
-      }, 5, 15000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('TIMEOUT'));
+      }, 5, 15000, (err) => err.message.includes('not mined') || err.message.includes('underpriced') || err.message.includes('TIMEOUT') || err.message.includes('already known'));
     } catch (err) {
+      console.error('[deployUUPSProxy] deployWithRetry attempt failed:', err.message);
       if (Date.now() - startTime > maxWaitTime) {
         throw new Error(`Timeout after ${timeoutSeconds} seconds`);
       }

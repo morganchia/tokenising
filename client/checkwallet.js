@@ -3,9 +3,11 @@
 const Web3 = require("web3");
 
 const ETHEREUM_NETWORK = "polygon-mumbai";
-const INFURA_API_KEY = "719cca812e274e8fad2ad8b574891343";
+//const INFURA_API_KEY = "719cca812e274e8fad2ad8b574891343";
+const ALCHEMY_API_KEY = "CNOHnfdRQl84h31T1nocixqRw1w2brDI";
 
-const provider = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+//const provider = `https://${ETHEREUM_NETWORK}.infura.io/v3/${INFURA_API_KEY}`
+const provider = `https://${ETHEREUM_NETWORK}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
 
 const Web3Client = new Web3(new Web3.providers.HttpProvider(provider));
 

@@ -569,6 +569,7 @@ class CrossChainDvP extends Component {
     if (t.daycountconvention === "") err += "- Day Count Convention cannot be empty\n";
     if (t.counterparty1 === "") err += "- Counterparty 1 Wallet Address cannot be empty\n";
     if (t.counterparty2 === "") err += "- Counterparty 2 Wallet Address cannot be empty\n";
+    if (t.counterparty1 !== "" && t.counterparty2 !== "" && t.counterparty1.toLowerCase() === t.counterparty2.toLowerCase()) err += "- Counterparty 1 and Counterparty 2 Wallet Addresses cannot be the same\n";
 
     if (t.amount1 === "") err += "- Amount 1 cannot be empty\n";
     if (t.amount2 === "") err += "- Amount 2 cannot be empty\n";
@@ -628,9 +629,12 @@ class CrossChainDvP extends Component {
 
         this.show_loading();
 
+        console.log("createCrossChainDvPDraft: sending draftCreate payload", data);
+
         await CrossChainDvPDataService.draftCreate(data)
           .then(response => {
             this.hide_loading();
+            console.log("createCrossChainDvPDraft: draftCreate succeeded", response.data);
             this.setState({
               currentCrossChainDvP: { ...this.state.currentCrossChainDvP, ...response.data },
               submitted: true,
@@ -640,6 +644,7 @@ class CrossChainDvP extends Component {
           .catch(e => {
             this.hide_loading();
             const msg = e.response && e.response.data && e.response.data.message ? e.response.data.message : e.message;
+            console.log("createCrossChainDvPDraft: draftCreate failed", msg, e.response ? e.response.data : e);
             this.displayModal("Error: " + msg + ".\n\nPlease contact tech support.", null, null, null, "OK");
           });
       } else {

@@ -2,8 +2,10 @@ const Web3 = require('web3');
 const fs = require('fs');
 require('dotenv').config();
 
-const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
-const provider = `https://sepolia.infura.io/v3/${INFURA_API_KEY}`;
+//const INFURA_API_KEY = process.env.REACT_APP_INFURA_API_KEY;
+const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY;
+//const provider = `https://sepolia.infura.io/v3/${INFURA_API_KEY}`;
+const provider = `https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
 const web3 = new Web3(new Web3.providers.HttpProvider(provider));
 const bondTokenAddr = '0x481CBfd7119F65E56d2c82Df3199f8C921851d6d';
 const ABI = JSON.parse(fs.readFileSync('./server/app/abis/ERC20Bond_new.abi.json').toString());
