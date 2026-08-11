@@ -33,9 +33,11 @@ const RepoTradeForm = ({ onCreateTrade, onDeployContract }) => {
       // Deploy contract without trade by passing an empty TradeInput
       onDeployContract();
     } else {
-      // Convert SGT to UTC timestamps (subtract 8 hours = 28,800 seconds)
-      const startDateTime = Math.floor(new Date(`${formData.startDate}T${formData.startTime}:00:00+08:00`).getTime() / 1000) - 28800;
-      const maturityDateTime = Math.floor(new Date(`${formData.maturityDate}T${formData.maturityTime}:00:00+08:00`).getTime() / 1000) - 28800;
+      // The explicit +08:00 offset already gives a correct UTC epoch; no further adjustment needed
+      const startHour = String(formData.startTime).padStart(2, '0');
+      const maturityHour = String(formData.maturityTime).padStart(2, '0');
+      const startDateTime = Math.floor(new Date(`${formData.startDate}T${startHour}:00:00+08:00`).getTime() / 1000);
+      const maturityDateTime = Math.floor(new Date(`${formData.maturityDate}T${maturityHour}:00:00+08:00`).getTime() / 1000);
 
       const tradeInput = {
         startDateTime,

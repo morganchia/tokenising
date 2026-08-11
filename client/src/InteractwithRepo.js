@@ -21,7 +21,6 @@ const InteractWithRepo = () => {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [connectionError, setConnectionError] = useState(null);
 
-  const SGT_OFFSET = 28800;
   const contractBytecode = 'YOUR_CONTRACT_BYTECODE';
 
   const connectToMetaMask = async () => {
@@ -163,12 +162,10 @@ const InteractWithRepo = () => {
 
     try {
       const {
-        startDate,
-        startTime,
-        maturityDate,
-        maturityTime,
+        startDateTime,
+        maturityDateTime,
         bondIsin,
-        counterparty1Type,
+        counterparty1RepoType,
         bondAmount,
         startAmount,
         interestAmount,
@@ -195,20 +192,17 @@ const InteractWithRepo = () => {
         return;
       }
 
-      const startDateTimeSGT = Math.floor(new Date(startDate).getTime() / 1000) + parseInt(startTime) * 3600;
-      const maturityDateTimeSGT = Math.floor(new Date(maturityDate).getTime() / 1000) + parseInt(maturityTime) * 3600;
-      const startDateTimeUTC = startDateTimeSGT - SGT_OFFSET;
-      const maturityDateTimeUTC = maturityDateTimeSGT - SGT_OFFSET;
-
+      // startDateTime/maturityDateTime and the *Amount fields are already fully
+      // computed (UTC epoch seconds / wei strings) by RepoTradeForm
       const tradeInput = {
-        startDateTime: startDateTimeUTC,
-        maturityDateTime: maturityDateTimeUTC,
+        startDateTime,
+        maturityDateTime,
         bondIsin,
-        counterparty1RepoType: parseInt(counterparty1Type),
-        bondAmount: web3.utils.toWei(bondAmount.toString(), 'ether'),
-        startAmount: web3.utils.toWei(startAmount.toString(), 'ether'),
-        interestAmount: web3.utils.toWei(interestAmount.toString(), 'ether'),
-        cashAmount: web3.utils.toWei(cashAmount.toString(), 'ether'),
+        counterparty1RepoType,
+        bondAmount,
+        startAmount,
+        interestAmount,
+        cashAmount,
         counterparty1,
         counterparty2,
         cashToken,
@@ -240,7 +234,7 @@ const InteractWithRepo = () => {
     }
 
     try {
-      const endDateUTC = parseInt(endDate) - SGT_OFFSET;
+      const endDateUTC = parseInt(endDate);
       await repoContract.methods.setEndDate(endDateUTC)
         .send({ from: account, gas: 100000 })
         .on('transactionHash', (hash) => console.log('Transaction hash:', hash))
@@ -449,7 +443,7 @@ const InteractWithRepo = () => {
         <button
           onClick={handleSetEndDate}
           className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-          disabled={!repoContract || !endDate || endDate <= currentTime + SGT_OFFSET}
+          disabled={!repoContract || !endDate || endDate <= currentTime}
         >
           Set End Date
         </button>
@@ -488,7 +482,7 @@ const InteractWithRepo = () => {
           tradeId={tradeId}
           setTradeId={setTradeId}
           tradeDetails={tradeDetails}
-          currentTime={currentTime + SGT_OFFSET}
+          currentTime={currentTime}
           onFetchTrade={handleFetchTrade}
           onStartTrade={handleStartTrade}
           onMatureTrade={handleMatureTrade}

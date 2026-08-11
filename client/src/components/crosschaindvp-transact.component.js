@@ -31,10 +31,43 @@ class CrossChainDvPTransact extends Component {
     const id = this.props.router.params.id;
     if (id) {
       CrossChainDvPDataService.findOne(id)
-        .then(response => this.setState({ trade: response.data[0] }))
+        .then(response => {
+          this.setState({ trade: response.data[0] });
+          this.maybeStartPolling();
+        })
         .catch(e => console.log(e));
     }
   }
+
+  componentWillUnmount() {
+    this.stopPolling();
+  }
+
+  // A locked leg is released asynchronously by the relayer quorum (see
+  // crossChainRepoRelayer.js), which notifies the backend via a webhook - nothing pushes
+  // that update to an already-open tab, so without this the status only ever changes on
+  // a manual refresh. Polls only while a leg is actually awaiting release, and stops
+  // itself once neither leg is (including once both are released).
+  maybeStartPolling = () => {
+    const { trade } = this.state;
+    const awaitingRelease = trade && (trade.startlegstatus === 1 || trade.maturitylegstatus === 1);
+    if (awaitingRelease && !this.pollTimer) {
+      this.pollTimer = setInterval(() => {
+        CrossChainDvPDataService.findOne(trade.id)
+          .then(response => this.setState({ trade: response.data[0] }, this.maybeStartPolling))
+          .catch(e => console.log(e));
+      }, 15000);
+    } else if (!awaitingRelease && this.pollTimer) {
+      this.stopPolling();
+    }
+  };
+
+  stopPolling = () => {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+  };
 
   show_loading() { this.setState({ isLoading: true }); }
   hide_loading() { this.setState({ isLoading: false }); }
@@ -84,7 +117,7 @@ class CrossChainDvPTransact extends Component {
           lockResults: response.locks || null,
           button0text: "Close",
         }));
-        CrossChainDvPDataService.findOne(this.state.trade.id).then(r => this.setState({ trade: r.data[0] }));
+        CrossChainDvPDataService.findOne(this.state.trade.id).then(r => this.setState({ trade: r.data[0] }, this.maybeStartPolling));
       })
       .catch(e => {
         this.hide_loading();

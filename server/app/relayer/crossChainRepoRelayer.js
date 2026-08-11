@@ -78,6 +78,12 @@ const BACKFILL_BLOCKS = parseInt(process.env.RELAYER_BACKFILL_BLOCKS || '500', 1
 // Alchemy's free tier rejects eth_getLogs with a range over 10 blocks, so the scan
 // has to be done in windows this size rather than one call across the whole range.
 const GETLOGS_CHUNK_BLOCKS = parseInt(process.env.RELAYER_GETLOGS_CHUNK_BLOCKS || '10', 10);
+// How often to re-run backfillChain after startup. This is the safety net for web3.js
+// v1 WebsocketProvider silently dropping the live 'latest' subscription on a reconnect
+// (no 'error' event fires) - without it, a Locked event missed that way sits unconfirmed
+// until someone notices and restarts the process. Safe to re-run: backfillChain re-reads
+// from checkpoint+1, and confirmReleaseOn already no-ops on an already-confirmed legId.
+const REBACKFILL_INTERVAL_MS = parseInt(process.env.RELAYER_REBACKFILL_INTERVAL_MS || String(5 * 60 * 1000), 10);
 
 const PRIVATE_KEY = process.env[`RELAYER${RELAYER_INDEX}_PRIVATE_KEY`];
 if (!PRIVATE_KEY) {
@@ -111,7 +117,34 @@ for (const c of CHAINS) {
 // tip) return instead - both mean "bump the priority fee and retry".
 const isUnderpricedError = (message) => /transaction underpriced|gas tip cap/i.test(message);
 
-const withGasPriceRetry = async (web3, fn, maxRetries = 3, initialPriorityFeeGwei = 5, multiplier = 3) => {
+// Alchemy's free tier caps requests-per-second; when 3 relayer processes are all
+// confirming/backfilling at once, that burst can get throttled. Retryable with backoff
+// (same request, no fee change needed) rather than treated as a real failure.
+const isRateLimitError = (message) => /compute units per second|exceeded|429|rate limit/i.test(message || '');
+
+// Retries a read-only RPC call (no priority fee involved) on rate-limit errors, so a
+// throttled hasConfirmed/simulation check doesn't get treated as "confirmed already" or
+// "would revert" and silently abort a confirmRelease attempt.
+async function withRateLimitRetry(fn, label, maxRetries = 5) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (isRateLimitError(err.message) && attempt < maxRetries - 1) {
+        const delayMs = 1000 * (attempt + 1);
+        console.warn(`[relayer${RELAYER_INDEX}] Rate limited on ${label} (attempt ${attempt + 1}/${maxRetries}), retrying in ${delayMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+// Retries a tx-submitting fn(priorityFee) on both underpriced errors (bump the priority
+// fee) and rate-limit errors (backoff, same fee) - either can surface at any RPC call
+// inside fn (gas price fetch, estimateGas, nonce fetch, or the send itself).
+const withGasPriceRetry = async (web3, fn, maxRetries = 5, initialPriorityFeeGwei = 5, multiplier = 3) => {
   let attempt = 0;
   let priorityFee = web3.utils.toWei(initialPriorityFeeGwei.toString(), 'gwei');
   while (attempt < maxRetries) {
@@ -119,10 +152,17 @@ const withGasPriceRetry = async (web3, fn, maxRetries = 3, initialPriorityFeeGwe
       return await fn(priorityFee);
     } catch (err) {
       attempt++;
-      if (isUnderpricedError(err.message) && attempt < maxRetries) {
+      if (attempt >= maxRetries) throw err;
+      if (isUnderpricedError(err.message)) {
         priorityFee = (BigInt(priorityFee) * BigInt(multiplier)).toString();
         console.log(`Retry ${attempt}/${maxRetries} with maxPriorityFeePerGas: ${web3.utils.fromWei(priorityFee, 'gwei')} gwei`);
         await new Promise(resolve => setTimeout(resolve, 5000 * attempt));
+        continue;
+      }
+      if (isRateLimitError(err.message)) {
+        const delayMs = 1000 * attempt;
+        console.log(`Retry ${attempt}/${maxRetries} after rate limit, waiting ${delayMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
         continue;
       }
       throw err;
@@ -141,7 +181,10 @@ const chainStates = CHAINS.map((chain) => {
 const LEG_STATUS_LOCKED = '1';
 
 async function confirmReleaseOn(state, legId) {
-  const alreadyConfirmed = await state.escrow.methods.hasConfirmed(legId, state.account.address).call();
+  const alreadyConfirmed = await withRateLimitRetry(
+    () => state.escrow.methods.hasConfirmed(legId, state.account.address).call(),
+    `hasConfirmed on ${state.name}`
+  );
   if (alreadyConfirmed) {
     console.log(`[relayer${RELAYER_INDEX}] Already confirmed legId=${legId} on ${state.name}, skipping`);
     return;
@@ -150,7 +193,10 @@ async function confirmReleaseOn(state, legId) {
   console.log(`[relayer${RELAYER_INDEX}] Confirming legId=${legId} on ${state.name}...`);
 
   try {
-    await state.escrow.methods.confirmRelease(legId).call({ from: state.account.address });
+    await withRateLimitRetry(
+      () => state.escrow.methods.confirmRelease(legId).call({ from: state.account.address }),
+      `confirmRelease simulation on ${state.name}`
+    );
   } catch (err) {
     console.log(`[relayer${RELAYER_INDEX}] confirmRelease simulation failed on ${state.name} for legId=${legId}: ${err.message}`);
     return;
@@ -225,11 +271,7 @@ async function handleLocked(sourceState, legId) {
   }
 }
 
-// Alchemy's free tier also caps requests-per-second; when 3 relayer processes all start
-// backfilling at once, that burst can get throttled. Retry with backoff instead of just
-// skipping the scan (which would silently leave that chain's backlog unprocessed).
-const isRateLimitError = (message) => /compute units per second|exceeded|429|rate limit/i.test(message);
-
+// isRateLimitError is defined above, alongside withGasPriceRetry/withRateLimitRetry.
 async function getPastEventsWithRetry(escrow, eventName, options, chainName, maxRetries = 5) {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -327,11 +369,24 @@ async function start() {
   }
 
   // Backfill now runs in the background afterward, to catch up on events missed while
-  // this relayer was down - it no longer gates when live monitoring starts.
+  // this relayer was down - it no longer gates when live monitoring starts. It's also
+  // re-run periodically (see REBACKFILL_INTERVAL_MS above) as a safety net for events
+  // the live subscription silently drops, not just once on startup.
   for (const state of chainStates) {
-    backfillChain(state).catch((err) => {
-      console.error(`[relayer${RELAYER_INDEX}] Backfill error on ${state.name}: ${err.message}`);
-    });
+    let backfillRunning = false;
+    const runBackfill = () => {
+      if (backfillRunning) return;
+      backfillRunning = true;
+      backfillChain(state)
+        .catch((err) => {
+          console.error(`[relayer${RELAYER_INDEX}] Backfill error on ${state.name}: ${err.message}`);
+        })
+        .finally(() => {
+          backfillRunning = false;
+        });
+    };
+    runBackfill();
+    setInterval(runBackfill, REBACKFILL_INTERVAL_MS);
   }
 }
 

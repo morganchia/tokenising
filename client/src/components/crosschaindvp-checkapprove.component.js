@@ -12,7 +12,7 @@ import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
 import moment from 'moment-timezone';
-import { blockchainName } from "../common/crosschaindvp-constants";
+import { blockchainName, escrowAddressForChain, explorerAddressUrl } from "../common/crosschaindvp-constants";
 
 function getToday() {
   const today = new Date();
@@ -685,12 +685,37 @@ class CrossChainDvP extends Component {
     }
   }
 
+  // Approval only registers the trade in the DB (see crosschaindvp.controller.js
+  // approveDraftById) - there's no transaction here. The links below point to the
+  // long-lived escrow contract on each chain, not a txn hash.
+  renderEscrowLink(chainId) {
+    const address = escrowAddressForChain(chainId);
+    const url = address ? explorerAddressUrl(chainId, address) : null;
+    if (!url) return null;
+    return (
+      <p style={{ marginBottom: '2px' }}>
+        Escrow contract ({blockchainName(chainId)}):{' '}
+        <a href={url} target="_blank" rel="noreferrer" style={{ color: '#4a90e2' }}>
+          View on blockchain explorer ↗
+        </a>
+      </p>
+    );
+  }
+
   async approveCrossChainDvP() {
     this.show_loading();
     await CrossChainDvPDataService.approveDraftById(this.state.currentCrossChainDvP.id, this.state.currentCrossChainDvP)
       .then(response => {
         this.setState({ datachanged: false });
-        this.displayModal("The Cross Chain DvP trade is approved. Counterparties must now set token allowances, then the Start Leg can be triggered.", "OK", null, null, null);
+        const t = this.state.currentCrossChainDvP;
+        this.displayModal(
+          <>
+            <p>The Cross Chain DvP trade is approved. Counterparties must now set token allowances, then the Start Leg can be triggered.</p>
+            {this.renderEscrowLink(t.blockchain)}
+            {this.renderEscrowLink(t.blockchain2)}
+          </>,
+          "OK", null, null, null
+        );
       })
       .catch(e => {
         const msg = e.response && e.response.data && e.response.data.message ? e.response.data.message : e.message;
