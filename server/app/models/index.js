@@ -12,7 +12,7 @@ const sequelize = new Sequelize(
       timezone: '+00:00', // store data in +00:00 for UTC
       connectTimeout: 60000 // 60 seconds
     },
-    timezone: '+08:00', // Convert retrieved dates to SGT
+    timezone: '+00:00', // Read dates back as UTC (conversion to SGT happens in controllers/frontend)
     logging: console.log, // Enable for debugging
     operatorsAliases: false,
     port: config.PORT,

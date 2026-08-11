@@ -358,6 +358,16 @@ export default class Inbox extends Component {
     return(s.substring(0,6) + "..." + s.slice(-3));
   }
 
+  // Server returns *datetime fields as UTC; inbox displays them as SG calendar dates
+  sgtDate(utcDateTimeString) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Singapore',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(utcDateTimeString));
+  }
+
   render() {
     if (this.state.redirect) {
       return <Navigate to={this.state.redirect} />
@@ -557,8 +567,8 @@ export default class Inbox extends Component {
                               </td>
                               <td>{repo1.amount1.toLocaleString()}</td>
                               <td>{repo1.amount2.toLocaleString()}</td>
-                              <td>{repo1.startdatetime.split("T")[0]}</td>
-                              <td>{repo1.enddatetime.split("T")[0]}</td>
+                              <td>{this.sgtDate(repo1.startdatetime)}</td>
+                              <td>{this.sgtDate(repo1.enddatetime)}</td>
                               {
                                 /*
                               <td>
@@ -653,8 +663,8 @@ export default class Inbox extends Component {
                               </td>
                               <td>{crosschaindvp1.amount1.toLocaleString()}</td>
                               <td>{crosschaindvp1.amount2.toLocaleString()}</td>
-                              <td>{crosschaindvp1.startdatetime.split("T")[0]}</td>
-                              <td>{crosschaindvp1.enddatetime.split("T")[0]}</td>
+                              <td>{this.sgtDate(crosschaindvp1.startdatetime)}</td>
+                              <td>{this.sgtDate(crosschaindvp1.enddatetime)}</td>
                               <td>
                               {
                                   crosschaindvp1.status === -1? "Rejected pending correction" :

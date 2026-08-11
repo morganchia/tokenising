@@ -1,3 +1,3 @@
 git add .
-git commit -m "Fixed cross chain Repo bugs"
+git commit -m "Fixed Repo and Cross Chain Repo timestamp bugs"
 git push github master

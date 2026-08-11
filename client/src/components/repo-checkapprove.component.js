@@ -11,7 +11,7 @@ import validator from 'validator';
 import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
-import moment from 'moment';
+import moment from 'moment-timezone';
 
 
 function getToday() {
@@ -22,6 +22,19 @@ function getToday() {
 function getTodayTime() {
   const today = new Date();
   return moment(today).format('YYYY-MM-DD HH:mm:ss')
+}
+
+// Server returns startdatetime/enddatetime as UTC; display fields are labelled "SG Time"
+function utcToSgtDate(utcDateTimeString) {
+  return (utcDateTimeString !== undefined && utcDateTimeString !== null)
+    ? moment.utc(utcDateTimeString).tz('Asia/Singapore').format('YYYY-MM-DD')
+    : "0000-00-00";
+}
+
+function utcToSgtTime(utcDateTimeString) {
+  return (utcDateTimeString !== undefined && utcDateTimeString !== null)
+    ? moment.utc(utcDateTimeString).tz('Asia/Singapore').format('HH:mm:ss')
+    : "00:00:00";
 }
 
 class Repo extends Component {
@@ -990,10 +1003,10 @@ class Repo extends Component {
           this.setState({
             currentRepo: {
               ...response.data[0],
-              startdate: (response.data[0].startdatetime !== undefined && response.data[0].startdatetime !== null ? response.data[0].startdatetime.split("T")[0]: "0000-00-00"),
-              starttime: (response.data[0].startdatetime !== undefined && response.data[0].startdatetime !== null ? response.data[0].startdatetime.split("T")[1].split(".")[0]: "00:00:00"),
-              enddate: (response.data[0].enddatetime !== undefined && response.data[0].enddatetime !== null ? response.data[0].enddatetime.split("T")[0]: "0000-00-00"),
-              endtime: (response.data[0].enddatetime !== undefined && response.data[0].enddatetime !== null ? response.data[0].enddatetime.split("T")[1].split(".")[0]: "00:00:00"),
+              startdate: utcToSgtDate(response.data[0].startdatetime),
+              starttime: utcToSgtTime(response.data[0].startdatetime),
+              enddate: utcToSgtDate(response.data[0].enddatetime),
+              endtime: utcToSgtTime(response.data[0].enddatetime),
               tradedate: (response.data[0].tradedate !== undefined && response.data[0].tradedate !== null ? response.data[0].tradedate.split("T")[0]: "0000-00-00"),
               repotype: (response.data[0].securityLB === "B" ? "repo" : (response.data[0].securityLB === "L" ? "reverserepo" : "")),
               cleanprice: this.formatNumber2decimals(response.data[0].cleanprice),
@@ -1274,10 +1287,10 @@ class Repo extends Component {
             id                  : response.data.id,
 
             tradedate           : response.data.tradedate,
-            startdate           : response.data.startdatetime.split("T")[0],  // YYYY-MM-DD
-            enddate             : response.data.enddatetime.split("T")[0],    // YYYY-MM-DD
-            starttime           : response.data.startdatetime.split("T")[1].split(".")[0], // HH:mm:ss
-            endtime             : response.data.enddatetime.split("T")[1].split(".")[0],   // HH:mm:ss
+            startdate           : utcToSgtDate(response.data.startdatetime),
+            enddate             : utcToSgtDate(response.data.enddatetime),
+            starttime           : utcToSgtTime(response.data.startdatetime),
+            endtime             : utcToSgtTime(response.data.enddatetime),
             bondisin            : response.data.bondisin,
             securityLB          : response.data.securityLB,
             nominal             : response.data.nominal,

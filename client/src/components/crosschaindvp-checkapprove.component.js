@@ -11,12 +11,25 @@ import validator from 'validator';
 import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
-import moment from 'moment';
+import moment from 'moment-timezone';
 import { blockchainName } from "../common/crosschaindvp-constants";
 
 function getToday() {
   const today = new Date();
   return moment(today).format('YYYY-MM-DD')
+}
+
+// Server returns startdatetime/enddatetime as UTC; display fields are labelled "SG Time"
+function utcToSgtDate(utcDateTimeString) {
+  return utcDateTimeString
+    ? moment.utc(utcDateTimeString).tz('Asia/Singapore').format('YYYY-MM-DD')
+    : "0000-00-00";
+}
+
+function utcToSgtTime(utcDateTimeString) {
+  return utcDateTimeString
+    ? moment.utc(utcDateTimeString).tz('Asia/Singapore').format('HH:mm:ss')
+    : "00:00:00";
 }
 
 // This mirrors repo-checkapprove.component.js (the Bond/Repo maker-checker form),
@@ -478,10 +491,10 @@ class CrossChainDvP extends Component {
           this.setState({
             currentCrossChainDvP: {
               ...response.data[0],
-              startdate: (response.data[0].startdatetime ? response.data[0].startdatetime.split("T")[0] : "0000-00-00"),
-              starttime: (response.data[0].startdatetime ? response.data[0].startdatetime.split("T")[1].split(".")[0] : "00:00:00"),
-              enddate: (response.data[0].enddatetime ? response.data[0].enddatetime.split("T")[0] : "0000-00-00"),
-              endtime: (response.data[0].enddatetime ? response.data[0].enddatetime.split("T")[1].split(".")[0] : "00:00:00"),
+              startdate: utcToSgtDate(response.data[0].startdatetime),
+              starttime: utcToSgtTime(response.data[0].startdatetime),
+              enddate: utcToSgtDate(response.data[0].enddatetime),
+              endtime: utcToSgtTime(response.data[0].enddatetime),
               tradedate: (response.data[0].tradedate ? response.data[0].tradedate.split("T")[0] : "0000-00-00"),
               repotype: (response.data[0].securityLB === "B" ? "repo" : (response.data[0].securityLB === "L" ? "reverserepo" : "")),
               cleanprice: this.formatNumber2decimals(response.data[0].cleanprice),
