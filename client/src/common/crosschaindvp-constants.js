@@ -47,5 +47,5 @@ export const networkOptions = [
 export const LEG_STATUS_LABELS = {
   0: "Not locked",
   1: "Locked (awaiting relayer release)",
-  2: "Released",
+  2: "Tokens released, DvP completed",
 };
