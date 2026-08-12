@@ -171,7 +171,7 @@ async function lockOnChain({ chainId, legId, token, depositor, beneficiary, amou
     { from: signer.address, to: escrowAddress, data: tx.encodeABI(), gas: Math.floor(gas * 1.2), gasPrice, nonce },
     signer.privateKey
   );
-  const receipt = await sendAndConfirm(web3, signed, chainLabel(chainId));
+  const receipt = await withRetry(() => sendAndConfirm(web3, signed, chainLabel(chainId)), `sendSignedTransaction on ${chainLabel(chainId)}`);
   return { receipt, url: explorerTxUrl(chainId) + receipt.transactionHash, escrowAddress };
 }
 
