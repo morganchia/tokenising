@@ -180,8 +180,8 @@ export default class CrossChainDvPList extends Component {
                     <td>{blockchainName(trade.blockchain2)}</td>
                     <td style={{ whiteSpace: "nowrap" }}>{(trade.startdatetime.split("T")[0] !== trade.enddatetime.split("T")[0] ? this.SGTConverter(trade.startdatetime, "date") : this.SGTConverter(trade.startdatetime))}</td>
                     <td style={{ whiteSpace: "nowrap" }}>{(trade.startdatetime.split("T")[0] !== trade.enddatetime.split("T")[0] ? this.SGTConverter(trade.enddatetime, "date") : this.SGTConverter(trade.enddatetime))}</td>
-                    <td>{LEG_STATUS_LABELS[trade.startlegstatus] || "Not locked"}</td>
-                    <td>{LEG_STATUS_LABELS[trade.maturitylegstatus] || "Not locked"}</td>
+                    <td>{LEG_STATUS_LABELS[trade.startlegstatus] || "Not initiated"}</td>
+                    <td>{LEG_STATUS_LABELS[trade.maturitylegstatus] || "Not initiated"}</td>
                     <td>
                       <Link to={"/xchaindvpcheckapprove/" + trade.draftcrosschaindvpid}>
                         <button className="m-3 btn btn-sm btn-primary">View</button>

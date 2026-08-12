@@ -8,7 +8,7 @@ import erc20_jsonData from '../abis/ERC20TokenDSGD.abi.json';
 import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
-import { networkOptions, escrowAddressForChain, blockchainName } from "../common/crosschaindvp-constants";
+import { networkOptions, escrowAddressForChain, blockchainName, explorerTxUrl } from "../common/crosschaindvp-constants";
 
 // Unlike repo-setallowance.component.js, there is no per-trade deployed contract to
 // read trade details from — the trade lives in our DB (crosschaindvps table) and the
@@ -112,7 +112,7 @@ class CrossChainDvPSetAllowance extends Component {
       this.handleChainChanged = async (chainId) => {
         const networkId = parseInt(chainId, 16);
         const network = networkOptions.find(opt => parseInt(opt.chainId, 16) === networkId);
-        this.setState({ networkId, selectedNetwork: network ? network.name : "", legInfo: {} });
+        await new Promise(resolve => this.setState({ networkId, selectedNetwork: network ? network.name : "", legInfo: {} }, resolve));
         this.refreshData();
       };
       ethereum.on('accountsChanged', this.handleAccountsChanged);
@@ -245,9 +245,21 @@ class CrossChainDvPSetAllowance extends Component {
     this.show_loading();
     try {
       await token.methods.approve(spender, amountToSend.toString()).send({ from: connectedAccount, gasPrice })
-        .on('receipt', () => {
+        .on('receipt', (receipt) => {
           this.hide_loading();
-          this.displayModal(`Successfully approved ${parseFloat(approveAmount).toLocaleString()} ${(info || {}).symbol || ''} tokens for the Cross Chain DvP escrow contract (${row.depositorLabel}, ${row.legLabel}).`);
+          const txUrl = explorerTxUrl(row.chainId, receipt.transactionHash);
+          this.displayModal(
+            <>
+              <p style={{ fontSize: '1rem', marginBottom: '4px' }}>
+                Successfully approved {parseFloat(approveAmount).toLocaleString()} {(info || {}).symbol || ''} tokens for the Cross Chain DvP escrow contract ({row.depositorLabel}, {row.legLabel}).
+              </p>
+              {txUrl &&
+                <p style={{ fontSize: '1rem', marginBottom: '4px' }}>
+                  <a href={txUrl} target="_blank" rel="noreferrer">View transaction on blockchain explorer ↗</a>
+                </p>
+              }
+            </>
+          );
           this.refreshData();
         })
         .on('error', (error) => {
@@ -294,7 +306,7 @@ class CrossChainDvPSetAllowance extends Component {
             <label htmlFor={`approveAmount-${row.key}`}>Amount to approve</label>
             <input type="number" className="form-control" id={`approveAmount-${row.key}`} min="0"
               value={approveAmount} onChange={this.onChangeApproveAmount(row.key)} />
-            <button className={"m-3 btn btn-sm " + (info ? "btn-primary" : "btn-secondary")} disabled={!info}
+            <button className={"m-3 btn btn-sm " + (info && !mismatch ? "btn-primary" : "btn-secondary")} disabled={!info || mismatch}
               onClick={() => this.askUser2SignTxn(row)}>
               Approve
             </button>

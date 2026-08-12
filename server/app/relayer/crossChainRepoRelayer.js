@@ -25,6 +25,24 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
+// Prefix every console line with a timestamp, so errors in the redirected log files
+// (relayer1.log etc.) can be correlated with when they actually happened. In SGT
+// regardless of the host's local timezone, since that's what's read against here.
+function sgtTimestamp() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Singapore',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const get = (type) => parts.find((p) => p.type === type).value;
+  return `${get('year')}-${get('month')}-${get('day')},${get('hour')}:${get('minute')}:${get('second')}`;
+}
+['log', 'warn', 'error'].forEach((method) => {
+  const original = console[method].bind(console);
+  console[method] = (...args) => original(`[${sgtTimestamp()}]`, ...args);
+});
+
 // Where the app server (server/index.js, default port 8080) lives, so this relayer can
 // tell it when a leg actually releases on-chain - the app's DB has no other way to know,
 // since it only ever sets startlegstatus/maturitylegstatus to 1 (Locked) when it locks.
@@ -38,9 +56,14 @@ if (!['1', '2', '3'].includes(RELAYER_INDEX)) {
 
 // Heartbeat file so other processes (e.g. the API server, before locking funds) can
 // tell whether this relayer identity is currently running. Staleness IS the "stopped"
-// signal, so there's nothing to clean up on exit.
+// signal, so there's nothing to clean up on exit. Only written while every chain's WS
+// connection is actually up - a process that's alive but can't see or confirm any
+// on-chain events is functionally dead, and the heartbeat needs to reflect that so
+// countLiveRelayers() (server/app/controllers/crosschaindvp.controller.js) doesn't
+// count it toward quorum.
 const HEARTBEAT_PATH = path.join(__dirname, `heartbeat_relayer${RELAYER_INDEX}.json`);
 function writeHeartbeat() {
+  if (!chainStates.every((state) => state.wsConnected)) return;
   try {
     fs.writeFileSync(HEARTBEAT_PATH, JSON.stringify({ relayerIndex: RELAYER_INDEX, timestamp: Date.now() }));
   } catch (err) {
@@ -170,60 +193,96 @@ const withGasPriceRetry = async (web3, fn, maxRetries = 5, initialPriorityFeeGwe
   }
 };
 
+// web3.js v1's WebsocketProvider doesn't reconnect on its own by default - a dropped
+// connection (RPC restart, network blip) just sits dead forever, silently failing every
+// call ("connection not open on send()") while the process itself keeps running and
+// heartbeating. `reconnect` makes it retry indefinitely instead.
+const WS_RECONNECT_OPTIONS = { auto: true, delay: 5000, maxAttempts: false, onTimeout: true };
+
 const chainStates = CHAINS.map((chain) => {
-  const web3 = new Web3(new Web3.providers.WebsocketProvider(chain.wsUrl));
+  const provider = new Web3.providers.WebsocketProvider(chain.wsUrl, { reconnect: WS_RECONNECT_OPTIONS });
+  const web3 = new Web3(provider);
   const account = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
   web3.eth.accounts.wallet.add(account);
   const escrow = new web3.eth.Contract(escrowAbi, chain.escrowAddress);
-  return { ...chain, web3, account, escrow };
+  const state = { ...chain, web3, account, escrow, wsConnected: false };
+  provider.on('connect', () => {
+    state.wsConnected = true;
+    console.log(`[relayer${RELAYER_INDEX}] WS connected on ${chain.name}`);
+  });
+  provider.on('reconnect', (attempt) => {
+    state.wsConnected = false;
+    console.warn(`[relayer${RELAYER_INDEX}] WS reconnecting on ${chain.name} (attempt ${attempt})...`);
+  });
+  provider.on('close', () => {
+    state.wsConnected = false;
+    console.error(`[relayer${RELAYER_INDEX}] WS closed on ${chain.name}`);
+  });
+  provider.on('error', (err) => {
+    console.error(`[relayer${RELAYER_INDEX}] WS error on ${chain.name}: ${err && err.message ? err.message : err}`);
+  });
+  return state;
 });
 
 const LEG_STATUS_LOCKED = '1';
 
+// A confirmRelease send can revert even after a passing simulation: if another relayer's
+// confirmation lands first in the same block and pushes confirmCount to threshold, THIS
+// call becomes the one that also has to run the release's safeTransfer - a much more
+// expensive path than a plain confirm - and the gas estimate taken a moment earlier (for
+// the cheap path) undershoots it, reverting out-of-gas. One retry from scratch (re-check
+// hasConfirmed, re-simulate, re-estimate gas against the now-current state) resolves this:
+// if the leg reached quorum without us, the re-simulation now fails cleanly and we no-op;
+// if we're still needed, the fresh estimate reflects the real cost and the send succeeds.
+const CONFIRM_RELEASE_MAX_ATTEMPTS = 2;
+
 async function confirmReleaseOn(state, legId) {
-  const alreadyConfirmed = await withRateLimitRetry(
-    () => state.escrow.methods.hasConfirmed(legId, state.account.address).call(),
-    `hasConfirmed on ${state.name}`
-  );
-  if (alreadyConfirmed) {
-    console.log(`[relayer${RELAYER_INDEX}] Already confirmed legId=${legId} on ${state.name}, skipping`);
-    return;
-  }
-
-  console.log(`[relayer${RELAYER_INDEX}] Confirming legId=${legId} on ${state.name}...`);
-
-  try {
-    await withRateLimitRetry(
-      () => state.escrow.methods.confirmRelease(legId).call({ from: state.account.address }),
-      `confirmRelease simulation on ${state.name}`
+  for (let attempt = 1; attempt <= CONFIRM_RELEASE_MAX_ATTEMPTS; attempt++) {
+    const alreadyConfirmed = await withRateLimitRetry(
+      () => state.escrow.methods.hasConfirmed(legId, state.account.address).call(),
+      `hasConfirmed on ${state.name}`
     );
-  } catch (err) {
-    console.log(`[relayer${RELAYER_INDEX}] confirmRelease simulation failed on ${state.name} for legId=${legId}: ${err.message}`);
-    return;
+    if (alreadyConfirmed) {
+      console.log(`[relayer${RELAYER_INDEX}] Already confirmed legId=${legId} on ${state.name}, skipping`);
+      return;
+    }
+
+    console.log(`[relayer${RELAYER_INDEX}] Confirming legId=${legId} on ${state.name} (attempt ${attempt}/${CONFIRM_RELEASE_MAX_ATTEMPTS})...`);
+
+    try {
+      await withRateLimitRetry(
+        () => state.escrow.methods.confirmRelease(legId).call({ from: state.account.address }),
+        `confirmRelease simulation on ${state.name}`
+      );
+    } catch (err) {
+      console.log(`[relayer${RELAYER_INDEX}] confirmRelease simulation failed on ${state.name} for legId=${legId}: ${err.message}`);
+      return;
+    }
+
+    try {
+      await withGasPriceRetry(state.web3, async (priorityFee) => {
+        const gasPrice = await state.web3.eth.getGasPrice();
+        const maxFeePerGas = (BigInt(gasPrice) + BigInt(priorityFee)).toString();
+        const gasEstimate = await state.escrow.methods.confirmRelease(legId).estimateGas({ from: state.account.address });
+        const gasLimit = Math.floor(Number(gasEstimate) * 1.5);
+        const nonce = await state.web3.eth.getTransactionCount(state.account.address, 'pending');
+
+        const tx = await state.escrow.methods.confirmRelease(legId).send({
+          from: state.account.address,
+          gas: gasLimit,
+          maxPriorityFeePerGas: priorityFee,
+          maxFeePerGas,
+          nonce,
+        });
+        console.log(`[relayer${RELAYER_INDEX}] Confirmed legId=${legId} on ${state.name}. TxHash: ${tx.transactionHash}`);
+        return tx;
+      });
+      return;
+    } catch (err) {
+      if (attempt >= CONFIRM_RELEASE_MAX_ATTEMPTS) throw err;
+      console.warn(`[relayer${RELAYER_INDEX}] confirmRelease send failed on ${state.name} for legId=${legId} (attempt ${attempt}/${CONFIRM_RELEASE_MAX_ATTEMPTS}): ${err.message}. Retrying from scratch...`);
+    }
   }
-
-  await withGasPriceRetry(state.web3, async (priorityFee) => {
-    const gasPrice = await state.web3.eth.getGasPrice();
-    const maxFeePerGas = (BigInt(gasPrice) + BigInt(priorityFee)).toString();
-    // Estimated fresh on every attempt, not once up front: if another relayer's
-    // confirmation lands first (pushing confirmCount to threshold), THIS call becomes
-    // the one that also runs the release's safeTransfer - a much more expensive path
-    // than a plain confirm. A stale estimate from before that happened undershoots the
-    // real cost and reverts out-of-gas even with a generous multiplier.
-    const gasEstimate = await state.escrow.methods.confirmRelease(legId).estimateGas({ from: state.account.address });
-    const gasLimit = Math.floor(Number(gasEstimate) * 1.5);
-    const nonce = await state.web3.eth.getTransactionCount(state.account.address, 'pending');
-
-    const tx = await state.escrow.methods.confirmRelease(legId).send({
-      from: state.account.address,
-      gas: gasLimit,
-      maxPriorityFeePerGas: priorityFee,
-      maxFeePerGas,
-      nonce,
-    });
-    console.log(`[relayer${RELAYER_INDEX}] Confirmed legId=${legId} on ${state.name}. TxHash: ${tx.transactionHash}`);
-    return tx;
-  });
 }
 
 // Best-effort: the app's DB status is a UX convenience, not something quorum depends on,

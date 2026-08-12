@@ -4,7 +4,8 @@ import RepoTradeForm from './RepoTradeForm';
 import RepoTradeActions from './RepoTradeActions';
 import RepoTradeDetails from './RepoTradeDetails';
 import contractAbi from '../abis/ERC20TokenRepo.abi.json';
-//import contractBytecode from '../abis/ERC20TokenRepo.bytecode.json'; 
+import { explorerTxUrl } from "../common/blockchain-explorer.js";
+//import contractBytecode from '../abis/ERC20TokenRepo.bytecode.json';
 const contractBytecode = '0x...'; // Replace with actual bytecode from compiled contract
 
 const RepoTradeManager = () => {
@@ -41,6 +42,14 @@ const RepoTradeManager = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Appends a "View transaction on blockchain explorer" line to a success alert,
+  // so users can independently verify the txn was actually mined.
+  const txAlert = async (message, txHash) => {
+    const networkId = await web3.eth.net.getId();
+    const txUrl = explorerTxUrl(networkId, txHash);
+    alert(message + (txUrl ? ('\nView transaction on blockchain explorer: ' + txUrl) : ''));
+  };
 
   const handleDeployContract = async () => {
     if (!web3 || !account) {
@@ -151,8 +160,8 @@ const RepoTradeManager = () => {
   const handleStartTrade = async () => {
     if (!repoContract || !tradeId || !account) return;
     try {
-      await repoContract.methods.startTrade(tradeId).send({ from: account });
-      alert('Trade started successfully');
+      const receipt = await repoContract.methods.startTrade(tradeId).send({ from: account });
+      await txAlert('Trade started successfully', receipt.transactionHash);
       handleFetchTrade();
     } catch (err) {
       setError('Start trade failed: ' + err.message);
@@ -162,8 +171,8 @@ const RepoTradeManager = () => {
   const handleMatureTrade = async () => {
     if (!repoContract || !tradeId || !account) return;
     try {
-      await repoContract.methods.matureTrade(tradeId).send({ from: account });
-      alert('Trade matured successfully');
+      const receipt = await repoContract.methods.matureTrade(tradeId).send({ from: account });
+      await txAlert('Trade matured successfully', receipt.transactionHash);
       handleFetchTrade();
     } catch (err) {
       setError('Mature trade failed: ' + err.message);
@@ -173,8 +182,8 @@ const RepoTradeManager = () => {
   const handleCancelTrade = async () => {
     if (!repoContract || !tradeId || !account) return;
     try {
-      await repoContract.methods.cancelTrade(tradeId).send({ from: account });
-      alert('Trade cancelled successfully');
+      const receipt = await repoContract.methods.cancelTrade(tradeId).send({ from: account });
+      await txAlert('Trade cancelled successfully', receipt.transactionHash);
       handleFetchTrade();
     } catch (err) {
       setError('Cancel trade failed: ' + err.message);
@@ -184,8 +193,8 @@ const RepoTradeManager = () => {
   const handleWithdrawTokens = async (tradeId, token, to, amount) => {
     if (!repoContract || !account) return;
     try {
-      await repoContract.methods.withdrawTokens(tradeId, token, to, amount).send({ from: account });
-      alert('Tokens withdrawn successfully');
+      const receipt = await repoContract.methods.withdrawTokens(tradeId, token, to, amount).send({ from: account });
+      await txAlert('Tokens withdrawn successfully', receipt.transactionHash);
     } catch (err) {
       setError('Withdraw tokens failed: ' + err.message);
     }
@@ -194,8 +203,8 @@ const RepoTradeManager = () => {
   const handleSetEndDate = async (endDateTime) => {
     if (!repoContract || !account) return;
     try {
-      await repoContract.methods.setEndDate(endDateTime).send({ from: account });
-      alert('End date set successfully');
+      const receipt = await repoContract.methods.setEndDate(endDateTime).send({ from: account });
+      await txAlert('End date set successfully', receipt.transactionHash);
       handleFetchTrade();
     } catch (err) {
       setError('Set end date failed: ' + err.message);
@@ -205,8 +214,8 @@ const RepoTradeManager = () => {
   const handlePauseUnpause = async (pause) => {
     if (!repoContract || !account) return;
     try {
-      await repoContract.methods.pauseUnpause(pause).send({ from: account });
-      alert(`Contract ${pause ? 'paused' : 'unpaused'} successfully`);
+      const receipt = await repoContract.methods.pauseUnpause(pause).send({ from: account });
+      await txAlert(`Contract ${pause ? 'paused' : 'unpaused'} successfully`, receipt.transactionHash);
     } catch (err) {
       setError(`Pause/unpause failed: ${err.message}`);
     }
@@ -215,8 +224,8 @@ const RepoTradeManager = () => {
   const handleManageAdmins = async (admin, add) => {
     if (!repoContract || !account) return;
     try {
-      await repoContract.methods.manageAdmins(admin, add).send({ from: account });
-      alert(`Admin ${add ? 'added' : 'removed'} successfully`);
+      const receipt = await repoContract.methods.manageAdmins(admin, add).send({ from: account });
+      await txAlert(`Admin ${add ? 'added' : 'removed'} successfully`, receipt.transactionHash);
     } catch (err) {
       setError(`Manage admins failed: ${err.message}`);
     }

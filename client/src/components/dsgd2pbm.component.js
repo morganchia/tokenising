@@ -8,6 +8,9 @@ import PBMContract_jsonData from '../abis/ERC20TokenPBM.abi.json';
 import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner";
 import "../LoadingSpinner.css";
+import { explorerTxUrl } from "../common/blockchain-explorer.js";
+
+const SEPOLIA_CHAIN_ID = 11155111; // wrapMint below always executes on Sepolia via ETHEREUM_NETWORK/Alchemy, regardless of MetaMask's connected chain
 
 //const INFURA_API_KEY = "9e5e7f94e05c4a7ea7bc11400626dc0b";
 const ALCHEMY_API_KEY = "CNOHnfdRQl84h31T1nocixqRw1w2brDI";
@@ -344,7 +347,8 @@ export default class dsgd2pbm extends Component {
                                         console.log('--> RECEIPT received <--');
                                         console.log('Receipt: ', receipt);
                                         if (receipt.status) {  // true === success
-                                          alert("Transaction status: Success");
+                                          const txUrl = explorerTxUrl(SEPOLIA_CHAIN_ID, hash);
+                                          alert("Transaction status: Success" + (txUrl ? ("\nView transaction on blockchain explorer: " + txUrl) : ""));
 
                                           this.setState({
                                             dsgd_amount: 0,

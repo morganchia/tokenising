@@ -119,6 +119,36 @@ function friendlyRevertMessage(err) {
   return err.message;
 }
 
+// Polls getTransactionReceipt directly - used as a fallback when sendSignedTransaction's
+// own internal confirmation polling fails partway through (see sendAndConfirm below).
+// A plain read call, so withRetry's rate-limit matching covers it normally.
+async function pollForReceipt(web3, txHash, label, { intervalMs = 3000, maxAttempts = 20 } = {}) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const receipt = await withRetry(() => web3.eth.getTransactionReceipt(txHash), `getTransactionReceipt on ${label}`);
+    if (receipt) return receipt;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error(`Transaction ${txHash} on ${label} was not confirmed after ${maxAttempts} attempts - it may still be pending.`);
+}
+
+// web3.js v1's sendSignedTransaction both broadcasts the tx AND polls for its receipt
+// internally - if that internal polling hits a transient RPC hiccup (Alchemy's free tier
+// is prone to this on Amoy), the whole promise rejects with "Failed to check for
+// transaction receipt" even though the tx was already broadcast and often already mined.
+// withRetry can't safely retry that by re-calling sendSignedTransaction - the tx may
+// already be mined, and rebroadcasting the same signed tx risks an "already known"/nonce
+// error instead of helping. Fall back to polling getTransactionReceipt(txHash) ourselves
+// instead, using the hash computed at signing time (before send() was ever called).
+async function sendAndConfirm(web3, signed, label) {
+  try {
+    return await web3.eth.sendSignedTransaction(signed.rawTransaction);
+  } catch (err) {
+    if (!/Failed to check for transaction receipt/i.test(err.message || '')) throw err;
+    console.warn(`sendSignedTransaction's receipt check failed on ${label}, polling for the receipt directly instead: ${err.message}`);
+    return await pollForReceipt(web3, signed.transactionHash, label);
+  }
+}
+
 // Sends a signed lock() transaction on the given chain, pulling `amount` (in token's
 // smallest unit, wei-equivalent) of `token` from `depositor` into escrow for `legId`.
 async function lockOnChain({ chainId, legId, token, depositor, beneficiary, amount, deadline }) {
@@ -141,7 +171,7 @@ async function lockOnChain({ chainId, legId, token, depositor, beneficiary, amou
     { from: signer.address, to: escrowAddress, data: tx.encodeABI(), gas: Math.floor(gas * 1.2), gasPrice, nonce },
     signer.privateKey
   );
-  const receipt = await withRetry(() => web3.eth.sendSignedTransaction(signed.rawTransaction), `sendSignedTransaction on ${chainLabel(chainId)}`);
+  const receipt = await sendAndConfirm(web3, signed, chainLabel(chainId));
   return { receipt, url: explorerTxUrl(chainId) + receipt.transactionHash, escrowAddress };
 }
 
@@ -846,21 +876,32 @@ async function executeLeg(req, res, legType) {
     // sitting in escrow), so checking their wallet balance again would wrongly fail.
     sendLog('Checking on-chain status of each leg...');
     const pendingLocks = [];
+    const preExistingStatuses = [];
     for (const leg of locks) {
       const existingStatus = await getLegStatusOnChain({ chainId: leg.chainId, legId });
       if (existingStatus === LEG_ON_CHAIN_STATUS_REFUNDED) {
         return sendError(`The ${chainLabel(leg.chainId)} leg for this legId was already refunded and cannot be re-locked (the escrow only allows locking a legId once, ever). This trade's ${legName} leg needs manual intervention.`);
       }
       if (existingStatus !== LEG_ON_CHAIN_STATUS_NONE) {
-        sendLog(`${chainLabel(leg.chainId)} leg already locked in a previous attempt - skipping.`);
+        sendLog(`${chainLabel(leg.chainId)} leg already ${existingStatus === LEG_ON_CHAIN_STATUS_RELEASED ? 'released' : 'locked'} in a previous attempt - skipping.`);
+        preExistingStatuses.push(existingStatus);
         continue;
       }
       pendingLocks.push(leg);
     }
 
+    // If a previous attempt locked and even released both legs on-chain but crashed
+    // (e.g. a receipt-check hiccup) before the DB got to record it, retrying lands here
+    // with nothing left to lock and both legs already Released - in that case the relayer
+    // already fired its one-time release webhook against a DB row that wasn't marked
+    // Locked yet, so it was a no-op and nothing will notify us again. Recognize that case
+    // and write status 2 directly instead of re-writing 1, which would otherwise leave
+    // this leg claiming "waiting for relayer quorum" forever.
+    const allAlreadyReleased = pendingLocks.length === 0 && preExistingStatuses.every((s) => s === LEG_ON_CHAIN_STATUS_RELEASED);
+
     const results = [];
     if (pendingLocks.length === 0) {
-      sendLog('Both legs were already locked in a previous attempt - nothing new to lock.');
+      sendLog(`Both legs were already ${allAlreadyReleased ? 'released' : 'locked'} in a previous attempt - nothing new to lock.`);
     } else {
       // Pre-flight, before pulling anything still pending: both counterparties must
       // already hold and have approved enough tokens, and the signer (who pays gas for
@@ -891,10 +932,12 @@ async function executeLeg(req, res, legType) {
     console.log(`executeLeg (${legName}): lock results`, results);
 
     const statusField = legType === LEG_START ? 'startlegstatus' : 'maturitylegstatus';
-    await CrossChainDvP.update({ [statusField]: 1 }, { where: { id: trade_id } });
+    await CrossChainDvP.update({ [statusField]: allAlreadyReleased ? 2 : 1 }, { where: { id: trade_id } });
 
     sendLocks(results);
-    sendSuccess(`${legType === LEG_START ? 'Start' : 'Maturity'} leg locked on both chains. Waiting for relayer quorum to release.`);
+    sendSuccess(allAlreadyReleased
+      ? `${legType === LEG_START ? 'Start' : 'Maturity'} leg was already released on both chains from a previous attempt - status updated, nothing more to do.`
+      : `${legType === LEG_START ? 'Start' : 'Maturity'} leg locked on both chains. Waiting for relayer quorum to release.`);
   } catch (err) {
     console.error(`Error locking ${legName} leg:`, err);
     sendError(friendlyRevertMessage(err));

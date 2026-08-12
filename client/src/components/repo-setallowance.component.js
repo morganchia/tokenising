@@ -10,6 +10,7 @@ import bondToken_jsonData from '../abis/ERC20Bond_new.abi.json';
 import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
+import { explorerTxUrl } from "../common/blockchain-explorer.js";
 
 class reposetallowance extends Component {
   constructor(props) {
@@ -436,9 +437,23 @@ class reposetallowance extends Component {
       }).on('receipt', async (receipt) => {
         this.hide_loading();
         console.log("Approval Receipt:", receipt);
-        await Token.methods.allowance(connectedAccount, spenderAddr1).call().then((allowance) => {
+        await Token.methods.allowance(connectedAccount, spenderAddr1).call().then(async (allowance) => {
           console.log("Allowance set:", allowance);
-          this.displayModal(`Successfully approved ${parseFloat(token_amount).toLocaleString()} ${symbol} tokens for the Repo smart contract.`, null, null, null, "OK");
+          const networkId = await web3.eth.net.getId();
+          const txUrl = explorerTxUrl(networkId, receipt.transactionHash);
+          this.displayModal(
+            <>
+              <p style={{ fontSize: '1rem', marginBottom: '4px' }}>
+                Successfully approved {parseFloat(token_amount).toLocaleString()} {symbol} tokens for the Repo smart contract.
+              </p>
+              {txUrl &&
+                <p style={{ fontSize: '1rem', marginBottom: '4px' }}>
+                  <a href={txUrl} target="_blank" rel="noreferrer">View transaction on blockchain explorer ↗</a>
+                </p>
+              }
+            </>,
+            null, null, null, "OK"
+          );
         });
       }).on('error', (error) => {
         this.hide_loading();

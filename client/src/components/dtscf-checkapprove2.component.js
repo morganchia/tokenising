@@ -17,6 +17,7 @@ import moment from 'moment';
 import { keccak256 } from 'js-sha3';
 import Web3 from 'web3';
 import TPAbi from '../abis/ERC1155Tokenised_Payable.abi.json';
+import { explorerTxUrl } from "../common/blockchain-explorer.js";
 
 
 function isChecksumAddress(address) {
@@ -1527,6 +1528,11 @@ class DTSCFProjectCreation extends Component {
     const accounts = await web3.eth.getAccounts();
     const userAccount = accounts[0];
     log(`Connected MetaMask account: ${userAccount}`);
+    const networkId = await web3.eth.net.getId();
+    const logTxUrl = (hash) => {
+      const txUrl = explorerTxUrl(networkId, hash);
+      if (txUrl) log(`  View transaction on blockchain explorer: ${txUrl}`);
+    };
 
     const contract = new web3.eth.Contract(TPAbi, contractAddress);
 
@@ -1615,6 +1621,7 @@ class DTSCFProjectCreation extends Component {
             .send({ from: userAccount, gas: gasWithBuffer });
 
           log(`Batch transaction confirmed: ${receipt.transactionHash}`);
+          logTxUrl(receipt.transactionHash);
           splitTasks.forEach((task, i) => {
             log(`TP #${task.fromTokenId} → TP #${nextTokenId + i} (${task.amount} SGD for '${task.purchaseDescription}') transferred to '${task.contractorName || task.toWallet}'. Source TP #${task.fromTokenId} metadata updated atomically.`);
           });
@@ -1694,6 +1701,7 @@ class DTSCFProjectCreation extends Component {
           const splitReceipt = await contract.methods
             .splitPayable(task.fromTokenId, task.milestoneId, task.splitCommitment, task.updatedOriginalCommitment, task.maturityDate, task.metadataUri || '', task.updatedSourceUri || '')
             .send({ from: userAccount, gas: splitGasWithBuffer });
+          logTxUrl(splitReceipt.transactionHash);
 
           let newTokenId = null;
           const splitEvent = splitReceipt.events && splitReceipt.events.PayableSplit;
@@ -1725,8 +1733,9 @@ class DTSCFProjectCreation extends Component {
             allSucceeded = false;
             continue;
           }
-          await contract.methods.safeTransferFrom(userAccount, task.toWallet, newTokenId, 1, '0x').send({ from: userAccount, gas: xferGas });
+          const xferReceipt = await contract.methods.safeTransferFrom(userAccount, task.toWallet, newTokenId, 1, '0x').send({ from: userAccount, gas: xferGas });
           log(`TP #${task.fromTokenId} → TP #${newTokenId} (${task.amount} SGD for '${task.purchaseDescription}') complete. Source TP #${task.fromTokenId} metadata updated atomically.`);
+          logTxUrl(xferReceipt.transactionHash);
         } catch (e) {
           log(`Failed for '${task.purchaseDescription}': ${e.message}`);
           allSucceeded = false;

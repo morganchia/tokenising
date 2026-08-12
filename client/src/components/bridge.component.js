@@ -5,6 +5,7 @@ import bridgeSourceAbi from '../abis/BridgeSource.json';
 import wrappedAbi from '../abis/WrappedCBDC.json';
 import bridgeDestAbi from '../abis/BridgeDestination.json';
 import Modal from '../Modal.js';
+import { explorerTxUrl } from "../common/blockchain-explorer.js";
 
 const Bridge = () => {
   const ADMIN_ADDRESS = process.env.REACT_APP_ADMIN_ADDRESS?.toLowerCase();
@@ -96,6 +97,13 @@ const Bridge = () => {
       clearTimeout(timeout);
       timeout = setTimeout(() => func(...args), wait);
     };
+  };
+
+  // Appends a "View transaction on blockchain explorer" line to a success status,
+  // so users can independently verify the txn was actually mined.
+  const withTxLink = (message, txHash) => {
+    const txUrl = explorerTxUrl(chainId, txHash);
+    return message + (txUrl ? ` View transaction on blockchain explorer: ${txUrl}` : '');
   };
 
   const updateBalances = async (overrideChainId = chainId) => {
@@ -382,7 +390,7 @@ const Bridge = () => {
         nonce: lockNonce
       }));
       console.log('Lock successful. TxHash:', lockResult.transactionHash);
-      setStatus(`✅ Tokens locked in source bridge. Awaiting mint on Sepolia for ${destinationAddress}`);
+      setStatus(withTxLink(`✅ Tokens locked in source bridge. Awaiting mint on Sepolia for ${destinationAddress}.`, lockResult.transactionHash));
 
       await debouncedUpdateBalances();
     } catch (err) {
@@ -524,7 +532,7 @@ const Bridge = () => {
         nonce: burnNonce
       }));
       console.log('Burn successful. TxHash:', burnResult.transactionHash);
-      setStatus(`✅ Burn staged. Awaiting unlock on Amoy for ${destinationAddress}`);
+      setStatus(withTxLink(`✅ Burn staged. Awaiting unlock on Amoy for ${destinationAddress}.`, burnResult.transactionHash));
       await debouncedUpdateBalances();
     } catch (err) {
       console.error('Bridge error:', {
@@ -618,7 +626,7 @@ const Bridge = () => {
         nonce: unlockNonce
       }));
       console.log('Debug unlock successful. TxHash:', unlockResult.transactionHash);
-      setStatus('✅ Debug unlock successful');
+      setStatus(withTxLink('✅ Debug unlock successful.', unlockResult.transactionHash));
       await debouncedUpdateBalances();
     } catch (err) {
       console.error('Debug unlock error:', {
@@ -814,7 +822,7 @@ const Bridge = () => {
         nonce: confirmBurnNonce
       }));
       console.log('Confirm burn successful. TxHash:', confirmBurnResult.transactionHash);
-      setStatus('✅ Debug burn successful');
+      setStatus(withTxLink('✅ Debug burn successful.', confirmBurnResult.transactionHash));
       await debouncedUpdateBalances();
     } catch (err) {
       console.error('Debug burn error:', {
@@ -921,7 +929,7 @@ const Bridge = () => {
         nonce: refundNonce
       }));
       console.log('Refund successful. TxHash:', refundResult.transactionHash);
-      setStatus('✅ Refund successful');
+      setStatus(withTxLink('✅ Refund successful.', refundResult.transactionHash));
       setRefundableBurns(refundableBurns.filter(burn => burn.nonce !== nonce));
       await debouncedUpdateBalances();
     } catch (err) {

@@ -176,7 +176,7 @@ class CrossChainDvPTransact extends Component {
             <p><strong>Trade:</strong> {trade.name}</p>
             <p><strong>Blockchain 1:</strong> {blockchainName(trade.blockchain)} | <strong>Blockchain 2:</strong> {blockchainName(trade.blockchain2)}</p>
 
-            <h5>Start Leg — {LEG_STATUS_LABELS[trade.startlegstatus] || "Not locked"}</h5>
+            <h5>Start Leg — {LEG_STATUS_LABELS[trade.startlegstatus] || "Not initiated"}</h5>
             <p>Locks Token1 (Amount {trade.amount1}) from Counterparty1 to Counterparty2 on Blockchain 1, and Token2 (Amount {trade.amount2}) from Counterparty2 to Counterparty1 on Blockchain 2. Both counterparties must have set token allowance to the escrow contract first (see "Set Allowance").</p>
             <button className="m-3 btn btn-sm btn-primary" disabled={trade.startlegstatus >= 1} onClick={this.triggerStartLeg}>
               Trigger Start Leg
@@ -190,7 +190,7 @@ class CrossChainDvPTransact extends Component {
 
             <hr />
 
-            <h5>Maturity Leg — {LEG_STATUS_LABELS[trade.maturitylegstatus] || "Not locked"}</h5>
+            <h5>Maturity Leg — {LEG_STATUS_LABELS[trade.maturitylegstatus] || "Not initiated"}</h5>
             <p>Reverses the exchange at maturity: the cash side repays Start Amount + Interest, the asset side returns the original amount.</p>
             <button className="m-3 btn btn-sm btn-primary" disabled={trade.startlegstatus < 1 || trade.maturitylegstatus >= 1} onClick={this.triggerMaturityLeg}>
               Trigger Maturity Leg

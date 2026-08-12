@@ -11,6 +11,7 @@ import BondToken_jsonData from '../abis/ERC20TokenisedBond.abi.json';
 import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner.js";
 import "../LoadingSpinner.css";
+import { explorerTxUrl } from "../common/blockchain-explorer.js";
 
 const BOND_UNITS = 2500;
 
@@ -370,7 +371,11 @@ class BondCouponAllowance extends Component {
             console.log("Checking allowance() for Holder("+connectedAccount+"), \nSpender ("+spenderAddr1+") \n- Return values from Receipt of allowance(): ", data2);
           });  // CashToken.methods.allowance
 
-          this.displayModal("You have successfully approved the the Bond smart contract to pull "+this.state.couponToPay.toLocaleString()+" "+this.state.selectedBondObj.campaign.tokenname+" tokens from your wallet for coupon payment." , "OK", null, null, null);
+          const successMsg = await this.txSuccessMessage(
+            "You have successfully approved the the Bond smart contract to pull "+this.state.couponToPay.toLocaleString()+" "+this.state.selectedBondObj.campaign.tokenname+" tokens from your wallet for coupon payment.",
+            data1.transactionHash
+          );
+          this.displayModal(successMsg, "OK", null, null, null);
 
         } // try 1
         catch(err){
@@ -441,7 +446,11 @@ class BondCouponAllowance extends Component {
         console.log("Response:", data1)
         //console.log("Setting approve() for Holder("+connectedAccount+"), Spender ("+spenderAddr1+") - Return values from Receipt of approve(): ", data1.events.Approval.returnValues);
         if (data1.status === true) {
-          this.displayModal("You have successfully transferred "+this.state.couponToPay.toLocaleString()+" "+this.state.selectedBondObj.campaign.tokenname+" to the Bond smart contract for coupon payment." , "OK", null, null, null);
+          const successMsg = await this.txSuccessMessage(
+            "You have successfully transferred "+this.state.couponToPay.toLocaleString()+" "+this.state.selectedBondObj.campaign.tokenname+" to the Bond smart contract for coupon payment.",
+            data1.transactionHash
+          );
+          this.displayModal(successMsg, "OK", null, null, null);
         } else {
           this.displayModal("Error encountered, please check your wallet if the token has been transferred after 5 minutes. If not, please try again." , "OK", null, null, null);
         }
@@ -494,15 +503,32 @@ class BondCouponAllowance extends Component {
 
   displayModal(msg, b1text, b2text, b3text, b0text) {
     this.setState({
-      showm: true, 
-      modalmsg: msg, 
+      showm: true,
+      modalmsg: msg,
       button1text: b1text,
       button2text: b2text,
       button3text: b3text,
       button0text: b0text,
     });
   }
-  
+
+  // Wraps a success message with a "View transaction on blockchain explorer" link,
+  // so users can independently verify the txn was actually mined.
+  async txSuccessMessage(text, txHash) {
+    const networkId = await window.web3.eth.net.getId();
+    const txUrl = explorerTxUrl(networkId, txHash);
+    return (
+      <>
+        <p style={{ fontSize: '1rem', marginBottom: '4px' }}>{text}</p>
+        {txUrl &&
+          <p style={{ fontSize: '1rem', marginBottom: '4px' }}>
+            <a href={txUrl} target="_blank" rel="noreferrer">View transaction on blockchain explorer ↗</a>
+          </p>
+        }
+      </>
+    );
+  }
+
   hideModal = () => {
     this.setState({ showm: false });
   };

@@ -11,6 +11,7 @@ import Token2_jsonData from '../abis/ERC20TokenPBM.abi.json';
 import Modal from '../Modal.js';
 import LoadingSpinner from "../LoadingSpinner";
 import "../LoadingSpinner.css";
+import { explorerTxUrl } from "../common/blockchain-explorer.js";
 
 export default class dvpaddallowance extends Component {
   constructor(props) {
@@ -270,7 +271,11 @@ export default class dvpaddallowance extends Component {
             console.log("Checking allowance() for Holder("+connectedAccount+"), \nSpender ("+spenderAddr1+") \n- Return values from Receipt of allowance(): ", data2);
           });  // Token1.methods.allowance
 
-          this.displayModal("You have successfully approved the the DvP smart contract to pull "+this.state.token_amount+" "+this.state.Symbol+" tokens from you wallet to transact with the other CounterParty." , "OK", null, null, null);
+          const successMsg = await this.txSuccessMessage(
+            "You have successfully approved the the DvP smart contract to pull "+this.state.token_amount+" "+this.state.Symbol+" tokens from you wallet to transact with the other CounterParty.",
+            data1.transactionHash
+          );
+          this.displayModal(successMsg, "OK", null, null, null);
 
         } // try 1
         catch(err){
@@ -310,15 +315,32 @@ export default class dvpaddallowance extends Component {
 
   displayModal(msg, b1text, b2text, b3text, b0text) {
     this.setState({
-      showm: true, 
-      modalmsg: msg, 
+      showm: true,
+      modalmsg: msg,
       button1text: b1text,
       button2text: b2text,
       button3text: b3text,
       button0text: b0text,
     });
   }
-  
+
+  // Wraps a success message with a "View transaction on blockchain explorer" link,
+  // so users can independently verify the txn was actually mined.
+  async txSuccessMessage(text, txHash) {
+    const networkId = await window.web3.eth.net.getId();
+    const txUrl = explorerTxUrl(networkId, txHash);
+    return (
+      <>
+        <p style={{ fontSize: '1rem', marginBottom: '4px' }}>{text}</p>
+        {txUrl &&
+          <p style={{ fontSize: '1rem', marginBottom: '4px' }}>
+            <a href={txUrl} target="_blank" rel="noreferrer">View transaction on blockchain explorer ↗</a>
+          </p>
+        }
+      </>
+    );
+  }
+
   hideModal = () => {
     this.setState({ showm: false });
   };

@@ -38,6 +38,22 @@ export function explorerAddressUrl(chainId, address) {
   return base ? base + address : null;
 }
 
+export function explorerTxUrl(chainId, txHash) {
+  const base = (() => {
+    switch (parseInt(chainId, 10)) {
+      case 80001: return 'https://mumbai.polygonscan.com/tx/';
+      case 80002: return 'https://amoy.polygonscan.com/tx/';
+      case 11155111: return 'https://sepolia.etherscan.io/tx/';
+      case 43113: return 'https://testnet.snowtrace.io/tx/';
+      case 137: return 'https://polygonscan.com/tx/';
+      case 1: return 'https://etherscan.io/tx/';
+      case 43114: return 'https://avascan.info/blockchain/all/tx/';
+      default: return null;
+    }
+  })();
+  return base ? base + txHash : null;
+}
+
 export const networkOptions = [
   { name: "Sepolia Ethereum Testnet", chainId: "0xaa36a7" }, // 11155111
   { name: "Amoy Polygon Testnet", chainId: "0x13882" }, // 80002
@@ -45,7 +61,7 @@ export const networkOptions = [
 ];
 
 export const LEG_STATUS_LABELS = {
-  0: "Not locked",
+  0: "Not initiated",
   1: "Locked (awaiting relayer release)",
   2: "Tokens released, DvP completed",
 };

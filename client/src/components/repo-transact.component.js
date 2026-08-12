@@ -6,6 +6,7 @@ import { withRouter } from '../common/with-router.js';
 import moment from 'moment';
 import Web3 from 'web3';
 import repoContract_jsonData from '../abis/ERC20TokenRepo.abi.json';
+import { explorerTxUrl } from "../common/blockchain-explorer.js";
 
 function getToday() {
   const today = new Date();
@@ -398,13 +399,29 @@ class RepoTransact extends Component {
 
   displayModal(msg, b1text, b2text, b3text, b0text) {
     this.setState({
-      showm: true, 
-      modalmsg: msg, 
+      showm: true,
+      modalmsg: msg,
       button1text: b1text,
       button2text: b2text,
       button3text: b3text,
       button0text: b0text,
     });
+  }
+
+  // Wraps a success message with a "View transaction on blockchain explorer" link,
+  // so users can independently verify the txn was actually mined.
+  txSuccessMessage(text, txHash) {
+    const txUrl = explorerTxUrl(this.state.networkId, txHash);
+    return (
+      <>
+        <p style={{ fontSize: '1rem', marginBottom: '4px' }}>{text}</p>
+        {txUrl &&
+          <p style={{ fontSize: '1rem', marginBottom: '4px' }}>
+            <a href={txUrl} target="_blank" rel="noreferrer">View transaction on blockchain explorer ↗</a>
+          </p>
+        }
+      </>
+    );
   }
 
   show_loading() {
@@ -490,10 +507,10 @@ class RepoTransact extends Component {
       // Check for TradeStarted event
       if (transaction.events && transaction.events.TradeStarted) {
         console.log("TradeStarted event:", transaction.events.TradeStarted.returnValues);
-        this.displayModal(`Successfully started Repo trade! Transaction hash: ${transaction.transactionHash}`, null, null, null, "OK");
+        this.displayModal(this.txSuccessMessage("Successfully started Repo trade!", transaction.transactionHash), null, null, null, "OK");
       } else {
         console.log("No TradeStarted event found, but transaction was successful");
-        this.displayModal(`Successfully started Repo trade!`, null, null, null, "OK");
+        this.displayModal(this.txSuccessMessage("Successfully started Repo trade!", transaction.transactionHash), null, null, null, "OK");
       }
     } catch (error) {
 
@@ -644,10 +661,10 @@ class RepoTransact extends Component {
       // Check for TradeStarted event
       if (transaction.events && transaction.events.TradeStarted) {
         console.log("TradeMatured event:", transaction.events.TradeStarted.returnValues);
-        this.displayModal(`Successfully matured Repo trade! Transaction hash: ${transaction.transactionHash}`, null, null, null, "OK");
+        this.displayModal(this.txSuccessMessage("Successfully matured Repo trade!", transaction.transactionHash), null, null, null, "OK");
       } else {
         console.log("No TradeMature event found, but transaction was successful");
-        this.displayModal(`Successfully matured Repo trade!`, null, null, null, "OK");
+        this.displayModal(this.txSuccessMessage("Successfully matured Repo trade!", transaction.transactionHash), null, null, null, "OK");
       }
 
     } catch (error) {
