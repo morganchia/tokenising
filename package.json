@@ -70,6 +70,7 @@
     "typescript": "^6.0.3"
   },
   "overrides": {
+    "handlebars": "^4.7.10",
     "tar": "7.5.3",
     "ws": "8.18.0",
     "web3": {
