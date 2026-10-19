@@ -1,0 +1,7 @@
+{
+  "name": "xhr-request-promise",
+  "version": "0.1.3-stub",
+  "description": "Stand-in for xhr-request-promise inside eth-lib. web3-eth-accounts only loads eth-lib/lib/account, which never makes HTTP requests; the real package pulls in a vulnerable decode-uri-component.",
+  "main": "index.js",
+  "license": "MIT"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "web3-bzz",
+  "version": "1.10.4-stub",
+  "description": "No-op stand-in for web3-bzz (Swarm). This project does not use web3.bzz; the real package pulls in the deprecated, vulnerable `request` library.",
+  "main": "index.js",
+  "license": "LGPL-3.0"
+}
