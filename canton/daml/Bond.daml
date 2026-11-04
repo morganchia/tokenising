@@ -1,0 +1,34 @@
+module Bond where
+
+-- A holding of a tokenised bond on Canton. The issuer signs every holding,
+-- the owner is an observer and is the only party that can move it.
+template BondHolding
+  with
+    issuer : Party
+    owner : Party
+    bondName : Text
+    bondCode : Text
+    faceValue : Decimal
+    couponRate : Decimal
+    maturityDate : Date
+    quantity : Decimal
+  where
+    signatory issuer
+    observer owner
+
+    ensure quantity > 0.0 && faceValue > 0.0
+
+    -- Moves `amount` units to newOwner; any remainder stays with the current owner.
+    choice Transfer : (ContractId BondHolding, Optional (ContractId BondHolding))
+      with
+        newOwner : Party
+        amount : Decimal
+      controller owner
+      do
+        assertMsg "amount must be positive" (amount > 0.0)
+        assertMsg "insufficient quantity" (amount <= quantity)
+        moved <- create this with owner = newOwner, quantity = amount
+        rest <- if amount == quantity
+          then pure None
+          else Some <$> create this with quantity = quantity - amount
+        pure (moved, rest)

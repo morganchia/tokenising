@@ -48,6 +48,7 @@ import BondCouponAllowance from "./components/bond-couponallowance.component";
 import BondCouponTrigger from "./components/bond-coupontrigger.component";
 import BondCheckApprove from "./components/bond-checkapprove.component";
 import BondList from "./components/bond-list.component";
+import CantonBond from "./components/canton-bond.component";
 
 import PBMCheckApprove from "./components/pbm-checkapprove.component";
 import PBMAdd from "./components/pbm-add.component";
@@ -300,6 +301,13 @@ class App extends Component {
                           </Link>
                           <span className="tooltip">Repo</span>
                         </li>
+                        <li>
+                          <Link to={"/cantonbond"} className="nav-link">
+                            <i className='bx bx-atom'></i>
+                            <span className="links_name">Bond (Canton)</span>
+                          </Link>
+                          <span className="tooltip">Bond (Canton)</span>
+                        </li>
                       </ul>
                     )}
                   </li>
@@ -476,6 +484,7 @@ class App extends Component {
             <Route path="/bridge" element={<BridgeList/>} />
             <Route path="/bridgecheckapprove/:id" element={<BridgeCheckApprove/>} />
             <Route path="/bond" element={<BondList/>} />
+            <Route path="/cantonbond" element={<CantonBond/>} />
             <Route path="/bondcheckapprove/:id" element={<BondCheckApprove/>} />
             <Route path="/bondcouponallowance/:id" element={<BondCouponAllowance />} />
             <Route path="/bondcouponallowance" element={<BondCouponAllowance />} />

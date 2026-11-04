@@ -1,0 +1,35 @@
+module BondTest where
+
+import Daml.Script
+import DA.Assert ((===))
+import DA.Date (date, Month(..))
+import Bond
+
+test_issueAndTransfer : Script ()
+test_issueAndTransfer = do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  holding <- submit issuer do
+    createCmd BondHolding with
+      issuer; owner = alice
+      bondName = "SG Green Bond 2030"; bondCode = "SGGB30"
+      faceValue = 1000.0; couponRate = 0.03
+      maturityDate = date 2030 Dec 31
+      quantity = 100.0
+
+  (toBob, rest) <- submit alice do
+    exerciseCmd holding Transfer with newOwner = bob; amount = 40.0
+
+  Some bobHolding <- queryContractId bob toBob
+  bobHolding.quantity === 40.0
+  Some restCid <- pure rest
+  Some aliceHolding <- queryContractId alice restCid
+  aliceHolding.quantity === 60.0
+
+  -- Only the owner can transfer, and not more than they hold.
+  submitMustFail bob do
+    exerciseCmd restCid Transfer with newOwner = bob; amount = 10.0
+  submitMustFail bob do
+    exerciseCmd toBob Transfer with newOwner = alice; amount = 41.0

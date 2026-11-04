@@ -54,6 +54,7 @@ require("./app/routes/bridge.routes")(app);
 require("./app/routes/repo.routes")(app);
 require("./app/routes/crosschaindvp.routes")(app);
 require("./app/routes/dtscf.routes")(app);
+require("./app/routes/canton.routes")(app);
 
 app.use((err, req, res, next) => {
   if (err.message === 'Unexpected end of form') {

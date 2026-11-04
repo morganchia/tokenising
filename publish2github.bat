@@ -1,3 +1,3 @@
 git add .
-git commit -m "Fixed Alchemy rate-limiting retry in crosschaindvp.controller.js"
+git commit -m "Added Canton bond"
 git push github master

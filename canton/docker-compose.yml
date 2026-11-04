@@ -1,0 +1,15 @@
+services:
+  canton-sandbox:
+    build: .
+    image: tokenising-canton
+    container_name: canton-sandbox
+    # Bind the JSON API to all interfaces so it is reachable through the port mapping.
+    command: >
+      dpm sandbox --json-api-port 7575 --dar .daml/dist/tokenising-bond-0.1.0.dar
+      -C canton.participants.sandbox.http-ledger-api.address=0.0.0.0
+    ports:
+      - "7575:7575"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:7575/readyz"]
+      interval: 10s
+      retries: 30
