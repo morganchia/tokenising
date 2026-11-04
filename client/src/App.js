@@ -73,7 +73,7 @@ import CrossChainDvPTransact from "./components/crosschaindvp-transact.component
 import PBMWrapCheckApprove from "./components/pbmwrap-checkapprove.component";
 import PBMWrapAdd from "./components/pbmwrap-add.component";
 import PBMWrapList from "./components/pbmwrap-list.component";
-import DSGD2PBM from "./components/dsgd2pbm.component";
+//import DSGD2PBM from "./components/dsgd2pbm.component";
 
 import PBMTemplateAdd from "./components/pbm-template-add.component";
 import PBMTemplateList from "./components/pbm-template-list.component";
@@ -443,7 +443,9 @@ class App extends Component {
         <div>
           <Routes>
             <Route path="/modaltest" element={<ModalTest />} />
-            <Route path="/dsgd2pbm" element={<DSGD2PBM />} />
+{
+//            <Route path="/dsgd2pbm" element={<DSGD2PBM />} />
+}
             <Route path="/dvpaddallowance" element={<DvPAddAllowance />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
