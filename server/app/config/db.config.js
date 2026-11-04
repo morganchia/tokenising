@@ -1,39 +1,16 @@
-if (process.env.NODE_ENV === 'production') {
-  module.exports = {
-    HOST: "mwgmw3rs78pvwk4e.cbetxkdyhwsb.us-east-1.rds.amazonaws.com",
-    USER: "krode71wvj3vjm82",
-    PASSWORD: "rix3r6v3z50zpw09",
-    PORT: 3306,
-    DB: "qzhu0pn864t21wsb",
-    dialect: "mysql",
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 60000, // Increase wait time for a connection to 60s
-      idle: 10000
-    }
-  };
-} else {
-  module.exports = {
-    /*
-    HOST: "localhost",
-    USER: "root",
-    PASSWORD: "Blockchain&DigitalAssets",
-    PORT: 3322,
-    DB: "dsgd",
-    */
-    HOST: "mwgmw3rs78pvwk4e.cbetxkdyhwsb.us-east-1.rds.amazonaws.com",
-    USER: "krode71wvj3vjm82",
-    PASSWORD: "rix3r6v3z50zpw09",
-    PORT: 3306,
-    DB: "qzhu0pn864t21wsb",
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
 
-    dialect: "mysql",
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 60000, // Increase wait time for a connection to 60s
-      idle: 10000
-    }
-  };
-}
+module.exports = {
+  HOST: process.env.DB_HOST,
+  USER: process.env.DB_USER,
+  PASSWORD: process.env.DB_PASSWORD,
+  PORT: Number(process.env.DB_PORT) || 3306,
+  DB: process.env.DB_NAME,
+  dialect: "mysql",
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 60000, // Increase wait time for a connection to 60s
+    idle: 10000
+  }
+};

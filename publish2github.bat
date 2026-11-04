@@ -1,3 +1,3 @@
 git add .
-git commit -m "Added Canton bond"
-git push github master
+git commit -m "Removed credentials from the code"
+git push origin master
